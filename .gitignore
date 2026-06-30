@@ -3,3 +3,7 @@
 
 # Kalibrierungs-/Testdateien
 kalibrierung*.pdf
+
+# Generierte Trainer-PDFs (enthalten IBANs — niemals committen)
+PDFs/
+generate-pdfs.log
