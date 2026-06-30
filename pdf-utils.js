@@ -8,9 +8,8 @@
 //   3. Falls kein Template: strukturiertes Fallback-PDF aus pdf-lib erstellen.
 // Die Trainer-Unterschrift wird in beiden Pfaden als PNG-Bild eingebettet.
 
-async function generiereVertrag(trainer) {
+async function _buildPdfBlob(trainer) {
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
-
   let pdfDoc;
   let useTemplate = false;
 
@@ -21,29 +20,47 @@ async function generiereVertrag(trainer) {
       pdfDoc = await PDFDocument.load(bytes);
       useTemplate = true;
     }
-  } catch (_) { /* Template nicht vorhanden → Fallback */ }
-
-  const font     = useTemplate
-    ? await pdfDoc.embedFont(StandardFonts.Helvetica)
-    : null;
-  const fontBold = useTemplate
-    ? await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    : null;
+  } catch (_) {}
 
   if (useTemplate) {
+    const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     await _fillTemplate(pdfDoc, trainer, font, fontBold, rgb);
   } else {
-    await _buildFallbackPdf(pdfDoc, trainer, rgb, PDFDocument, StandardFonts);
+    pdfDoc = await _buildFallbackPdf(null, trainer, rgb, PDFDocument, StandardFonts);
   }
 
   const pdfBytes = await pdfDoc.save();
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  return new Blob([pdfBytes], { type: "application/pdf" });
+}
+
+async function generiereVertrag(trainer) {
+  const blob = await _buildPdfBlob(trainer);
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `Trainervertrag_${trainer.nachname}_${trainer.vorname}.pdf`;
+  a.download = `${trainer.nachname}_${trainer.vorname}_Vertrag.pdf`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+async function generiereAlleVertraegeZip(trainerList, onProgress) {
+  if (typeof JSZip === "undefined") throw new Error("JSZip nicht geladen.");
+  const zip = new JSZip();
+  let done = 0;
+  for (const t of trainerList) {
+    const blob = await _buildPdfBlob(t);
+    zip.file(`${t.nachname}_${t.vorname}_Vertrag.pdf`, blob);
+    done++;
+    if (onProgress) onProgress(done, trainerList.length);
+  }
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(zipBlob);
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = "Trainervertraege_PDFs.zip";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
 async function _fillTemplate(pdfDoc, trainer, font, fontBold, rgb) {

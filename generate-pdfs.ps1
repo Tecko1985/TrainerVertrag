@@ -124,7 +124,7 @@ $ok = 0; $fail = 0
 try {
   foreach ($t in $trainer) {
     $voll = ("{0} {1}" -f $t.vorname, $t.nachname).Trim()
-    $base = Sanitize-FileName ($voll + '_Vertrag')
+    $base = Sanitize-FileName ("{0}_{1}_Vertrag" -f $t.nachname, $t.vorname)
     $tmpDocx = Join-Path $tmpDir ($base + '.docx')
     $pdfPath = Join-Path $OutDir ($base + '.pdf')
     try {

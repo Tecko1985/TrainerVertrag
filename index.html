@@ -146,6 +146,10 @@
           <div class="card">
             <div class="detail-header">
               <h2 style="margin-bottom:0;">Eingereichte Trainerdaten</h2>
+              <div class="btn-row" style="align-items:center; gap:10px;">
+                <button type="button" class="btn secondary small" id="btn-alle-pdf-zip">Alle als PDF-ZIP</button>
+                <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
+              </div>
             </div>
             <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
             <div id="admin-liste-header" class="trainer-row-header" style="display:none;">
@@ -165,6 +169,7 @@
               <h2 style="margin-bottom:0;" id="admin-detail-title">Trainer-Eintrag</h2>
               <div class="btn-row">
                 <button type="button" class="btn success small" id="btn-pdf-generieren">Word-Vertrag generieren</button>
+                <button type="button" class="btn secondary small" id="btn-pdf-einzeln">PDF herunterladen</button>
                 <button type="button" class="btn danger small" id="btn-eintrag-loeschen">Löschen</button>
                 <button type="button" class="btn secondary small" id="btn-zurueck-liste">← Zurück</button>
               </div>

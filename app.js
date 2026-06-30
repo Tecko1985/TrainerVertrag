@@ -256,6 +256,8 @@ function _initAdminPanel() {
   document.getElementById("btn-zurueck-liste").addEventListener("click", _showAdminListe);
   document.getElementById("btn-eintrag-loeschen").addEventListener("click", _deleteCurrentTrainer);
   document.getElementById("btn-pdf-generieren").addEventListener("click", _generatePdf);
+  document.getElementById("btn-pdf-einzeln").addEventListener("click", _generatePdfEinzeln);
+  document.getElementById("btn-alle-pdf-zip").addEventListener("click", _generateAlleZip);
 }
 
 // ─── Admin-Liste ──────────────────────────────────────────────────────────────
@@ -449,6 +451,50 @@ async function _generatePdf() {
   } finally {
     btn.disabled = false;
     btn.textContent = "Word-Vertrag generieren";
+  }
+}
+
+// ─── PDF generieren (Einzel) ──────────────────────────────────────────────────
+
+async function _generatePdfEinzeln() {
+  const btn = document.getElementById("btn-pdf-einzeln");
+  if (!currentTrainerId) return;
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx !== -1) {
+    appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
+  }
+  const trainer = appData.trainer[idx];
+  btn.disabled = true;
+  btn.textContent = "Generiere PDF …";
+  try {
+    await generiereVertrag(trainer);
+  } catch (err) {
+    document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;
+    document.getElementById("admin-detail-error").classList.add("visible");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "PDF herunterladen";
+  }
+}
+
+// ─── PDF Sammel-Export ────────────────────────────────────────────────────────
+
+async function _generateAlleZip() {
+  const btn      = document.getElementById("btn-alle-pdf-zip");
+  const statusEl = document.getElementById("zip-export-status");
+  if (!appData.trainer.length) return;
+  btn.disabled = true;
+  statusEl.textContent = "0 / " + appData.trainer.length + " …";
+  try {
+    await generiereAlleVertraegeZip(appData.trainer, (done, total) => {
+      statusEl.textContent = done + " / " + total + " …";
+    });
+    statusEl.textContent = "ZIP bereit ✓";
+    setTimeout(() => { statusEl.textContent = ""; }, 3000);
+  } catch (err) {
+    statusEl.textContent = "Fehler: " + err.message;
+  } finally {
+    btn.disabled = false;
   }
 }
 
