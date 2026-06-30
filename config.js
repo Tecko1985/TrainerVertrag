@@ -9,7 +9,7 @@ const CORS_PROXY_DEFAULT_URL = "https://trainervertrag.michel-brunner.workers.de
 
 // Trainer-Einreichung ohne Login: POST an diesen Cloudflare-Worker-Endpunkt.
 // Der Worker hält die Nextcloud-Zugangsdaten als Worker-Secrets (nie im Code).
-const SUBMIT_WORKER_URL = "https://trainervertrag-submit.michel-brunner.workers.dev";
+const SUBMIT_WORKER_URL = "https://trainervertrag1.michel-brunner.workers.dev";
 
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
