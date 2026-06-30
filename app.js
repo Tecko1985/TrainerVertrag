@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _initAdminToggle();
   _initAdminConnect();
   _initAdminPanel();
+  _initImport();
   _tryRestoreAdminSession();
 });
 
@@ -327,6 +328,8 @@ function _openAdminDetail(id) {
   document.getElementById("d-iban").value        = t.iban ? t.iban.replace(/(.{4})/g, "$1 ").trim() : "";
   document.getElementById("d-bankname").value    = t.bankname    || "";
   document.getElementById("d-bic").value         = t.bic         || "";
+  document.getElementById("d-pauschale").value   = t.pauschale   || "";
+  document.getElementById("d-lizenz").value      = t.lizenz      || "";
   document.getElementById("d-erstellt-am").textContent =
     t.erstelltAm ? _fmtIso(t.erstelltAm) : "—";
 
@@ -343,7 +346,7 @@ function _openAdminDetail(id) {
 
   // Änderungen live speichern
   ["d-vorname","d-nachname","d-geburtsdatum","d-strasse","d-plz","d-ort",
-   "d-telefon","d-email","d-iban","d-bankname","d-bic"].forEach(fid => {
+   "d-telefon","d-email","d-iban","d-bankname","d-bic","d-pauschale","d-lizenz"].forEach(fid => {
     const input = document.getElementById(fid);
     // Vorherige Listener entfernen (neu klonen)
     const fresh = input.cloneNode(true);
@@ -364,7 +367,9 @@ function _collectDetailData() {
     email:        document.getElementById("d-email").value.trim().toLowerCase(),
     iban:         document.getElementById("d-iban").value.replace(/\s+/g, "").toUpperCase(),
     bankname:     document.getElementById("d-bankname").value.trim(),
-    bic:          document.getElementById("d-bic").value.trim().toUpperCase()
+    bic:          document.getElementById("d-bic").value.trim().toUpperCase(),
+    pauschale:    document.getElementById("d-pauschale").value.trim(),
+    lizenz:       document.getElementById("d-lizenz").value.trim()
   };
 }
 
@@ -459,7 +464,184 @@ function _esc(str) {
 
 function _fmtIso(iso) {
   if (!iso) return "";
-  // "2026-06-30T10:00:00.000Z" → "30.06.2026, 12:00"
   const d = new Date(iso);
   return d.toLocaleDateString("de-DE") + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ─── Excel-Import ─────────────────────────────────────────────────────────────
+
+let _importRows    = [];   // geparste Zeilen aus der Excel-Datei
+let _importHeaders = [];   // Spaltennamen (erste Zeile)
+
+function _initImport() {
+  document.getElementById("import-file-input").addEventListener("change", _handleImportFile);
+  document.getElementById("btn-import-start").addEventListener("click", _doImport);
+  document.getElementById("btn-import-reset").addEventListener("click", _resetImport);
+  document.getElementById("btn-import-nochmal").addEventListener("click", _resetImport);
+
+  // Spalten-Dropdowns: bei Änderung Vorschau aktualisieren
+  ["import-col-nachname","import-col-vorname","import-col-pauschale","import-col-lizenz"].forEach(id => {
+    document.getElementById(id).addEventListener("change", _renderImportPreview);
+  });
+}
+
+function _resetImport() {
+  _importRows    = [];
+  _importHeaders = [];
+  document.getElementById("import-file-input").value = "";
+  document.getElementById("import-step-1").style.display = "";
+  document.getElementById("import-step-2").style.display = "none";
+  document.getElementById("import-step-3").style.display = "none";
+  document.getElementById("import-error").classList.remove("visible");
+  document.getElementById("import-preview-wrap").innerHTML = "";
+}
+
+function _handleImportFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const wb    = XLSX.read(ev.target.result, { type: "array" });
+      const ws    = wb.Sheets[wb.SheetNames[0]];
+      const data  = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!data.length) throw new Error("Leere Tabelle");
+
+      _importHeaders = data[0].map(h => String(h));
+      _importRows    = data.slice(1).filter(r => r.some(c => c !== ""));
+
+      _populateColSelects();
+      _renderImportPreview();
+      document.getElementById("import-step-1").style.display = "none";
+      document.getElementById("import-step-2").style.display = "";
+      document.getElementById("import-error").classList.remove("visible");
+    } catch (err) {
+      document.getElementById("import-error").textContent = "Fehler beim Lesen: " + err.message;
+      document.getElementById("import-error").classList.add("visible");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _populateColSelects() {
+  const optionsHtml = ["— nicht verwenden —", ..._importHeaders]
+    .map((h, i) => `<option value="${i - 1}">${h}</option>`)
+    .join("");
+
+  ["import-col-nachname","import-col-vorname","import-col-pauschale","import-col-lizenz"].forEach(id => {
+    document.getElementById(id).innerHTML = optionsHtml;
+  });
+
+  // Auto-Erkennung häufiger Spaltennamen
+  const autoMap = {
+    "import-col-nachname":  ["nachname","name","familienname","last name","lastname"],
+    "import-col-vorname":   ["vorname","first name","firstname","rufname"],
+    "import-col-pauschale": ["pauschale","betrag","betrag eur","honorar","verguetung","vergütung","euro"],
+    "import-col-lizenz":    ["lizenz","trainerlizenz","license","licence"]
+  };
+  for (const [selId, keywords] of Object.entries(autoMap)) {
+    const found = _importHeaders.findIndex(h =>
+      keywords.some(k => h.toLowerCase().includes(k))
+    );
+    if (found >= 0) {
+      document.getElementById(selId).value = String(found);
+    }
+  }
+}
+
+function _renderImportPreview() {
+  const iNachname  = parseInt(document.getElementById("import-col-nachname").value);
+  const iVorname   = parseInt(document.getElementById("import-col-vorname").value);
+  const iPauschale = parseInt(document.getElementById("import-col-pauschale").value);
+  const iLizenz    = parseInt(document.getElementById("import-col-lizenz").value);
+
+  const preview = _importRows.slice(0, 6).map(row => {
+    const nachname  = iNachname  >= 0 ? row[iNachname]  : "";
+    const vorname   = iVorname   >= 0 ? row[iVorname]   : "";
+    const pauschale = iPauschale >= 0 ? row[iPauschale] : "";
+    const lizenz    = iLizenz    >= 0 ? row[iLizenz]    : "";
+    const match     = appData.trainer.find(t =>
+      t.nachname.toLowerCase() === String(nachname).trim().toLowerCase()
+    );
+    const status = match
+      ? `<span class="badge generiert">Gefunden: ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
+      : `<span class="badge offen">Nicht gefunden</span>`;
+    return `<tr>
+      <td style="padding:6px 10px;">${_esc(String(nachname))} ${_esc(String(vorname))}</td>
+      <td style="padding:6px 10px;">${_esc(String(pauschale))}</td>
+      <td style="padding:6px 10px;">${_esc(String(lizenz))}</td>
+      <td style="padding:6px 10px;">${status}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("import-preview-wrap").innerHTML = `
+    <p class="muted" style="font-size:12px; margin-bottom:8px;">Vorschau (erste ${Math.min(6, _importRows.length)} von ${_importRows.length} Zeilen)</p>
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead style="background:var(--gray);">
+        <tr>
+          <th style="padding:6px 10px; text-align:left;">Name</th>
+          <th style="padding:6px 10px; text-align:left;">Pauschale</th>
+          <th style="padding:6px 10px; text-align:left;">Lizenz</th>
+          <th style="padding:6px 10px; text-align:left;">Zuordnung</th>
+        </tr>
+      </thead>
+      <tbody>${preview}</tbody>
+    </table>
+  `;
+}
+
+async function _doImport() {
+  const iNachname  = parseInt(document.getElementById("import-col-nachname").value);
+  const iPauschale = parseInt(document.getElementById("import-col-pauschale").value);
+  const iLizenz    = parseInt(document.getElementById("import-col-lizenz").value);
+
+  if (iNachname < 0) {
+    document.getElementById("import-error").textContent = "Bitte die Spalte für den Nachnamen auswählen.";
+    document.getElementById("import-error").classList.add("visible");
+    return;
+  }
+
+  let updated = 0, skipped = 0;
+
+  for (const row of _importRows) {
+    const nachname = String(row[iNachname] || "").trim().toLowerCase();
+    if (!nachname) continue;
+
+    const idx = appData.trainer.findIndex(t => t.nachname.toLowerCase() === nachname);
+    if (idx === -1) { skipped++; continue; }
+
+    if (iPauschale >= 0 && row[iPauschale] !== "") {
+      appData.trainer[idx].pauschale = String(row[iPauschale]).trim();
+    }
+    if (iLizenz >= 0 && row[iLizenz] !== "") {
+      appData.trainer[idx].lizenz = String(row[iLizenz]).trim();
+    }
+    updated++;
+  }
+
+  const btn = document.getElementById("btn-import-start");
+  btn.disabled = true;
+  btn.textContent = "Speichere …";
+  try {
+    await davWriteFile(davConfig, appData);
+  } catch (err) {
+    document.getElementById("import-error").textContent = "Speicherfehler: " + err.message;
+    document.getElementById("import-error").classList.add("visible");
+    btn.disabled = false;
+    btn.textContent = "Import starten";
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = "Import starten";
+
+  document.getElementById("import-step-2").style.display = "none";
+  document.getElementById("import-step-3").style.display = "";
+  document.getElementById("import-result").innerHTML = `
+    <p style="color:var(--green); font-weight:700; font-size:15px; margin-bottom:8px;">
+      Import abgeschlossen
+    </p>
+    <p class="muted"><strong>${updated}</strong> Trainer aktualisiert</p>
+    ${skipped ? `<p class="muted"><strong>${skipped}</strong> Zeilen nicht zugeordnet (Nachname nicht gefunden)</p>` : ""}
+  `;
 }

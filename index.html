@@ -132,6 +132,7 @@
   <div id="admin-panel" style="display:none;">
     <nav>
       <button data-tab="liste" class="active">Trainer</button>
+      <button data-tab="import">Import</button>
       <button data-tab="einstellungen">Einstellungen</button>
     </nav>
 
@@ -196,6 +197,12 @@
               <div class="form-field"><label>BIC</label><input type="text" id="d-bic" /></div>
             </div>
 
+            <div class="section-divider">Vertragsdaten</div>
+            <div class="form-grid">
+              <div class="form-field"><label>Pauschale (EUR/Monat)</label><input type="text" id="d-pauschale" placeholder="z.B. 125,00" /></div>
+              <div class="form-field"><label>Trainerlizenz</label><input type="text" id="d-lizenz" placeholder="z.B. C-Lizenz Fußball" /></div>
+            </div>
+
             <div class="section-divider">Unterschrift (vorschau)</div>
             <div id="d-signature-preview" style="margin-bottom:6px;"></div>
             <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
@@ -207,6 +214,70 @@
           </div>
         </div>
 
+      </section>
+
+      <!-- Tab: Import -->
+      <section class="tab-section" id="tab-import">
+        <div class="card">
+          <h2>Pauschalen &amp; Lizenzen importieren</h2>
+          <p class="muted" style="margin-bottom:16px; line-height:1.5;">
+            Lade eine Excel-Datei (.xlsx) aus deinem Berechnungs-Tool hoch. Die App ordnet die
+            Einträge automatisch den vorhandenen Trainern zu (Abgleich über Nachname).
+          </p>
+
+          <div class="error-banner" id="import-error"></div>
+
+          <!-- Schritt 1: Datei wählen -->
+          <div id="import-step-1">
+            <div class="btn-row" style="justify-content:flex-start;">
+              <label class="btn" style="cursor:pointer;">
+                Excel-Datei wählen
+                <input type="file" id="import-file-input" accept=".xlsx" style="display:none;" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Schritt 2: Spalten zuordnen -->
+          <div id="import-step-2" style="display:none;">
+            <div class="section-divider">Spalten zuordnen</div>
+            <p class="muted" style="margin-bottom:12px; font-size:13px;">
+              Wähle welche Spalte aus der Excel-Datei welchem Feld entspricht.
+              Die erste Zeile wird als Kopfzeile behandelt.
+            </p>
+            <div class="form-grid" style="max-width:600px;">
+              <div class="form-field">
+                <label>Spalte → Nachname (für Zuordnung)</label>
+                <select id="import-col-nachname"></select>
+              </div>
+              <div class="form-field">
+                <label>Spalte → Vorname (optional)</label>
+                <select id="import-col-vorname"></select>
+              </div>
+              <div class="form-field">
+                <label>Spalte → Pauschale (EUR)</label>
+                <select id="import-col-pauschale"></select>
+              </div>
+              <div class="form-field">
+                <label>Spalte → Trainerlizenz</label>
+                <select id="import-col-lizenz"></select>
+              </div>
+            </div>
+            <div id="import-preview-wrap" style="margin:16px 0; overflow-x:auto;"></div>
+            <div class="btn-row" style="justify-content:flex-start; gap:10px;">
+              <button type="button" class="btn success" id="btn-import-start">Import starten</button>
+              <button type="button" class="btn secondary" id="btn-import-reset">Andere Datei</button>
+            </div>
+          </div>
+
+          <!-- Schritt 3: Ergebnis -->
+          <div id="import-step-3" style="display:none;">
+            <div class="section-divider">Ergebnis</div>
+            <div id="import-result"></div>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+              <button type="button" class="btn secondary" id="btn-import-nochmal">Weiteren Import</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Tab: Einstellungen -->
@@ -231,6 +302,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js?v=1.0"></script>
 <script src="db.js?v=1.0"></script>
 <script src="signature-pad.js?v=1.0"></script>
