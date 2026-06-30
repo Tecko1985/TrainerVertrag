@@ -175,3 +175,62 @@ function _b64ToUint8(b64) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
+
+// DOCX-Generierung via JSZip: lädt vertrag-template.docx, ersetzt {{PLATZHALTER}} in
+// word/document.xml und bietet die gefüllte Datei als Download an.
+async function generiereVertragDocx(trainer) {
+  if (typeof JSZip === "undefined") {
+    throw new Error("JSZip nicht geladen – bitte Seite neu laden.");
+  }
+
+  const heute = new Date();
+  const dd   = String(heute.getDate()).padStart(2, "0");
+  const mm   = String(heute.getMonth() + 1).padStart(2, "0");
+  const yyyy = heute.getFullYear();
+
+  const ersatz = {
+    "{{VORNAME}}":   trainer.vorname   || "",
+    "{{NACHNAME}}":  trainer.nachname  || "",
+    "{{LIZENZ}}":    trainer.lizenz    || "",
+    "{{PAUSCHALE}}": trainer.pauschale || "",
+    "{{IBAN}}":      _ibanFmt(trainer.iban),
+    "{{BANKNAME}}":  trainer.bankname  || "",
+    "{{BIC}}":       trainer.bic       || "",
+    "{{DATUM}}":     `${dd}.${mm}.${yyyy}`,
+    "{{JAHR}}":      String(yyyy),
+  };
+
+  const resp = await fetch("vertrag-template.docx");
+  if (!resp.ok) throw new Error(`vertrag-template.docx nicht gefunden (HTTP ${resp.status})`);
+  const templateBytes = await resp.arrayBuffer();
+
+  const zip = await JSZip.loadAsync(templateBytes);
+  const xmlFile = zip.file("word/document.xml");
+  if (!xmlFile) throw new Error("Ungültiges Template: word/document.xml fehlt");
+
+  let xml = await xmlFile.async("string");
+  for (const [ph, val] of Object.entries(ersatz)) {
+    xml = xml.split(ph).join(_escXml(val));
+  }
+  zip.file("word/document.xml", xml);
+
+  const blob = await zip.generateAsync({
+    type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = `Trainervertrag_${trainer.nachname}_${trainer.vorname}.docx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function _escXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}

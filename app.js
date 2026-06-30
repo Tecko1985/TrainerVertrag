@@ -431,10 +431,10 @@ async function _generatePdf() {
   const trainer = appData.trainer[idx];
 
   btn.disabled = true;
-  btn.textContent = "Generiere PDF …";
+  btn.textContent = "Generiere Word-Vertrag …";
 
   try {
-    await generiereVertrag(trainer);
+    await generiereVertragDocx(trainer);
 
     // Status auf "generiert" setzen und speichern
     appData.trainer[idx].vertragsGeneriert = true;
@@ -444,11 +444,11 @@ async function _generatePdf() {
     document.getElementById("admin-detail-title").textContent =
       `${trainer.vorname} ${trainer.nachname}`;
   } catch (err) {
-    document.getElementById("admin-detail-error").textContent = "PDF-Fehler: " + err.message;
+    document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;
     document.getElementById("admin-detail-error").classList.add("visible");
   } finally {
     btn.disabled = false;
-    btn.textContent = "PDF Vertrag generieren";
+    btn.textContent = "Word-Vertrag generieren";
   }
 }
 
