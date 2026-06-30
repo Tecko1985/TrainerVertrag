@@ -222,14 +222,21 @@ async function generiereVertragDocx(trainer) {
   const templateBytes = await resp.arrayBuffer();
 
   const zip = await JSZip.loadAsync(templateBytes);
-  const xmlFile = zip.file("word/document.xml");
+  // Manche Tools speichern ZIP-Einträge mit "\" statt "/" (siehe generate-pdfs.ps1-Gotcha) —
+  // exakten Namen zuerst versuchen, sonst slash-robust suchen.
+  let xmlFile = zip.file("word/document.xml");
+  let xmlEntryName = "word/document.xml";
+  if (!xmlFile) {
+    const hit = Object.keys(zip.files).find(name => name.replace(/\\/g, "/") === "word/document.xml");
+    if (hit) { xmlFile = zip.file(hit); xmlEntryName = hit; }
+  }
   if (!xmlFile) throw new Error("Ungültiges Template: word/document.xml fehlt");
 
   let xml = await xmlFile.async("string");
   for (const [ph, val] of Object.entries(ersatz)) {
     xml = xml.split(ph).join(_escXml(val));
   }
-  zip.file("word/document.xml", xml);
+  zip.file(xmlEntryName, xml);
 
   const blob = await zip.generateAsync({
     type: "blob",

@@ -51,11 +51,24 @@ const APP_CHANGELOG = [
         ]
       },
       {
-        title: "PDF-Vertragsgenerierung",
+        title: "Vertragsgenerierung",
         items: [
-          "Automatisches Ausfüllen des Vertrags-Templates mit Trainerdaten.",
-          "Digitale Unterschrift des Trainers wird ins PDF eingebettet.",
-          "PDF-Download mit einem Klick; Status wird auf 'Generiert' gesetzt."
+          "Word-Vertrag generieren — befüllt das Original-Vertragstemplate mit den Trainerdaten, originalgetreues Layout.",
+          "PDF-Datenblatt herunterladen — einzeln oder als ZIP für alle Trainer auf einmal.",
+          "Digitale Unterschrift des Trainers wird eingebettet; Status wird beim Word-Vertrag auf 'Generiert' gesetzt."
+        ]
+      },
+      {
+        title: "Datenimport",
+        items: [
+          "Pauschalen und Lizenzen per Text-Import aktualisieren (Format: Name, Lizenz, Pauschale, Tab-getrennt).",
+          "Vorschau mit automatischer Trainer-Zuordnung vor dem Import."
+        ]
+      },
+      {
+        title: "Lokaler Stapel-Export",
+        items: [
+          "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht)."
         ]
       }
     ]

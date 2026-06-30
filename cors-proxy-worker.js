@@ -29,6 +29,10 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    if (request.method !== "GET" && request.method !== "PUT") {
+      return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
+    }
+
     const targetUrl = new URL(request.url).searchParams.get("url");
     if (!targetUrl || !targetUrl.startsWith(ALLOWED_TARGET_PREFIX)) {
       return new Response("Invalid or missing url parameter", { status: 400, headers: corsHeaders });
