@@ -468,27 +468,21 @@ function _fmtIso(iso) {
   return d.toLocaleDateString("de-DE") + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
-// ─── Excel-Import ─────────────────────────────────────────────────────────────
+// ─── Text-Import ──────────────────────────────────────────────────────────────
+// Format: eine Zeile pro Trainer, Tab-getrennt: Name[Tab]Lizenz[Tab]Pauschale
 
-let _importRows    = [];   // geparste Zeilen aus der Excel-Datei
-let _importHeaders = [];   // Spaltennamen (erste Zeile)
+let _importRows = [];
 
 function _initImport() {
-  document.getElementById("import-file-input").addEventListener("change", _handleImportFile);
+  document.getElementById("btn-import-parse").addEventListener("click", _handleTextImport);
   document.getElementById("btn-import-start").addEventListener("click", _doImport);
   document.getElementById("btn-import-reset").addEventListener("click", _resetImport);
   document.getElementById("btn-import-nochmal").addEventListener("click", _resetImport);
-
-  // Spalten-Dropdowns: bei Änderung Vorschau aktualisieren
-  ["import-col-nachname","import-col-vorname","import-col-pauschale","import-col-lizenz"].forEach(id => {
-    document.getElementById(id).addEventListener("change", _renderImportPreview);
-  });
 }
 
 function _resetImport() {
-  _importRows    = [];
-  _importHeaders = [];
-  document.getElementById("import-file-input").value = "";
+  _importRows = [];
+  document.getElementById("import-text-input").value = "";
   document.getElementById("import-step-1").style.display = "";
   document.getElementById("import-step-2").style.display = "none";
   document.getElementById("import-step-3").style.display = "none";
@@ -496,127 +490,88 @@ function _resetImport() {
   document.getElementById("import-preview-wrap").innerHTML = "";
 }
 
-function _handleImportFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+function _handleTextImport() {
+  const raw = document.getElementById("import-text-input").value;
+  _importRows = raw
+    .split(/\r?\n/)
+    .map(line => line.split("\t"))
+    .filter(cols => {
+      const name = (cols[0] || "").trim();
+      return name && name !== "0";
+    });
 
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const wb    = XLSX.read(ev.target.result, { type: "array" });
-      const ws    = wb.Sheets[wb.SheetNames[0]];
-      const data  = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      if (!data.length) throw new Error("Leere Tabelle");
-
-      _importHeaders = data[0].map(h => String(h));
-      _importRows    = data.slice(1).filter(r => r.some(c => c !== ""));
-
-      _populateColSelects();
-      _renderImportPreview();
-      document.getElementById("import-step-1").style.display = "none";
-      document.getElementById("import-step-2").style.display = "";
-      document.getElementById("import-error").classList.remove("visible");
-    } catch (err) {
-      document.getElementById("import-error").textContent = "Fehler beim Lesen: " + err.message;
-      document.getElementById("import-error").classList.add("visible");
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function _populateColSelects() {
-  const optionsHtml = ["— nicht verwenden —", ..._importHeaders]
-    .map((h, i) => `<option value="${i - 1}">${h}</option>`)
-    .join("");
-
-  ["import-col-nachname","import-col-vorname","import-col-pauschale","import-col-lizenz"].forEach(id => {
-    document.getElementById(id).innerHTML = optionsHtml;
-  });
-
-  // Auto-Erkennung häufiger Spaltennamen
-  const autoMap = {
-    "import-col-nachname":  ["nachname","name","familienname","last name","lastname"],
-    "import-col-vorname":   ["vorname","first name","firstname","rufname"],
-    "import-col-pauschale": ["pauschale","betrag","betrag eur","honorar","verguetung","vergütung","euro"],
-    "import-col-lizenz":    ["lizenz","trainerlizenz","license","licence"]
-  };
-  for (const [selId, keywords] of Object.entries(autoMap)) {
-    const found = _importHeaders.findIndex(h =>
-      keywords.some(k => h.toLowerCase().includes(k))
-    );
-    if (found >= 0) {
-      document.getElementById(selId).value = String(found);
-    }
+  if (!_importRows.length) {
+    document.getElementById("import-error").textContent = "Keine gültigen Zeilen gefunden.";
+    document.getElementById("import-error").classList.add("visible");
+    return;
   }
+
+  _renderTextImportPreview();
+  document.getElementById("import-step-1").style.display = "none";
+  document.getElementById("import-step-2").style.display = "";
+  document.getElementById("import-error").classList.remove("visible");
 }
 
-function _renderImportPreview() {
-  const iNachname  = parseInt(document.getElementById("import-col-nachname").value);
-  const iVorname   = parseInt(document.getElementById("import-col-vorname").value);
-  const iPauschale = parseInt(document.getElementById("import-col-pauschale").value);
-  const iLizenz    = parseInt(document.getElementById("import-col-lizenz").value);
+function _matchTrainer(fullName) {
+  const nl = fullName.trim().toLowerCase();
+  // Erst Vollname (Vorname + Nachname), dann Fallback auf letztes Wort als Nachname
+  const byFull = appData.trainer.find(t =>
+    (t.vorname + " " + t.nachname).toLowerCase() === nl
+  );
+  if (byFull) return byFull;
+  const lastWord = nl.split(/\s+/).pop();
+  return appData.trainer.find(t => t.nachname.toLowerCase() === lastWord) || null;
+}
 
-  const preview = _importRows.slice(0, 6).map(row => {
-    const nachname  = iNachname  >= 0 ? row[iNachname]  : "";
-    const vorname   = iVorname   >= 0 ? row[iVorname]   : "";
-    const pauschale = iPauschale >= 0 ? row[iPauschale] : "";
-    const lizenz    = iLizenz    >= 0 ? row[iLizenz]    : "";
-    const match     = appData.trainer.find(t =>
-      t.nachname.toLowerCase() === String(nachname).trim().toLowerCase()
-    );
-    const status = match
-      ? `<span class="badge generiert">Gefunden: ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
+function _renderTextImportPreview() {
+  const rows = _importRows.slice(0, 8).map(cols => {
+    const name      = (cols[0] || "").trim();
+    const lizenz    = (cols[1] || "").trim();
+    const pauschale = (cols[2] || "").trim();
+    const match     = _matchTrainer(name);
+    const status    = match
+      ? `<span class="badge generiert">→ ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
       : `<span class="badge offen">Nicht gefunden</span>`;
     return `<tr>
-      <td style="padding:6px 10px;">${_esc(String(nachname))} ${_esc(String(vorname))}</td>
-      <td style="padding:6px 10px;">${_esc(String(pauschale))}</td>
-      <td style="padding:6px 10px;">${_esc(String(lizenz))}</td>
+      <td style="padding:6px 10px;">${_esc(name)}</td>
+      <td style="padding:6px 10px;">${_esc(lizenz)}</td>
+      <td style="padding:6px 10px;">${_esc(pauschale)}</td>
       <td style="padding:6px 10px;">${status}</td>
     </tr>`;
   }).join("");
 
   document.getElementById("import-preview-wrap").innerHTML = `
-    <p class="muted" style="font-size:12px; margin-bottom:8px;">Vorschau (erste ${Math.min(6, _importRows.length)} von ${_importRows.length} Zeilen)</p>
+    <p class="muted" style="font-size:12px; margin-bottom:8px;">Vorschau (erste ${Math.min(8, _importRows.length)} von ${_importRows.length} Zeilen)</p>
     <table style="width:100%; border-collapse:collapse; font-size:13px;">
       <thead style="background:var(--gray);">
         <tr>
           <th style="padding:6px 10px; text-align:left;">Name</th>
-          <th style="padding:6px 10px; text-align:left;">Pauschale</th>
           <th style="padding:6px 10px; text-align:left;">Lizenz</th>
+          <th style="padding:6px 10px; text-align:left;">Pauschale</th>
           <th style="padding:6px 10px; text-align:left;">Zuordnung</th>
         </tr>
       </thead>
-      <tbody>${preview}</tbody>
+      <tbody>${rows}</tbody>
     </table>
   `;
 }
 
 async function _doImport() {
-  const iNachname  = parseInt(document.getElementById("import-col-nachname").value);
-  const iPauschale = parseInt(document.getElementById("import-col-pauschale").value);
-  const iLizenz    = parseInt(document.getElementById("import-col-lizenz").value);
-
-  if (iNachname < 0) {
-    document.getElementById("import-error").textContent = "Bitte die Spalte für den Nachnamen auswählen.";
-    document.getElementById("import-error").classList.add("visible");
-    return;
-  }
-
   let updated = 0, skipped = 0;
 
-  for (const row of _importRows) {
-    const nachname = String(row[iNachname] || "").trim().toLowerCase();
-    if (!nachname) continue;
+  for (const cols of _importRows) {
+    const name      = (cols[0] || "").trim();
+    const lizenz    = (cols[1] || "").trim();
+    const pauschale = (cols[2] || "").trim();
 
-    const idx = appData.trainer.findIndex(t => t.nachname.toLowerCase() === nachname);
-    if (idx === -1) { skipped++; continue; }
+    if (!name || name === "0") continue;
 
-    if (iPauschale >= 0 && row[iPauschale] !== "") {
-      appData.trainer[idx].pauschale = String(row[iPauschale]).trim();
-    }
-    if (iLizenz >= 0 && row[iLizenz] !== "") {
-      appData.trainer[idx].lizenz = String(row[iLizenz]).trim();
-    }
+    const trainer = _matchTrainer(name);
+    if (!trainer) { skipped++; continue; }
+
+    const idx = appData.trainer.indexOf(trainer);
+    if (lizenz && lizenz !== "0") appData.trainer[idx].lizenz = lizenz;
+    if (pauschale !== "") appData.trainer[idx].pauschale = pauschale;
     updated++;
   }
 
@@ -642,6 +597,6 @@ async function _doImport() {
       Import abgeschlossen
     </p>
     <p class="muted"><strong>${updated}</strong> Trainer aktualisiert</p>
-    ${skipped ? `<p class="muted"><strong>${skipped}</strong> Zeilen nicht zugeordnet (Nachname nicht gefunden)</p>` : ""}
+    ${skipped ? `<p class="muted"><strong>${skipped}</strong> Zeilen nicht zugeordnet (Name nicht gefunden)</p>` : ""}
   `;
 }

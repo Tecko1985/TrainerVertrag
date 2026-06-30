@@ -221,51 +221,30 @@
         <div class="card">
           <h2>Pauschalen &amp; Lizenzen importieren</h2>
           <p class="muted" style="margin-bottom:16px; line-height:1.5;">
-            Lade eine Excel-Datei (.xlsx) aus deinem Berechnungs-Tool hoch. Die App ordnet die
-            Einträge automatisch den vorhandenen Trainern zu (Abgleich über Nachname).
+            Füge die Daten direkt ein — eine Zeile pro Trainer, Felder mit <strong>Tab</strong> getrennt.
+            Format: <code>Name[Tab]Lizenz[Tab]Pauschale</code>. Zeilen mit „0" als Name werden übersprungen.
           </p>
 
           <div class="error-banner" id="import-error"></div>
 
-          <!-- Schritt 1: Datei wählen -->
+          <!-- Schritt 1: Text einfügen -->
           <div id="import-step-1">
-            <div class="btn-row" style="justify-content:flex-start;">
-              <label class="btn" style="cursor:pointer;">
-                Excel-Datei wählen
-                <input type="file" id="import-file-input" accept=".xlsx" style="display:none;" />
-              </label>
+            <textarea id="import-text-input"
+              placeholder="Martin Heinevetter&#9;ohne Lizenz&#9;40&#10;Andreas Eib&#9;C&#9;100"
+              rows="10"
+              style="width:100%; box-sizing:border-box; font-family:monospace; font-size:13px; padding:10px; border:1px solid var(--border); border-radius:6px; resize:vertical;"
+              spellcheck="false"></textarea>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
+              <button type="button" class="btn" id="btn-import-parse">Vorschau anzeigen</button>
             </div>
           </div>
 
-          <!-- Schritt 2: Spalten zuordnen -->
+          <!-- Schritt 2: Vorschau + Import -->
           <div id="import-step-2" style="display:none;">
-            <div class="section-divider">Spalten zuordnen</div>
-            <p class="muted" style="margin-bottom:12px; font-size:13px;">
-              Wähle welche Spalte aus der Excel-Datei welchem Feld entspricht.
-              Die erste Zeile wird als Kopfzeile behandelt.
-            </p>
-            <div class="form-grid" style="max-width:600px;">
-              <div class="form-field">
-                <label>Spalte → Nachname (für Zuordnung)</label>
-                <select id="import-col-nachname"></select>
-              </div>
-              <div class="form-field">
-                <label>Spalte → Vorname (optional)</label>
-                <select id="import-col-vorname"></select>
-              </div>
-              <div class="form-field">
-                <label>Spalte → Pauschale (EUR)</label>
-                <select id="import-col-pauschale"></select>
-              </div>
-              <div class="form-field">
-                <label>Spalte → Trainerlizenz</label>
-                <select id="import-col-lizenz"></select>
-              </div>
-            </div>
             <div id="import-preview-wrap" style="margin:16px 0; overflow-x:auto;"></div>
             <div class="btn-row" style="justify-content:flex-start; gap:10px;">
               <button type="button" class="btn success" id="btn-import-start">Import starten</button>
-              <button type="button" class="btn secondary" id="btn-import-reset">Andere Datei</button>
+              <button type="button" class="btn secondary" id="btn-import-reset">Zurück</button>
             </div>
           </div>
 
@@ -302,7 +281,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="config.js?v=1.0"></script>
 <script src="db.js?v=1.0"></script>
