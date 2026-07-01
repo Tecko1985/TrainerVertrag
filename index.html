@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trainervertrag</title>
+<meta name="theme-color" content="#1a56a0" />
+<link rel="stylesheet" href="style.css?v=1.0" />
+</head>
+<body>
+
+<header>
+  <h1>📄 Trainervertrag <span class="version-badge" id="version-badge"></span></h1>
+  <div class="header-right">
+    <div class="file-status" id="file-status" style="display:none;">
+      <span class="dot"></span><span class="label">Nicht verbunden</span>
+    </div>
+    <button class="admin-toggle-btn" id="btn-admin-toggle" type="button">Admin</button>
+  </div>
+</header>
+
+<!-- ===== TRAINER-FORMULAR (Standard-Ansicht) ===== -->
+<div id="trainer-flow">
+
+  <!-- Formular -->
+  <div id="trainer-form-screen" class="trainer-form-screen">
+    <div class="card">
+      <h2>Deine Daten für den Trainervertrag</h2>
+      <p class="muted" style="margin-bottom:18px; line-height:1.5;">
+        Bitte füll das Formular vollständig aus und unterschreibe am Ende.
+        Deine Daten werden sicher auf unserem Vereinsserver gespeichert.
+      </p>
+
+      <div class="error-banner" id="trainer-error"></div>
+
+      <form id="trainer-form" novalidate>
+
+        <div class="section-divider">Persönliche Daten</div>
+        <div class="form-grid">
+          <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
+          <div class="form-field required"><label>Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
+          <div class="form-field"><label>Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field" style="grid-column:1/-1;"><label>Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
+          <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
+          <div class="form-field"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
+          <div class="form-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
+        </div>
+
+        <div class="section-divider">Bankverbindung</div>
+        <div class="form-grid">
+          <div class="form-field required" style="grid-column:1/-1;">
+            <label>IBAN</label>
+            <input type="text" id="tf-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="form-field"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
+          <div class="form-field"><label>BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
+        </div>
+
+        <div class="section-divider">Unterschrift</div>
+        <div class="signature-box">
+          <label>Hier unterschreiben (Maus oder Finger)</label>
+          <canvas id="trainer-sig-canvas"></canvas>
+          <p class="sig-hint">Mit dem Zeichnen bestätigst du, dass die oben eingetragenen Daten korrekt sind.</p>
+          <div class="btn-row" style="justify-content:flex-start; margin-top:8px;">
+            <button type="button" class="btn secondary small" id="btn-sig-clear">Löschen</button>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:24px; justify-content:flex-start;">
+          <button type="submit" class="btn success" id="btn-trainer-submit">Daten einreichen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Erfolgs-Screen -->
+  <div id="trainer-success-screen" class="success-screen" style="display:none;">
+    <div class="success-icon">✅</div>
+    <h2>Danke!</h2>
+    <p>Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist.</p>
+    <div class="btn-row" style="margin-top:28px;">
+      <button type="button" class="btn secondary" id="btn-trainer-neu">Neuen Eintrag anlegen</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== ADMIN-BEREICH ===== -->
+<div id="admin-flow" style="display:none;">
+
+  <!-- Connect-Screen -->
+  <div class="connect-screen" id="admin-connect-screen">
+    <div class="card">
+      <h2>Admin-Zugang</h2>
+      <p class="muted">
+        Verbinde dich mit Nextcloud, um alle eingereichten Trainer-Daten zu sehen und Verträge zu generieren.
+        Benötigt ein <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → App-Passwort).
+      </p>
+      <form id="admin-connect-form">
+        <div class="form-grid">
+          <div class="form-field" style="grid-column:1/-1;">
+            <label>WebDAV-Adresse der Datei</label>
+            <input type="url" id="admin-url" value="https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/TrainerVertrag/trainervertrag.json" required />
+          </div>
+          <div class="form-field">
+            <label>Benutzername</label>
+            <input type="text" id="admin-username" value="admin" required />
+          </div>
+          <div class="form-field">
+            <label>App-Passwort</label>
+            <input type="password" id="admin-password" required />
+          </div>
+          <div class="form-field" style="grid-column:1/-1;">
+            <label>CORS-Proxy-URL (optional)</label>
+            <input type="url" id="admin-proxy-url" value="https://trainervertrag.michel-brunner.workers.dev" />
+          </div>
+        </div>
+        <p class="error-banner" id="admin-connect-error"></p>
+        <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+          <button type="submit" class="btn" id="btn-admin-connect">Verbinden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin-Panel (nach Login) -->
+  <div id="admin-panel" style="display:none;">
+    <nav>
+      <button data-tab="liste" class="active">Trainer</button>
+      <button data-tab="import">Import</button>
+      <button data-tab="einstellungen">Einstellungen</button>
+    </nav>
+
+    <main>
+
+      <!-- Tab: Trainer-Liste -->
+      <section class="tab-section active" id="tab-liste">
+
+        <!-- Listenansicht -->
+        <div id="admin-view-liste">
+          <div class="card">
+            <div class="detail-header">
+              <h2 style="margin-bottom:0;">Eingereichte Trainerdaten</h2>
+              <div class="btn-row" style="align-items:center; gap:10px;">
+                <button type="button" class="btn secondary small" id="btn-alle-pdf-zip">Alle als PDF-ZIP</button>
+                <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
+              </div>
+            </div>
+            <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
+            <div id="admin-liste-header" class="trainer-row-header" style="display:none;">
+              <span>Name</span>
+              <span>Eingereicht</span>
+              <span>Status</span>
+              <span></span>
+            </div>
+            <div id="admin-liste-rows"></div>
+          </div>
+        </div>
+
+        <!-- Detailansicht -->
+        <div id="admin-view-detail" style="display:none;">
+          <div class="card">
+            <div class="detail-header">
+              <h2 style="margin-bottom:0;" id="admin-detail-title">Trainer-Eintrag</h2>
+              <div class="btn-row">
+                <button type="button" class="btn success small" id="btn-pdf-generieren">Word-Vertrag generieren</button>
+                <button type="button" class="btn secondary small" id="btn-pdf-einzeln">PDF herunterladen</button>
+                <button type="button" class="btn danger small" id="btn-eintrag-loeschen">Löschen</button>
+                <button type="button" class="btn secondary small" id="btn-zurueck-liste">← Zurück</button>
+              </div>
+            </div>
+
+            <div class="error-banner" id="admin-detail-error"></div>
+
+            <div class="section-divider">Persönliche Daten</div>
+            <div class="form-grid">
+              <div class="form-field"><label>Vorname</label><input type="text" id="d-vorname" /></div>
+              <div class="form-field"><label>Nachname</label><input type="text" id="d-nachname" /></div>
+              <div class="form-field"><label>Geburtsdatum</label><input type="date" id="d-geburtsdatum" /></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field" style="grid-column:1/-1;"><label>Straße</label><input type="text" id="d-strasse" /></div>
+              <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="d-plz" /></div>
+              <div class="form-field"><label>Ort</label><input type="text" id="d-ort" /></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field"><label>Telefon</label><input type="text" id="d-telefon" /></div>
+              <div class="form-field"><label>E-Mail</label><input type="email" id="d-email" /></div>
+            </div>
+
+            <div class="section-divider">Bankverbindung</div>
+            <div class="form-grid">
+              <div class="form-field" style="grid-column:1/-1;">
+                <label>IBAN</label><input type="text" id="d-iban" class="iban-field" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="form-field"><label>Bank</label><input type="text" id="d-bankname" /></div>
+              <div class="form-field"><label>BIC</label><input type="text" id="d-bic" /></div>
+            </div>
+
+            <div class="section-divider">Vertragsdaten</div>
+            <div class="form-grid">
+              <div class="form-field"><label>Pauschale (EUR/Monat)</label><input type="text" id="d-pauschale" placeholder="z.B. 125,00" /></div>
+              <div class="form-field"><label>Trainerlizenz</label><input type="text" id="d-lizenz" placeholder="z.B. C-Lizenz Fußball" /></div>
+            </div>
+
+            <div class="section-divider">Unterschrift (vorschau)</div>
+            <div id="d-signature-preview" style="margin-bottom:6px;"></div>
+            <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
+
+            <div style="margin-top:8px;">
+              <span class="muted" style="font-size:12px;">Eingereicht am: </span>
+              <span class="muted" style="font-size:12px;" id="d-erstellt-am">—</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Tab: Import -->
+      <section class="tab-section" id="tab-import">
+        <div class="card">
+          <h2>Pauschalen &amp; Lizenzen importieren</h2>
+          <p class="muted" style="margin-bottom:16px; line-height:1.5;">
+            Füge die Daten direkt ein — eine Zeile pro Trainer, Felder mit <strong>Tab</strong> getrennt.
+            Format: <code>Name[Tab]Lizenz[Tab]Pauschale</code>. Zeilen mit „0" als Name werden übersprungen.
+          </p>
+
+          <div class="error-banner" id="import-error"></div>
+
+          <!-- Schritt 1: Text einfügen -->
+          <div id="import-step-1">
+            <textarea id="import-text-input"
+              placeholder="Martin Heinevetter&#9;ohne Lizenz&#9;40&#10;Andreas Eib&#9;C&#9;100"
+              rows="10"
+              style="width:100%; box-sizing:border-box; font-family:monospace; font-size:13px; padding:10px; border:1px solid var(--border); border-radius:6px; resize:vertical;"
+              spellcheck="false"></textarea>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
+              <button type="button" class="btn" id="btn-import-parse">Vorschau anzeigen</button>
+            </div>
+          </div>
+
+          <!-- Schritt 2: Vorschau + Import -->
+          <div id="import-step-2" style="display:none;">
+            <div id="import-preview-wrap" style="margin:16px 0; overflow-x:auto;"></div>
+            <div class="btn-row" style="justify-content:flex-start; gap:10px;">
+              <button type="button" class="btn success" id="btn-import-start">Import starten</button>
+              <button type="button" class="btn secondary" id="btn-import-reset">Zurück</button>
+            </div>
+          </div>
+
+          <!-- Schritt 3: Ergebnis -->
+          <div id="import-step-3" style="display:none;">
+            <div class="section-divider">Ergebnis</div>
+            <div id="import-result"></div>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+              <button type="button" class="btn secondary" id="btn-import-nochmal">Weiteren Import</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Einstellungen -->
+      <section class="tab-section" id="tab-einstellungen">
+        <div class="card">
+          <h3>Verbindung</h3>
+          <p class="muted" style="margin-bottom:6px;">Verbunden mit: <strong id="settings-file-name">—</strong></p>
+          <p class="muted" style="margin-bottom:10px;" id="settings-save-status">Automatisches Speichern aktiv</p>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <button class="btn secondary small" id="btn-disconnect">Verbindung trennen</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Versionshistorie <span class="version-badge-dark" id="version-badge-2"></span></h3>
+          <div id="changelog-list"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="config.js?v=1.0"></script>
+<script src="db.js?v=1.0"></script>
+<script src="signature-pad.js?v=1.0"></script>
+<script src="pdf-utils.js?v=1.0"></script>
+<script src="app.js?v=1.0"></script>
+</body>
+</html>

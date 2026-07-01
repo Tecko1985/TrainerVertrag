@@ -1,0 +1,10 @@
+# Word-Sperrdateien
+~$*
+
+# Kalibrierungs-/Testdateien
+kalibrierung*.pdf
+vertrag-template.pdf
+
+# Generierte Trainer-PDFs (enthalten IBANs — niemals committen)
+PDFs/
+generate-pdfs.log
