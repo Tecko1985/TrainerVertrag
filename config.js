@@ -1,4 +1,4 @@
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -31,6 +31,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.3",
+    groups: [
+      {
+        title: "Sonstiges",
+        items: [
+          "Bestätigungsscreen zeigt nach dem Absenden alle übermittelten Daten und die Unterschrift zur Selbstkontrolle an."
+        ]
+      }
+    ]
+  },
   {
     version: "1.2",
     groups: [

@@ -238,13 +238,38 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Erfolgs-Screen */
 .success-screen {
-  max-width: 540px;
-  margin: 80px auto;
+  max-width: 620px;
+  margin: 40px auto;
   text-align: center;
 }
 .success-icon { font-size: 64px; margin-bottom: 20px; }
 .success-screen h2 { font-size: 22px; margin-bottom: 10px; color: var(--green); }
 .success-screen p { color: var(--muted); line-height: 1.6; }
+
+/* Bestätigungs-Daten (Selbstkontrolle) */
+.receipt-card { text-align: left; margin-top: 24px; }
+.receipt-rows { display: flex; flex-direction: column; }
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.receipt-row:last-child { border-bottom: none; }
+.receipt-label { color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.receipt-value { font-weight: 600; text-align: right; word-break: break-word; }
+.receipt-value.iban-field { font-weight: 700; }
+.receipt-signature {
+  max-width: 280px;
+  max-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  display: block;
+}
 
 /* Fehler-Banner */
 .error-banner {

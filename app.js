@@ -123,6 +123,7 @@ async function _handleTrainerSubmit(e) {
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
 
+    _renderTrainerReceipt(payload);
     document.getElementById("trainer-form-screen").style.display = "none";
     document.getElementById("trainer-success-screen").style.display = "";
   } catch (err) {
@@ -137,6 +138,34 @@ function _setTrainerError(msg) {
   const el = document.getElementById("trainer-error");
   el.textContent = msg;
   el.classList.toggle("visible", !!msg);
+}
+
+// Zeigt die soeben übermittelten Daten schreibgeschützt auf dem Bestätigungs-Screen an,
+// damit der Trainer sie zur Selbstkontrolle nochmal sehen kann (Trainer-Modus ist ohne
+// Login, es gibt also keinen späteren "meine Einreichung ansehen"-Weg wie im Trainerkodex).
+function _renderTrainerReceipt(payload) {
+  document.getElementById("r-vorname").textContent = payload.vorname || "—";
+  document.getElementById("r-nachname").textContent = payload.nachname || "—";
+  document.getElementById("r-geburtsdatum").textContent = _fmtDateOnly(payload.geburtsdatum) || "—";
+  const adresse = [payload.strasse, [payload.plz, payload.ort].filter(Boolean).join(" ")]
+    .filter(Boolean).join(", ");
+  document.getElementById("r-adresse").textContent = adresse || "—";
+  document.getElementById("r-telefon").textContent = payload.telefon || "—";
+  document.getElementById("r-email").textContent = payload.email || "—";
+  document.getElementById("r-iban").textContent = payload.iban ? payload.iban.replace(/(.{4})/g, "$1 ").trim() : "—";
+  document.getElementById("r-bankname").textContent = payload.bankname || "—";
+  document.getElementById("r-bic").textContent = payload.bic || "—";
+
+  const sigImg = document.getElementById("r-signature");
+  sigImg.src = payload.signatureDataUrl || "";
+  sigImg.style.display = payload.signatureDataUrl ? "block" : "none";
+}
+
+// String-basiert (kein Date-Objekt), damit Zeitzonen-Rundungen ein "yyyy-mm-dd" aus
+// dem <input type="date"> nicht auf den Vor- oder Folgetag verschieben können.
+function _fmtDateOnly(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }
 
 // ─── Admin-Toggle ─────────────────────────────────────────────────────────────
