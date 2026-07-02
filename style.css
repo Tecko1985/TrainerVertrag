@@ -117,7 +117,7 @@ main { max-width: 880px; margin: 0 auto; padding: 24px 16px 60px; }
 
 .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-button.btn {
+button.btn, a.btn {
   background: var(--blue);
   color: white;
   border: none;
@@ -126,12 +126,14 @@ button.btn {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
 }
-button.btn:hover { opacity: 0.9; }
-button.btn.secondary { background: var(--gray); color: var(--text); border: 1px solid var(--border); }
+button.btn:hover, a.btn:hover { opacity: 0.9; }
+button.btn.secondary, a.btn.secondary { background: var(--gray); color: var(--text); border: 1px solid var(--border); }
 button.btn.danger { background: var(--red); }
 button.btn.success { background: var(--green); }
-button.btn.small { padding: 6px 12px; font-size: 13px; }
+button.btn.small, a.btn.small { padding: 6px 12px; font-size: 13px; }
 button.btn:disabled { opacity: 0.5; cursor: default; }
 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 6px; }

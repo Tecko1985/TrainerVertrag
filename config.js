@@ -1,4 +1,4 @@
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -31,6 +31,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.5",
+    groups: [
+      {
+        title: "Sonstiges",
+        items: [
+          "Bestätigungs-Screen: Button „← Zur Übersicht\" führt zurück zur zentralen Tools-Übersicht."
+        ]
+      }
+    ]
+  },
   {
     version: "1.4",
     groups: [
