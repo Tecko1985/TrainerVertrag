@@ -1,4 +1,4 @@
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -31,6 +31,18 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.4",
+    groups: [
+      {
+        title: "Sonstiges",
+        items: [
+          "Trainer-Modus merkt sich die eigene Einreichung auf diesem Gerät: beim erneuten Öffnen der Seite werden die Daten direkt angezeigt statt eines leeren Formulars.",
+          "Neuer Button „Bearbeiten\" auf dem Bestätigungs-Screen aktualisiert die bestehende Einreichung, statt einen zweiten Eintrag anzulegen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.3",
     groups: [

@@ -4,6 +4,7 @@ const FileStore = (() => {
   const DB_NAME = "trainervertrag-db";
   const STORE = "handles";
   const KEY_WEBDAV_CONFIG = "webdavConfig";
+  const KEY_MY_TRAINER = "myTrainer";
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -47,7 +48,10 @@ const FileStore = (() => {
   return {
     getWebdavConfig: () => getValue(KEY_WEBDAV_CONFIG),
     setWebdavConfig: (cfg) => setValue(KEY_WEBDAV_CONFIG, cfg),
-    clearWebdavConfig: () => clearValue(KEY_WEBDAV_CONFIG)
+    clearWebdavConfig: () => clearValue(KEY_WEBDAV_CONFIG),
+    getMyTrainer: () => getValue(KEY_MY_TRAINER),
+    setMyTrainer: (data) => setValue(KEY_MY_TRAINER, data),
+    clearMyTrainer: () => clearValue(KEY_MY_TRAINER)
   };
 })();
 

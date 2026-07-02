@@ -89,8 +89,7 @@ export default {
       }
     }
 
-    const newEntry = {
-      id: crypto.randomUUID(),
+    const fields = {
       vorname:      String(body.vorname  || "").trim(),
       nachname:     String(body.nachname || "").trim(),
       geburtsdatum: String(body.geburtsdatum || ""),
@@ -105,12 +104,29 @@ export default {
       // Nur echte PNG-DataURLs durchlassen
       signatureDataUrl: (typeof body.signatureDataUrl === "string" &&
                          /^data:image\/png;base64,/.test(body.signatureDataUrl))
-        ? body.signatureDataUrl : "",
-      erstelltAm:       new Date().toISOString(),
-      vertragsGeneriert: false
+        ? body.signatureDataUrl : ""
     };
 
-    appData.trainer.push(newEntry);
+    // Trainer bearbeitet die eigene, bereits eingereichte Erfassung — der Client kennt
+    // seine id nur lokal (kein Login/Session hier). Unbekannte/gelöschte id (z.B. Admin
+    // hat den Eintrag entfernt) wird wie eine Neuanlage behandelt, statt einen Fehler zu werfen.
+    const incomingId = typeof body.id === "string" ? body.id.trim() : "";
+    const existingIdx = incomingId ? appData.trainer.findIndex(t => t.id === incomingId) : -1;
+
+    let resultId;
+    if (existingIdx !== -1) {
+      appData.trainer[existingIdx] = {
+        ...appData.trainer[existingIdx],
+        ...fields,
+        // Daten haben sich möglicherweise geändert — ein bereits erzeugter Vertrag ist damit veraltet.
+        vertragsGeneriert: false
+      };
+      resultId = incomingId;
+    } else {
+      const newEntry = { id: crypto.randomUUID(), ...fields, erstelltAm: new Date().toISOString(), vertragsGeneriert: false };
+      appData.trainer.push(newEntry);
+      resultId = newEntry.id;
+    }
 
     try {
       const putResp = await fetch(env.NEXTCLOUD_URL, {
@@ -123,7 +139,7 @@ export default {
       return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
     }
 
-    return json({ success: true, id: newEntry.id }, 201, corsHeaders);
+    return json({ success: true, id: resultId }, 201, corsHeaders);
   }
 };
 
