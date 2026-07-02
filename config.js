@@ -1,4 +1,4 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -31,6 +31,20 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.1",
+    groups: [
+      {
+        title: "Stabilität & Datensicherheit",
+        items: [
+          "Submit-Worker bricht Einreichungen ab, wenn die Bestandsdatei nicht gelesen werden kann — vorher konnte ein vorübergehender Nextcloud-Fehler dazu führen, dass alle bisherigen Einreichungen überschrieben werden (Worker-Update nötig).",
+          "Admin-Speichern übernimmt jetzt neu eingegangene Trainer-Einreichungen, statt sie zu überschreiben, wenn während der Admin-Sitzung jemand das Formular abschickt.",
+          "Sammel-ZIP: Namensgleiche Trainer überschreiben sich nicht mehr gegenseitig (automatische Nummerierung).",
+          "Robustere Fehlermeldungen bei der Einreichung (HTML-Fehlerseiten des Servers werden sauber angezeigt)."
+        ]
+      }
+    ]
+  },
   {
     version: "1.0",
     groups: [

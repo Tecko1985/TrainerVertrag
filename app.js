@@ -119,7 +119,8 @@ async function _handleTrainerSubmit(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    const data = await resp.json();
+    // Fehlerseiten (z.B. 502-HTML von Cloudflare) sind kein JSON — nicht daran scheitern.
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
 
     document.getElementById("trainer-form-screen").style.display = "none";
@@ -377,6 +378,27 @@ function _collectDetailData() {
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
 
+// In dieser Admin-Sitzung bewusst gelöschte Einträge. Ohne diese Merkliste würde
+// _saveMerged sie beim nächsten Speichern wieder aus dem Remote-Stand übernehmen.
+const _deletedTrainerIds = new Set();
+
+// Schreibt appData, übernimmt vorher aber Einträge, die seit dem Laden neu auf
+// Nextcloud dazugekommen sind (Trainer-Einreichungen über den Submit-Worker
+// schreiben in dieselbe Datei — ein reines Überschreiben würde sie verwerfen).
+// Wirft bei Lese-/Schreibfehlern, damit die Aufrufer ihre Fehlermeldung zeigen.
+async function _saveMerged() {
+  const remote = await davReadFile(davConfig); // null bei 404/leer, wirft bei echten Fehlern
+  if (remote && Array.isArray(remote.trainer)) {
+    const localIds = new Set(appData.trainer.map(t => t.id));
+    remote.trainer.forEach(rt => {
+      if (rt && rt.id && !localIds.has(rt.id) && !_deletedTrainerIds.has(rt.id)) {
+        appData.trainer.push(rt);
+      }
+    });
+  }
+  await davWriteFile(davConfig, appData);
+}
+
 function _scheduleAutosave() {
   clearTimeout(saveTid);
   saveTid = setTimeout(_doSave, 1200);
@@ -393,7 +415,7 @@ async function _doSave() {
   const statusEl = document.getElementById("settings-save-status");
   statusEl.textContent = "Speichere …";
   try {
-    await davWriteFile(davConfig, appData);
+    await _saveMerged();
     statusEl.textContent = "Gespeichert ✓";
     setTimeout(() => { statusEl.textContent = "Automatisches Speichern aktiv"; }, 2500);
   } catch (err) {
@@ -409,9 +431,11 @@ async function _deleteCurrentTrainer() {
   if (!confirm(`Eintrag von ${t.vorname} ${t.nachname} wirklich löschen?`)) return;
 
   appData.trainer = appData.trainer.filter(x => x.id !== currentTrainerId);
+  _deletedTrainerIds.add(currentTrainerId);
   try {
-    await davWriteFile(davConfig, appData);
+    await _saveMerged();
   } catch (err) {
+    _deletedTrainerIds.delete(currentTrainerId);
     document.getElementById("admin-detail-error").textContent = "Fehler beim Löschen: " + err.message;
     document.getElementById("admin-detail-error").classList.add("visible");
     return;
@@ -427,9 +451,8 @@ async function _generatePdf() {
 
   // Aktuelle Edits übernehmen, bevor PDF generiert wird
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
-  if (idx !== -1) {
-    appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
-  }
+  if (idx === -1) return;
+  appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
   const trainer = appData.trainer[idx];
 
   btn.disabled = true;
@@ -440,7 +463,7 @@ async function _generatePdf() {
 
     // Status auf "generiert" setzen und speichern
     appData.trainer[idx].vertragsGeneriert = true;
-    await davWriteFile(davConfig, appData);
+    await _saveMerged();
 
     // Badge in Detailansicht aktualisieren
     document.getElementById("admin-detail-title").textContent =
@@ -460,9 +483,8 @@ async function _generatePdfEinzeln() {
   const btn = document.getElementById("btn-pdf-einzeln");
   if (!currentTrainerId) return;
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
-  if (idx !== -1) {
-    appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
-  }
+  if (idx === -1) return;
+  appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
   const trainer = appData.trainer[idx];
   btn.disabled = true;
   btn.textContent = "Generiere PDF …";
@@ -625,7 +647,7 @@ async function _doImport() {
   btn.disabled = true;
   btn.textContent = "Speichere …";
   try {
-    await davWriteFile(davConfig, appData);
+    await _saveMerged();
   } catch (err) {
     document.getElementById("import-error").textContent = "Speicherfehler: " + err.message;
     document.getElementById("import-error").classList.add("visible");

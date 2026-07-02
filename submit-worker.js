@@ -57,21 +57,37 @@ export default {
 
     const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
 
-    // Aktuelle Datei laden (404 = noch nicht vorhanden → leere Liste)
+    // Aktuelle Datei laden. NUR 404 (noch nicht vorhanden) oder leere Datei
+    // bedeuten "neue Liste" — jeder andere Fehler bricht ab, sonst würde der
+    // PUT unten den kompletten Bestand mit nur dem neuen Eintrag überschreiben.
     let appData = { version: 1, trainer: [] };
+    let getResp;
     try {
-      const getResp = await fetch(env.NEXTCLOUD_URL, {
+      getResp = await fetch(env.NEXTCLOUD_URL, {
         method: "GET",
         headers: { Authorization: authHeader }
       });
-      if (getResp.ok) {
-        const text = await getResp.text();
-        if (text.trim()) {
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed.trainer)) appData = parsed;
-        }
+    } catch (e) {
+      return json({ error: "Nextcloud nicht erreichbar — bitte später erneut versuchen" }, 502, corsHeaders);
+    }
+    if (getResp.status !== 404) {
+      if (!getResp.ok) {
+        return json({ error: `Nextcloud-Lesefehler (HTTP ${getResp.status}) — bitte später erneut versuchen` }, 502, corsHeaders);
       }
-    } catch (_) { /* Datei existiert noch nicht */ }
+      const text = await getResp.text();
+      if (text.trim()) {
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (_) {
+          return json({ error: "Bestandsdatei ist beschädigt — Einreichung abgebrochen, bitte Admin informieren" }, 502, corsHeaders);
+        }
+        if (!parsed || !Array.isArray(parsed.trainer)) {
+          return json({ error: "Bestandsdatei hat ein unerwartetes Format — Einreichung abgebrochen, bitte Admin informieren" }, 502, corsHeaders);
+        }
+        appData = parsed;
+      }
+    }
 
     const newEntry = {
       id: crypto.randomUUID(),

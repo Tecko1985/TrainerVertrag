@@ -48,9 +48,15 @@ async function generiereAlleVertraegeZip(trainerList, onProgress) {
   if (typeof JSZip === "undefined") throw new Error("JSZip nicht geladen.");
   const zip = new JSZip();
   let done = 0;
+  const usedNames = new Set();
   for (const t of trainerList) {
     const blob = await _buildPdfBlob(t);
-    zip.file(`${t.nachname}_${t.vorname}_Vertrag.pdf`, blob);
+    // Namensgleiche Trainer würden sich sonst im ZIP gegenseitig überschreiben.
+    let name = `${t.nachname}_${t.vorname}_Vertrag.pdf`;
+    let i = 2;
+    while (usedNames.has(name)) name = `${t.nachname}_${t.vorname}_Vertrag_${i++}.pdf`;
+    usedNames.add(name);
+    zip.file(name, blob);
     done++;
     if (onProgress) onProgress(done, trainerList.length);
   }
