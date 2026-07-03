@@ -1,10 +1,11 @@
 // Cloudflare Worker: Trainer-Einreichungs-Endpunkt.
-// Deployment: dash.cloudflare.com -> Workers & Pages -> Create Worker ->
-// diesen Code einfügen -> Deploy.
-// Worker-Name: trainervertrag-submit (URL: trainervertrag1.michel-brunner.workers.dev)
+// Deployment: dash.cloudflare.com -> Workers & Pages -> Worker "trainervertrag1"
+// (URL: trainervertrag1.michel-brunner.workers.dev) -> diesen Code einfügen -> Deploy.
+// NICHT zu verwechseln mit dem Worker "trainervertrag" (ohne "1") — das ist der
+// separate cors-proxy-worker.js für den Admin-Modus, unbetroffen von diesem Code.
 //
 // NACH dem Deploy folgende Worker-Secrets in den Cloudflare-Einstellungen setzen
-// (Workers -> trainervertrag-submit -> Settings -> Variables -> Add secret):
+// (Workers -> trainervertrag1 -> Settings -> Variables -> Add secret):
 //   NEXTCLOUD_URL       = https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_Förderung/Tools/TrainerVertrag/trainervertrag.json
 //   NEXTCLOUD_USERNAME  = admin
 //   NEXTCLOUD_PASSWORD  = <App-Passwort aus Nextcloud>
@@ -15,12 +16,12 @@
 // SEIT 1.6: Trainer müssen über das zentrale ToolsUebersicht-Konto angemeldet sein
 // (Bearer-Token im Authorization-Header). Der Worker verifiziert das Token NICHT
 // selbst, sondern delegiert an den landingpage-Worker (Aktion "me") — dafür ist
-// ein SERVICE BINDING nötig (Dashboard -> dieser Worker -> Settings -> Bindings ->
-// Add binding -> Service binding -> Ziel-Worker "landingpage", Variablenname
-// "LANDINGPAGE"). Ein normaler fetch() an die *.workers.dev-URL der Landingpage
-// wird von Cloudflare mit Error 1042 geblockt, weil beide Worker dieselbe
-// workers.dev-Subdomain teilen (sieht aus wie eine potenzielle Endlosschleife,
-// ist aber keine) — Service Bindings umgehen das komplett.
+// ein SERVICE BINDING nötig (Dashboard -> Worker "trainervertrag1" -> Settings ->
+// Bindings -> Add binding -> Service binding -> Ziel-Worker "landingpage",
+// Variablenname "LANDINGPAGE"). Ein normaler fetch() an die *.workers.dev-URL der
+// Landingpage wird von Cloudflare mit Error 1042 geblockt, weil beide Worker
+// dieselbe workers.dev-Subdomain teilen (sieht aus wie eine potenzielle
+// Endlosschleife, ist aber keine) — Service Bindings umgehen das komplett.
 //
 // API (POST-Body: { action, ... }, Authorization: Bearer <tu_session_token>):
 //   { action: "submit", vorname, nachname, ... }  -> legt/aktualisiert IMMER genau
