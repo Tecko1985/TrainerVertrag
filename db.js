@@ -1,10 +1,9 @@
-// WebDAV-Persistenz + IndexedDB-Helfer für Admin-Zugangsdaten.
+// WebDAV-Persistenz (Admin-Modus) + IndexedDB-Helfer für Admin-Zugangsdaten.
 // Adaptiert aus E:\TrainerCheckliste\db.js — gleiche Architektur, anderer DB-Name.
 const FileStore = (() => {
   const DB_NAME = "trainervertrag-db";
   const STORE = "handles";
   const KEY_WEBDAV_CONFIG = "webdavConfig";
-  const KEY_MY_TRAINER = "myTrainer";
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -48,12 +47,82 @@ const FileStore = (() => {
   return {
     getWebdavConfig: () => getValue(KEY_WEBDAV_CONFIG),
     setWebdavConfig: (cfg) => setValue(KEY_WEBDAV_CONFIG, cfg),
-    clearWebdavConfig: () => clearValue(KEY_WEBDAV_CONFIG),
-    getMyTrainer: () => getValue(KEY_MY_TRAINER),
-    setMyTrainer: (data) => setValue(KEY_MY_TRAINER, data),
-    clearMyTrainer: () => clearValue(KEY_MY_TRAINER)
+    clearWebdavConfig: () => clearValue(KEY_WEBDAV_CONFIG)
   };
 })();
+
+// ─── ToolsUebersicht-Login-Gateway (Trainer-Modus) ─────────────────────────────
+// Trainer melden sich seit 1.6 über das zentrale ToolsUebersicht-Konto an (statt
+// eines anonymen No-Login-Formulars). Gleiches Token-Muster wie bei Trainerkodex/
+// TrainerCheckliste — Token liegt im localStorage der Origin tecko1985.github.io
+// und wird hier nur gelesen, nicht selbst per Login-Formular gesetzt (Login läuft
+// komplett über die ToolsUebersicht-Seite selbst, siehe Connect-Screen in app.js).
+const GATEWAY_URL = "https://landingpage.michel-brunner.workers.dev";
+const TOKEN_STORAGE_KEY = "tu_session_token";
+
+class NotLoggedInError extends Error {
+  constructor(message) {
+    super(message || "Nicht angemeldet");
+    this.name = "NotLoggedInError";
+  }
+}
+
+function getSessionToken() {
+  try { return localStorage.getItem(TOKEN_STORAGE_KEY); } catch (_) { return null; }
+}
+
+async function gatewayRequest(payload) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(GATEWAY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify(payload)
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Gateway-Fehler (HTTP ${resp.status})`);
+  return resp.json();
+}
+
+// Liefert {username, isAdmin, groupIds, vorname, nachname} der eingeloggten Person.
+async function fetchMe() {
+  return gatewayRequest({ action: "me" });
+}
+
+// Fragt beim submit-worker die eigene, bereits eingereichte Erfassung ab (falls
+// vorhanden) — der Worker verifiziert den Token serverseitig selbst (Service
+// Binding zum landingpage-Worker), das hier mitgeschickte Token ist nur der
+// Transport, keine vertrauenswürdige Client-Behauptung.
+async function fetchMySubmission() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "my-submission" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Serverfehler (HTTP ${resp.status})`);
+  const body = await resp.json();
+  return body.data || null;
+}
+
+// Sendet die Formulardaten an den submit-worker. Der Nutzername wird NICHT vom
+// Client mitgeschickt — der Worker ermittelt ihn selbst aus dem verifizierten
+// Token und legt/aktualisiert damit immer genau den eigenen Trainer-Datensatz.
+async function submitTrainerData(payload) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "submit", ...payload })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
 
 function davAuthHeader(config) {
   return "Basic " + btoa(unescape(encodeURIComponent(config.username + ":" + config.password)));

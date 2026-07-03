@@ -1,4 +1,4 @@
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -31,6 +31,19 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.6",
+    groups: [
+      {
+        title: "Anmeldung statt Geräte-Speicher",
+        items: [
+          "Trainer-Modus läuft jetzt über das Tools-Übersicht-Konto statt eines offenen Formulars ohne Login.",
+          "Die eigene Einreichung wird dadurch auf jedem Gerät wiedererkannt (vorher nur auf dem Gerät, auf dem zuletzt abgeschickt wurde — z.B. nicht im privaten Modus).",
+          "„Neuen Eintrag anlegen\" entfällt: pro Konto gibt es genau eine Einreichung, die beim erneuten Absenden aktualisiert wird."
+        ]
+      }
+    ]
+  },
   {
     version: "1.5",
     groups: [

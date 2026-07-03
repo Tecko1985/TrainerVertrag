@@ -10,8 +10,10 @@ let activeAdminTab = "liste";
 let currentTrainerId = null;
 
 let trainerSigPad = null;
-let myTrainerRecord = null; // eigene Einreichung, lokal auf diesem Gerät gemerkt (kein Login im Trainer-Modus)
-let editingId = null;       // gesetzt, während das Formular eine bestehende Einreichung bearbeitet
+let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto geladen
+let currentUsername = null;
+let currentVorname   = null;
+let currentNachname  = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -25,17 +27,58 @@ document.addEventListener("DOMContentLoaded", () => {
   _initAdminPanel();
   _initImport();
   _tryRestoreAdminSession();
-  _tryRestoreTrainerReceipt();
+  _initTrainerGateway();
 });
 
-// Trainer-Modus hat kein Login -> "eigene Einreichung wiedersehen" geht nur über lokal
-// (IndexedDB) gemerkte Daten dieses Geräts/Browsers, nicht über einen Server-Abruf.
-async function _tryRestoreTrainerReceipt() {
-  const saved = await FileStore.getMyTrainer();
-  if (!saved) return;
-  myTrainerRecord = saved;
-  _renderTrainerReceipt(myTrainerRecord);
-  _showReceiptScreen({ justSubmitted: false });
+// Trainer-Modus verlangt seit 1.6 ein Tools-Übersicht-Login (statt eines offenen
+// No-Login-Formulars) — nur so lässt sich die eigene Einreichung serverseitig per
+// Konto wiederfinden, geräte- und browserübergreifend (siehe [[project-trainervertrag]]).
+async function _initTrainerGateway() {
+  if (!getSessionToken()) {
+    _showTrainerConnectScreen();
+    return;
+  }
+
+  try {
+    const me = await fetchMe();
+    currentUsername = me.username;
+    currentVorname   = me.vorname || null;
+    currentNachname  = me.nachname || null;
+
+    const saved = await fetchMySubmission();
+    if (saved) {
+      myTrainerRecord = saved;
+      _renderTrainerReceipt(myTrainerRecord);
+      _showReceiptScreen({ justSubmitted: false });
+    } else {
+      _showTrainerFormScreen();
+      document.getElementById("tf-vorname").value  = currentVorname  || "";
+      document.getElementById("tf-nachname").value = currentNachname || "";
+    }
+    document.getElementById("tf-angemeldet-als").textContent =
+      [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername;
+  } catch (e) {
+    if (e instanceof NotLoggedInError) {
+      _showTrainerConnectScreen();
+    } else {
+      _showTrainerConnectScreen("Fehler beim Laden: " + e.message);
+    }
+  }
+}
+
+function _showTrainerConnectScreen(errorMsg) {
+  document.getElementById("trainer-connect-screen").style.display = "";
+  document.getElementById("trainer-form-screen").style.display = "none";
+  document.getElementById("trainer-success-screen").style.display = "none";
+  const err = document.getElementById("trainer-connect-error");
+  err.style.display = errorMsg ? "block" : "none";
+  err.textContent = errorMsg || "";
+}
+
+function _showTrainerFormScreen() {
+  document.getElementById("trainer-connect-screen").style.display = "none";
+  document.getElementById("trainer-form-screen").style.display = "";
+  document.getElementById("trainer-success-screen").style.display = "none";
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -73,17 +116,6 @@ function _initTrainerForm() {
 
   document.getElementById("btn-trainer-edit").addEventListener("click", _startEditTrainer);
 
-  document.getElementById("btn-trainer-neu").addEventListener("click", async () => {
-    await FileStore.clearMyTrainer();
-    myTrainerRecord = null;
-    editingId = null;
-    document.getElementById("trainer-success-screen").style.display = "none";
-    document.getElementById("trainer-form-screen").style.display = "";
-    document.getElementById("trainer-form").reset();
-    trainerSigPad.clear();
-    _setTrainerError("");
-  });
-
   // IBAN auto-formatieren (Leerzeichen alle 4 Stellen)
   const ibanInput = document.getElementById("tf-iban");
   ibanInput.addEventListener("input", () => {
@@ -113,7 +145,6 @@ async function _handleTrainerSubmit(e) {
   }
 
   const payload = {
-    ...(editingId ? { id: editingId } : {}),
     vorname,
     nachname,
     geburtsdatum: document.getElementById("tf-geburtsdatum").value,
@@ -133,23 +164,20 @@ async function _handleTrainerSubmit(e) {
   btn.textContent = "Wird übermittelt …";
 
   try {
-    const resp = await fetch(SUBMIT_WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    // Fehlerseiten (z.B. 502-HTML von Cloudflare) sind kein JSON — nicht daran scheitern.
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-
-    myTrainerRecord = { ...payload, id: data.id };
-    await FileStore.setMyTrainer(myTrainerRecord);
-    editingId = null;
+    // Der Worker ermittelt den Nutzernamen selbst aus dem verifizierten Token und
+    // legt/aktualisiert damit immer genau den eigenen Datensatz (kein id-Handling
+    // mehr auf Client-Seite nötig, siehe submitTrainerData in db.js).
+    const data = await submitTrainerData(payload);
+    myTrainerRecord = { ...payload, id: data.id, username: currentUsername };
 
     _renderTrainerReceipt(myTrainerRecord);
     _showReceiptScreen({ justSubmitted: true });
   } catch (err) {
-    _setTrainerError("Übermittlung fehlgeschlagen: " + err.message);
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du das Formular wieder abschicken.");
+    } else {
+      _setTrainerError("Übermittlung fehlgeschlagen: " + err.message);
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = "Daten einreichen";
@@ -161,17 +189,17 @@ function _showReceiptScreen(opts) {
   document.getElementById("success-heading").textContent = justSubmitted ? "Danke!" : "Bereits eingereicht";
   document.getElementById("success-text").textContent = justSubmitted
     ? "Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist."
-    : "Du hast diese Daten auf diesem Gerät bereits eingereicht. Falls sich etwas geändert hat, kannst du sie unten bearbeiten.";
+    : "Du hast mit diesem Konto bereits Daten eingereicht. Falls sich etwas geändert hat, kannst du sie unten bearbeiten.";
+  document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "";
 }
 
-// Öffnet das Formular vorausgefüllt mit der eigenen, lokal gemerkten Einreichung.
-// _handleTrainerSubmit schickt wegen "editingId" die bekannte id mit, sodass der
-// Worker den bestehenden Nextcloud-Eintrag aktualisiert statt einen zweiten anzulegen.
+// Öffnet das Formular vorausgefüllt mit der eigenen, serverseitig geladenen Einreichung.
+// submitTrainerData ordnet den Datensatz serverseitig per Login-Konto zu, ein erneutes
+// Absenden aktualisiert also automatisch denselben Eintrag statt einen zweiten anzulegen.
 function _startEditTrainer() {
   if (!myTrainerRecord) return;
-  editingId = myTrainerRecord.id;
 
   document.getElementById("tf-vorname").value      = myTrainerRecord.vorname || "";
   document.getElementById("tf-nachname").value     = myTrainerRecord.nachname || "";
@@ -187,8 +215,7 @@ function _startEditTrainer() {
   trainerSigPad.loadDataURL(myTrainerRecord.signatureDataUrl || "");
 
   _setTrainerError("");
-  document.getElementById("trainer-success-screen").style.display = "none";
-  document.getElementById("trainer-form-screen").style.display = "";
+  _showTrainerFormScreen();
 }
 
 function _setTrainerError(msg) {
