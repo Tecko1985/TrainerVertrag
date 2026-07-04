@@ -23,6 +23,18 @@ body {
   min-height: 100vh;
 }
 
+.dashboard-bar { padding: 10px 16px 0; }
+.back-to-dashboard {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--blue);
+  text-decoration: none;
+}
+.back-to-dashboard:hover { text-decoration: underline; }
+
 header {
   background: var(--blue);
   color: white;
