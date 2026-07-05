@@ -709,7 +709,7 @@ function _matchTrainer(fullName) {
 }
 
 function _renderTextImportPreview() {
-  const rows = _importRows.slice(0, 8).map(cols => {
+  const rows = _importRows.map((cols, i) => {
     const name      = (cols[0] || "").trim();
     const lizenz    = (cols[1] || "").trim();
     const pauschale = (cols[2] || "").trim();
@@ -717,16 +717,21 @@ function _renderTextImportPreview() {
     const status    = match
       ? `<span class="badge generiert">→ ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
       : `<span class="badge offen">Nicht gefunden</span>`;
+    const action    = match
+      ? `<button type="button" class="btn success small" data-import-row="${i}">Importieren</button>`
+      : `<button type="button" class="btn secondary small" disabled title="Kein passender Trainer gefunden">Importieren</button>`;
     return `<tr>
       <td style="padding:6px 10px;">${_esc(name)}</td>
       <td style="padding:6px 10px;">${_esc(lizenz)}</td>
       <td style="padding:6px 10px;">${_esc(pauschale)}</td>
       <td style="padding:6px 10px;">${status}</td>
+      <td style="padding:6px 10px;"><span class="row-import-status" data-row-status="${i}"></span></td>
+      <td style="padding:6px 10px;">${action}</td>
     </tr>`;
   }).join("");
 
   document.getElementById("import-preview-wrap").innerHTML = `
-    <p class="muted" style="font-size:12px; margin-bottom:8px;">Vorschau (erste ${Math.min(8, _importRows.length)} von ${_importRows.length} Zeilen)</p>
+    <p class="muted" style="font-size:12px; margin-bottom:8px;">${_importRows.length} Zeile(n) gefunden</p>
     <table style="width:100%; border-collapse:collapse; font-size:13px;">
       <thead style="background:var(--gray);">
         <tr>
@@ -734,11 +739,49 @@ function _renderTextImportPreview() {
           <th style="padding:6px 10px; text-align:left;">Lizenz</th>
           <th style="padding:6px 10px; text-align:left;">Pauschale</th>
           <th style="padding:6px 10px; text-align:left;">Zuordnung</th>
+          <th style="padding:6px 10px; text-align:left;">Status</th>
+          <th style="padding:6px 10px; text-align:left;">Aktion</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+
+  document.getElementById("import-preview-wrap").querySelectorAll("[data-import-row]").forEach(btn => {
+    btn.addEventListener("click", () => _doImportRow(Number(btn.dataset.importRow), btn));
+  });
+}
+
+async function _doImportRow(idx, btn) {
+  const cols = _importRows[idx];
+  if (!cols) return;
+
+  const name      = (cols[0] || "").trim();
+  const lizenz    = (cols[1] || "").trim();
+  const pauschale = (cols[2] || "").trim();
+  const trainer   = _matchTrainer(name);
+  if (!trainer) return;
+
+  const statusEl = document.querySelector(`[data-row-status="${idx}"]`);
+  btn.disabled = true;
+  btn.textContent = "Speichere …";
+
+  const tIdx = appData.trainer.indexOf(trainer);
+  if (lizenz && lizenz !== "0") appData.trainer[tIdx].lizenz = lizenz;
+  if (pauschale !== "") appData.trainer[tIdx].pauschale = pauschale;
+
+  try {
+    await _saveMerged();
+  } catch (err) {
+    if (statusEl) statusEl.innerHTML = `<span class="badge" style="background:var(--red-light); color:var(--red);">Fehler: ${_esc(err.message)}</span>`;
+    btn.disabled = false;
+    btn.textContent = "Importieren";
+    return;
+  }
+
+  if (statusEl) statusEl.innerHTML = `<span class="badge generiert">✓ übernommen</span>`;
+  btn.disabled = false;
+  btn.textContent = "Erneut importieren";
 }
 
 async function _doImport() {
@@ -769,11 +812,11 @@ async function _doImport() {
     document.getElementById("import-error").textContent = "Speicherfehler: " + err.message;
     document.getElementById("import-error").classList.add("visible");
     btn.disabled = false;
-    btn.textContent = "Import starten";
+    btn.textContent = "Alle importieren";
     return;
   }
   btn.disabled = false;
-  btn.textContent = "Import starten";
+  btn.textContent = "Alle importieren";
 
   document.getElementById("import-step-2").style.display = "none";
   document.getElementById("import-step-3").style.display = "";
