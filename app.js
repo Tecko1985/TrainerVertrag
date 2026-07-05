@@ -40,12 +40,14 @@ async function _initTrainerGateway() {
   }
 
   try {
-    const me = await fetchMe();
+    // fetchMe() und fetchMySubmission() sind unabhängige Worker-Aufrufe (beide
+    // ermitteln den Nutzer serverseitig aus dem Bearer-Token) — parallel statt
+    // seriell spart einen kompletten Roundtrip vorm ersten sichtbaren Inhalt.
+    const [me, saved] = await Promise.all([fetchMe(), fetchMySubmission()]);
     currentUsername = me.username;
     currentVorname   = me.vorname || null;
     currentNachname  = me.nachname || null;
 
-    const saved = await fetchMySubmission();
     if (saved) {
       myTrainerRecord = saved;
       _renderTrainerReceipt(myTrainerRecord);
