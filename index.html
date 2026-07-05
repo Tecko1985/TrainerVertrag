@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainervertrag</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.6" />
+<link rel="stylesheet" href="style.css?v=1.7" />
 </head>
 <body>
 
@@ -193,7 +193,26 @@
                 <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
               </div>
             </div>
+            <div class="btn-row" id="admin-liste-filterbar" style="display:none; gap:10px; margin-bottom:14px; flex-wrap:wrap; justify-content:flex-start;">
+              <div class="form-field" style="flex:1 1 220px; margin-bottom:0;">
+                <input type="text" id="liste-search" placeholder="Suche nach Name…" autocomplete="off" />
+              </div>
+              <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
+                <select id="liste-filter-status">
+                  <option value="">Alle Status</option>
+                  <option value="unvollstaendig">Unvollständig</option>
+                  <option value="ausstehend">Ausstehend</option>
+                  <option value="generiert">Vertrag erstellt</option>
+                </select>
+              </div>
+              <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
+                <select id="liste-filter-lizenz">
+                  <option value="">Alle Lizenzen</option>
+                </select>
+              </div>
+            </div>
             <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
+            <div class="empty-state" id="admin-liste-no-match" style="display:none;">Keine Treffer für diese Filter.</div>
             <div id="admin-liste-header" class="trainer-row-header" style="display:none;">
               <span>Name</span>
               <span>Eingereicht</span>
@@ -336,10 +355,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.6"></script>
-<script src="db.js?v=1.6"></script>
-<script src="signature-pad.js?v=1.6"></script>
-<script src="pdf-utils.js?v=1.6"></script>
-<script src="app.js?v=1.6"></script>
+<script src="config.js?v=1.7"></script>
+<script src="db.js?v=1.7"></script>
+<script src="signature-pad.js?v=1.7"></script>
+<script src="pdf-utils.js?v=1.7"></script>
+<script src="app.js?v=1.7"></script>
 </body>
 </html>

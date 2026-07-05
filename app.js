@@ -380,6 +380,10 @@ function _initAdminPanel() {
   document.getElementById("btn-pdf-generieren").addEventListener("click", _generatePdf);
   document.getElementById("btn-pdf-einzeln").addEventListener("click", _generatePdfEinzeln);
   document.getElementById("btn-alle-pdf-zip").addEventListener("click", _generateAlleZip);
+
+  document.getElementById("liste-search").addEventListener("input", _renderAdminListe);
+  document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
+  document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
 }
 
 // ─── Admin-Liste ──────────────────────────────────────────────────────────────
@@ -391,32 +395,82 @@ function _showAdminListe() {
   _renderAdminListe();
 }
 
+function _trainerStatus(t) {
+  if (t.vertragsGeneriert) return "generiert";
+  return t.username ? "ausstehend" : "unvollstaendig";
+}
+
+// Baut die Lizenz-Filteroptionen aus den tatsächlich vorhandenen Werten neu auf
+// (ändert sich mit jedem Import) und erhält dabei die aktuelle Auswahl, falls
+// der Wert noch existiert.
+function _populateLizenzFilterOptions() {
+  const sel = document.getElementById("liste-filter-lizenz");
+  const current = sel.value;
+  const distinct = Array.from(new Set(
+    appData.trainer.map(t => (t.lizenz || "").trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, "de"));
+
+  sel.innerHTML = `<option value="">Alle Lizenzen</option>` +
+    distinct.map(l => `<option value="${_esc(l)}">${_esc(l)}</option>`).join("");
+
+  if (distinct.includes(current)) sel.value = current;
+}
+
 function _renderAdminListe() {
-  const rows   = document.getElementById("admin-liste-rows");
-  const empty  = document.getElementById("admin-liste-empty");
-  const header = document.getElementById("admin-liste-header");
+  const rows      = document.getElementById("admin-liste-rows");
+  const empty     = document.getElementById("admin-liste-empty");
+  const noMatch   = document.getElementById("admin-liste-no-match");
+  const header    = document.getElementById("admin-liste-header");
+  const filterbar = document.getElementById("admin-liste-filterbar");
 
   if (!appData.trainer.length) {
     rows.innerHTML = "";
     empty.style.display = "";
+    noMatch.style.display = "none";
     header.style.display = "none";
+    filterbar.style.display = "none";
     return;
   }
   empty.style.display = "none";
   header.style.display = "";
+  filterbar.style.display = "";
+  _populateLizenzFilterOptions();
 
-  rows.innerHTML = appData.trainer.map(t => `
+  const searchTerm   = document.getElementById("liste-search").value.trim().toLowerCase();
+  const statusFilter = document.getElementById("liste-filter-status").value;
+  const lizenzFilter = document.getElementById("liste-filter-lizenz").value;
+
+  const filtered = appData.trainer.filter(t => {
+    if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
+    if (statusFilter && _trainerStatus(t) !== statusFilter) return false;
+    if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    rows.innerHTML = "";
+    noMatch.style.display = "";
+    return;
+  }
+  noMatch.style.display = "none";
+
+  const statusLabel = { generiert: "✓ Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig" };
+
+  rows.innerHTML = filtered.map(t => {
+    const status = _trainerStatus(t);
+    return `
     <div class="trainer-row" data-id="${_esc(t.id)}">
-      <span class="trainer-name">${_esc(t.nachname)}, ${_esc(t.vorname)}</span>
+      <span class="trainer-name">${_esc(t.nachname)}, ${_esc(t.vorname)}${t.lizenz ? ` <span class="muted" style="font-weight:400;">· ${_esc(t.lizenz)}</span>` : ""}</span>
       <span class="muted">${t.erstelltAm ? _fmtIso(t.erstelltAm) : "—"}</span>
       <span>
-        <span class="badge ${t.vertragsGeneriert ? "generiert" : "offen"}">
-          ${t.vertragsGeneriert ? "✓ Vertrag erstellt" : (t.username ? "Ausstehend" : "Unvollständig")}
+        <span class="badge ${status === "generiert" ? "generiert" : "offen"}">
+          ${statusLabel[status]}
         </span>
       </span>
       <button class="btn secondary small" data-open="${t.id}" type="button">Öffnen</button>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   rows.querySelectorAll("[data-open]").forEach(btn => {
     btn.addEventListener("click", (e) => {

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -32,6 +32,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.7",
+    groups: [
+      {
+        title: "Trainer-Liste",
+        items: [
+          "Suchfeld (nach Name) sowie Filter nach Status (Unvollständig/Ausstehend/Vertrag erstellt) und Lizenz ergänzt. Die Lizenz wird jetzt außerdem direkt in der Liste neben dem Namen angezeigt."
+        ]
+      }
+    ]
+  },
   {
     version: "1.6",
     groups: [
