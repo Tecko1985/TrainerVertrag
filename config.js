@@ -1,4 +1,4 @@
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -32,6 +32,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.3",
+    groups: [
+      {
+        title: "Import",
+        items: [
+          "Vorschau beim Text-Import zeigt jetzt alle eingefügten Zeilen mit ihren Werten (vorher nur die ersten 8) und jede Zeile hat einen eigenen Import-Button, um einzelne Trainer unabhängig vom Sammel-Import zu übernehmen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.2",
     groups: [
