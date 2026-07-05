@@ -1,4 +1,4 @@
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -32,6 +32,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.5",
+    groups: [
+      {
+        title: "Import",
+        items: [
+          "Ergebnis-Anzeige nach dem Sammel-Import listet jetzt die tatsächlich aktualisierten Trainer samt neuer Lizenz/Pauschale-Werte auf, statt nur eine Zahl zu zeigen — genauso werden nicht zugeordnete Namen jetzt namentlich aufgelistet."
+        ]
+      }
+    ]
+  },
   {
     version: "1.4",
     groups: [

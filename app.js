@@ -828,7 +828,8 @@ async function _doImportRow(idx, btn) {
 }
 
 async function _doImport() {
-  let updated = 0, skipped = 0;
+  const updatedList = [];
+  const skippedList = [];
 
   for (const cols of _importRows) {
     const name      = (cols[0] || "").trim();
@@ -838,12 +839,16 @@ async function _doImport() {
     if (!name || name === "0") continue;
 
     const trainer = _matchTrainer(name);
-    if (!trainer) { skipped++; continue; }
+    if (!trainer) { skippedList.push(name); continue; }
 
     const idx = appData.trainer.indexOf(trainer);
     if (lizenz && lizenz !== "0") appData.trainer[idx].lizenz = lizenz;
     if (pauschale !== "") appData.trainer[idx].pauschale = pauschale;
-    updated++;
+    updatedList.push({
+      name: trainer.vorname + " " + trainer.nachname,
+      lizenz: appData.trainer[idx].lizenz || "",
+      pauschale: appData.trainer[idx].pauschale || ""
+    });
   }
 
   const btn = document.getElementById("btn-import-start");
@@ -863,12 +868,36 @@ async function _doImport() {
 
   document.getElementById("import-step-2").style.display = "none";
   document.getElementById("import-step-3").style.display = "";
+
+  const updatedRows = updatedList.map(u => `<tr>
+    <td style="padding:6px 10px;">${_esc(u.name)}</td>
+    <td style="padding:6px 10px;">${_esc(u.lizenz)}</td>
+    <td style="padding:6px 10px;">${_esc(u.pauschale)}</td>
+  </tr>`).join("");
+
+  const skippedItems = skippedList.map(name => `<li>${_esc(name)}</li>`).join("");
+
   document.getElementById("import-result").innerHTML = `
     <p style="color:var(--green); font-weight:700; font-size:15px; margin-bottom:8px;">
       Import abgeschlossen
     </p>
-    <p class="muted"><strong>${updated}</strong> Trainer aktualisiert</p>
-    ${skipped ? `<p class="muted"><strong>${skipped}</strong> Zeilen nicht zugeordnet (Name nicht gefunden)</p>` : ""}
+    <p class="muted"><strong>${updatedList.length}</strong> Trainer aktualisiert</p>
+    ${updatedList.length ? `
+      <table style="width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 16px;">
+        <thead style="background:var(--gray);">
+          <tr>
+            <th style="padding:6px 10px; text-align:left;">Name</th>
+            <th style="padding:6px 10px; text-align:left;">Lizenz</th>
+            <th style="padding:6px 10px; text-align:left;">Pauschale</th>
+          </tr>
+        </thead>
+        <tbody>${updatedRows}</tbody>
+      </table>
+    ` : ""}
+    ${skippedList.length ? `
+      <p class="muted"><strong>${skippedList.length}</strong> Zeilen nicht zugeordnet (kein passender Trainer-Datensatz gefunden — diese Personen müssen sich erst einmal selbst über das Trainer-Formular anmelden):</p>
+      <ul style="margin:6px 0 0; padding-left:20px; font-size:13px; color:var(--muted);">${skippedItems}</ul>
+    ` : ""}
   `;
   _renderImportCurrentStatus();
 }
