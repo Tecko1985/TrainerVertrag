@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainervertrag</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.5" />
+<link rel="stylesheet" href="style.css?v=1.6" />
 </head>
 <body>
 
@@ -218,6 +218,9 @@
             </div>
 
             <div class="error-banner" id="admin-detail-error"></div>
+            <p class="muted" id="d-stub-notice" style="display:none; font-size:13px; margin:0 0 16px; padding:10px 12px; background:var(--gray); border-radius:6px;">
+              Dieser Trainer hat sich noch nicht selbst über das Online-Formular angemeldet — die Daten stammen aus dem Text-Import. Fehlende Angaben (IBAN, Adresse, Unterschrift) können hier manuell ergänzt werden oder werden automatisch übernommen, sobald sich die Person selbst anmeldet.
+            </p>
 
             <div class="section-divider">Persönliche Daten</div>
             <div class="form-grid">
@@ -270,6 +273,7 @@
           <p class="muted" style="margin-bottom:16px; line-height:1.5;">
             Füge die Daten direkt ein — eine Zeile pro Trainer, Felder mit <strong>Tab</strong> getrennt.
             Format: <code>Name[Tab]Lizenz[Tab]Pauschale</code>. Zeilen mit „0" als Name werden übersprungen.
+            Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Stammdaten fehlen, bis sich die Person selbst über das Trainer-Formular anmeldet oder ein Admin sie ergänzt).
           </p>
 
           <div class="section-divider">Aktueller Stand</div>
@@ -332,10 +336,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.5"></script>
-<script src="db.js?v=1.5"></script>
-<script src="signature-pad.js?v=1.5"></script>
-<script src="pdf-utils.js?v=1.5"></script>
-<script src="app.js?v=1.5"></script>
+<script src="config.js?v=1.6"></script>
+<script src="db.js?v=1.6"></script>
+<script src="signature-pad.js?v=1.6"></script>
+<script src="pdf-utils.js?v=1.6"></script>
+<script src="app.js?v=1.6"></script>
 </body>
 </html>

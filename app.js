@@ -411,7 +411,7 @@ function _renderAdminListe() {
       <span class="muted">${t.erstelltAm ? _fmtIso(t.erstelltAm) : "—"}</span>
       <span>
         <span class="badge ${t.vertragsGeneriert ? "generiert" : "offen"}">
-          ${t.vertragsGeneriert ? "✓ Vertrag erstellt" : "Ausstehend"}
+          ${t.vertragsGeneriert ? "✓ Vertrag erstellt" : (t.username ? "Ausstehend" : "Unvollständig")}
         </span>
       </span>
       <button class="btn secondary small" data-open="${t.id}" type="button">Öffnen</button>
@@ -440,6 +440,7 @@ function _openAdminDetail(id) {
   document.getElementById("admin-view-detail").style.display = "";
   document.getElementById("admin-detail-title").textContent = `${t.vorname} ${t.nachname}`;
   document.getElementById("admin-detail-error").classList.remove("visible");
+  document.getElementById("d-stub-notice").style.display = t.username ? "none" : "";
 
   document.getElementById("d-vorname").value     = t.vorname     || "";
   document.getElementById("d-nachname").value    = t.nachname    || "";
@@ -712,6 +713,32 @@ function _matchTrainer(fullName) {
   return appData.trainer.find(t => t.nachname.toLowerCase() === lastWord) || null;
 }
 
+// Gleiche Konvention wie der Nachname-Fallback in _matchTrainer: letztes Wort
+// wird zum Nachnamen, der Rest zum Vornamen (bei nur einem Wort bleibt der
+// Vorname leer). Admin kann Fehlgriffe später in der Detailansicht korrigieren.
+function _splitNameForStub(fullName) {
+  const words = fullName.trim().split(/\s+/);
+  if (words.length === 1) return { vorname: "", nachname: words[0] };
+  return { vorname: words.slice(0, -1).join(" "), nachname: words[words.length - 1] };
+}
+
+// Minimaler Trainer-Datensatz für Namen aus dem Import, die keinen bestehenden
+// Trainer treffen — bewusst ohne username/iban/adresse/unterschrift: wird beim
+// Admin-Öffnen als "Unvollständig" markiert und beim ersten echten Self-Submit
+// server-seitig per Namensabgleich ergänzt statt dupliziert (siehe submit-worker.js).
+function _createStubTrainer(fullName) {
+  const { vorname, nachname } = _splitNameForStub(fullName);
+  return {
+    id: crypto.randomUUID(),
+    vorname,
+    nachname,
+    lizenz: "",
+    pauschale: "",
+    erstelltAm: new Date().toISOString(),
+    vertragsGeneriert: false
+  };
+}
+
 function _renderImportCurrentStatus() {
   const wrap = document.getElementById("import-current-wrap");
   if (!wrap) return;
@@ -758,10 +785,8 @@ function _renderTextImportPreview() {
     const match     = _matchTrainer(name);
     const status    = match
       ? `<span class="badge generiert">→ ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
-      : `<span class="badge offen">Nicht gefunden</span>`;
-    const action    = match
-      ? `<button type="button" class="btn success small" data-import-row="${i}">Importieren</button>`
-      : `<button type="button" class="btn secondary small" disabled title="Kein passender Trainer gefunden">Importieren</button>`;
+      : `<span class="badge offen">Neuer Trainer</span>`;
+    const action    = `<button type="button" class="btn success small" data-import-row="${i}">${match ? "Importieren" : "Neu anlegen"}</button>`;
     return `<tr>
       <td style="padding:6px 10px;">${_esc(name)}</td>
       <td style="padding:6px 10px;">${_esc(lizenz)}</td>
@@ -801,8 +826,14 @@ async function _doImportRow(idx, btn) {
   const name      = (cols[0] || "").trim();
   const lizenz    = (cols[1] || "").trim();
   const pauschale = (cols[2] || "").trim();
-  const trainer   = _matchTrainer(name);
-  if (!trainer) return;
+
+  let trainer = _matchTrainer(name);
+  let isNew   = false;
+  if (!trainer) {
+    trainer = _createStubTrainer(name);
+    appData.trainer.push(trainer);
+    isNew = true;
+  }
 
   const statusEl = document.querySelector(`[data-row-status="${idx}"]`);
   btn.disabled = true;
@@ -815,21 +846,24 @@ async function _doImportRow(idx, btn) {
   try {
     await _saveMerged();
   } catch (err) {
+    if (isNew) appData.trainer.splice(tIdx, 1); // Stub bei Fehlschlag nicht im Arbeitsspeicher behalten
     if (statusEl) statusEl.innerHTML = `<span class="badge" style="background:var(--red-light); color:var(--red);">Fehler: ${_esc(err.message)}</span>`;
     btn.disabled = false;
-    btn.textContent = "Importieren";
+    btn.textContent = isNew ? "Neu anlegen" : "Importieren";
     return;
   }
 
-  if (statusEl) statusEl.innerHTML = `<span class="badge generiert">✓ übernommen</span>`;
+  if (statusEl) statusEl.innerHTML = `<span class="badge generiert">✓ ${isNew ? "neu angelegt" : "übernommen"}</span>`;
   btn.disabled = false;
-  btn.textContent = "Erneut importieren";
+  btn.textContent = isNew ? "Erneut speichern" : "Erneut importieren";
   _renderImportCurrentStatus();
+  _renderAdminListe();
 }
 
 async function _doImport() {
   const updatedList = [];
-  const skippedList = [];
+  const createdList = [];
+  const newStubs = []; // zum Rollback, falls _saveMerged() fehlschlägt
 
   for (const cols of _importRows) {
     const name      = (cols[0] || "").trim();
@@ -838,17 +872,25 @@ async function _doImport() {
 
     if (!name || name === "0") continue;
 
-    const trainer = _matchTrainer(name);
-    if (!trainer) { skippedList.push(name); continue; }
+    let trainer = _matchTrainer(name);
+    let isNew   = false;
+    if (!trainer) {
+      trainer = _createStubTrainer(name);
+      appData.trainer.push(trainer);
+      newStubs.push(trainer);
+      isNew = true;
+    }
 
     const idx = appData.trainer.indexOf(trainer);
     if (lizenz && lizenz !== "0") appData.trainer[idx].lizenz = lizenz;
     if (pauschale !== "") appData.trainer[idx].pauschale = pauschale;
-    updatedList.push({
-      name: trainer.vorname + " " + trainer.nachname,
+
+    const entry = {
+      name: (trainer.vorname + " " + trainer.nachname).trim(),
       lizenz: appData.trainer[idx].lizenz || "",
       pauschale: appData.trainer[idx].pauschale || ""
-    });
+    };
+    (isNew ? createdList : updatedList).push(entry);
   }
 
   const btn = document.getElementById("btn-import-start");
@@ -857,6 +899,10 @@ async function _doImport() {
   try {
     await _saveMerged();
   } catch (err) {
+    newStubs.forEach(s => {
+      const i = appData.trainer.indexOf(s);
+      if (i !== -1) appData.trainer.splice(i, 1);
+    });
     document.getElementById("import-error").textContent = "Speicherfehler: " + err.message;
     document.getElementById("import-error").classList.add("visible");
     btn.disabled = false;
@@ -869,35 +915,32 @@ async function _doImport() {
   document.getElementById("import-step-2").style.display = "none";
   document.getElementById("import-step-3").style.display = "";
 
-  const updatedRows = updatedList.map(u => `<tr>
-    <td style="padding:6px 10px;">${_esc(u.name)}</td>
-    <td style="padding:6px 10px;">${_esc(u.lizenz)}</td>
-    <td style="padding:6px 10px;">${_esc(u.pauschale)}</td>
-  </tr>`).join("");
-
-  const skippedItems = skippedList.map(name => `<li>${_esc(name)}</li>`).join("");
+  const asTable = list => list.length ? `
+    <table style="width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 16px;">
+      <thead style="background:var(--gray);">
+        <tr>
+          <th style="padding:6px 10px; text-align:left;">Name</th>
+          <th style="padding:6px 10px; text-align:left;">Lizenz</th>
+          <th style="padding:6px 10px; text-align:left;">Pauschale</th>
+        </tr>
+      </thead>
+      <tbody>${list.map(u => `<tr>
+        <td style="padding:6px 10px;">${_esc(u.name)}</td>
+        <td style="padding:6px 10px;">${_esc(u.lizenz)}</td>
+        <td style="padding:6px 10px;">${_esc(u.pauschale)}</td>
+      </tr>`).join("")}</tbody>
+    </table>
+  ` : "";
 
   document.getElementById("import-result").innerHTML = `
     <p style="color:var(--green); font-weight:700; font-size:15px; margin-bottom:8px;">
       Import abgeschlossen
     </p>
-    <p class="muted"><strong>${updatedList.length}</strong> Trainer aktualisiert</p>
-    ${updatedList.length ? `
-      <table style="width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 16px;">
-        <thead style="background:var(--gray);">
-          <tr>
-            <th style="padding:6px 10px; text-align:left;">Name</th>
-            <th style="padding:6px 10px; text-align:left;">Lizenz</th>
-            <th style="padding:6px 10px; text-align:left;">Pauschale</th>
-          </tr>
-        </thead>
-        <tbody>${updatedRows}</tbody>
-      </table>
-    ` : ""}
-    ${skippedList.length ? `
-      <p class="muted"><strong>${skippedList.length}</strong> Zeilen nicht zugeordnet (kein passender Trainer-Datensatz gefunden — diese Personen müssen sich erst einmal selbst über das Trainer-Formular anmelden):</p>
-      <ul style="margin:6px 0 0; padding-left:20px; font-size:13px; color:var(--muted);">${skippedItems}</ul>
-    ` : ""}
+    <p class="muted"><strong>${updatedList.length}</strong> bestehende Trainer aktualisiert</p>
+    ${asTable(updatedList)}
+    ${createdList.length ? `<p class="muted"><strong>${createdList.length}</strong> neue, unvollständige Trainer angelegt — Stammdaten (IBAN, Adresse, Unterschrift) fehlen noch, bis sich die Person selbst über das Trainer-Formular anmeldet oder ein Admin sie manuell ergänzt:</p>` : ""}
+    ${asTable(createdList)}
   `;
   _renderImportCurrentStatus();
+  _renderAdminListe();
 }

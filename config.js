@@ -1,4 +1,4 @@
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -32,6 +32,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.6",
+    groups: [
+      {
+        title: "Import",
+        items: [
+          "Namen ohne bestehenden Trainer werden jetzt als neuer, unvollständiger Eintrag angelegt (Lizenz/Pauschale, Stammdaten fehlen noch), statt beim Import stillschweigend übersprungen zu werden. Solche Einträge sind in der Trainer-Liste als „Unvollständig“ markiert und werden automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet."
+        ]
+      }
+    ]
+  },
   {
     version: "1.5",
     groups: [

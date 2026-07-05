@@ -28,6 +28,14 @@
 //     den Datensatz des eingeloggten Kontos (Nutzername kommt server-verifiziert,
 //     nicht vom Client) -> { success:true, id }
 //   { action: "my-submission" }                    -> { data: eigenerDatensatzOderNull }
+//
+// SEIT 1.6 (Import): Der Admin-Text-Import kann für Namen ohne Konto-Treffer einen
+// unvollständigen Stub-Datensatz anlegen (nur vorname/nachname/lizenz/pauschale,
+// KEIN username-Feld). Meldet sich diese Person später selbst an, findet
+// handleSubmit() unten keinen Treffer per username, sucht darum zusätzlich per
+// exaktem Namensabgleich unter den username-losen Stubs und ergänzt den
+// gefundenen Datensatz (Lizenz/Pauschale bleiben erhalten) statt einen zweiten
+// anzulegen. Kein Treffer -> normales Neuanlegen wie zuvor.
 
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
@@ -194,7 +202,19 @@ async function handleSubmit(body, session, env, corsHeaders) {
   // Upsert per verifiziertem Nutzernamen (nicht per client-gemeldeter id) — pro
   // Konto gibt es damit immer genau einen Datensatz, ein erneutes Absenden
   // aktualisiert ihn statt einen zweiten anzulegen.
-  const existingIdx = appData.trainer.findIndex(t => t.username === session.username);
+  let existingIdx = appData.trainer.findIndex(t => t.username === session.username);
+
+  // Kein Konto-Treffer? Dann nach einem unvollständigen Stub-Datensatz aus dem
+  // Admin-Text-Import suchen (kein username gesetzt) — exakter Namensabgleich,
+  // bewusst ohne den fuzzy Nachname-Fallback aus dem Client-Import, um nicht
+  // versehentlich in den Datensatz einer anderen Person zu schreiben. Treffer
+  // wird ergänzt (behält Lizenz/Pauschale aus dem Import) statt dupliziert.
+  if (existingIdx === -1) {
+    const nl = (fields.vorname + " " + fields.nachname).toLowerCase();
+    existingIdx = appData.trainer.findIndex(t =>
+      !t.username && `${t.vorname || ""} ${t.nachname || ""}`.toLowerCase() === nl
+    );
+  }
 
   let resultId;
   if (existingIdx !== -1) {
