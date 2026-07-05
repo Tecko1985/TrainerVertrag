@@ -79,6 +79,9 @@ function _showTrainerFormScreen() {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
+  // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
+  // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
+  trainerSigPad.resize();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────

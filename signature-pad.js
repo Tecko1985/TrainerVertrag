@@ -81,6 +81,13 @@ function createSignaturePad(canvas, onChange) {
   canvas.addEventListener("pointerleave", (e) => { if (drawing) end(e); });
 
   window.addEventListener("resize", resize);
+  // Canvas kann beim Erzeugen noch in einem display:none-Screen stecken
+  // (getBoundingClientRect() liefert dann 0x0, resize() bricht ab und das
+  // Canvas bleibt auf der HTML-Default-Auflösung 300x150 hängen, während es
+  // per CSS z.B. auf 100% Breite gestreckt wird -> Maus-/Stiftposition und
+  // gezeichnete Tinte laufen auseinander). ResizeObserver feuert auch beim
+  // Sichtbarwerden (display:none -> "") und sizt dann korrekt nach.
+  new ResizeObserver(resize).observe(canvas);
   resize();
 
   return {
