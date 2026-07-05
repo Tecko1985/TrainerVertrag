@@ -23,17 +23,23 @@ body {
   min-height: 100vh;
 }
 
-.dashboard-bar { padding: 10px 16px 0; }
 .back-to-dashboard {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 14px;
-  font-weight: 500;
-  color: var(--blue);
+  font-weight: 600;
+  color: white;
   text-decoration: none;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: background 0.15s ease;
 }
-.back-to-dashboard:hover { text-decoration: underline; }
+.back-to-dashboard:hover { background: rgba(255, 255, 255, 0.28); text-decoration: none; }
 
 header {
   background: var(--blue);
@@ -41,13 +47,13 @@ header {
   padding: 16px 28px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   flex-wrap: wrap;
 }
-header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex: 1 1 200px; }
+.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; flex: 1 1 200px; justify-content: flex-end; }
 .header-logo { height: 44px; width: auto; display: block; }
 .file-status { font-size: 13px; opacity: 0.9; display: flex; align-items: center; gap: 8px; }
 .file-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #ffb84d; }
