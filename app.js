@@ -340,6 +340,7 @@ function _onAdminConnected() {
   const filename = davConfig.url.split("/").pop();
   document.getElementById("settings-file-name").textContent = filename;
   _renderAdminListe();
+  _renderImportCurrentStatus();
 }
 
 function _updateFileStatus(connected) {
@@ -358,6 +359,7 @@ function _initAdminPanel() {
       btn.classList.add("active");
       document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
       document.getElementById("tab-" + activeAdminTab).classList.add("active");
+      if (activeAdminTab === "import") _renderImportCurrentStatus();
     });
   });
 
@@ -708,6 +710,44 @@ function _matchTrainer(fullName) {
   return appData.trainer.find(t => t.nachname.toLowerCase() === lastWord) || null;
 }
 
+function _renderImportCurrentStatus() {
+  const wrap = document.getElementById("import-current-wrap");
+  if (!wrap) return;
+
+  if (!appData.trainer.length) {
+    wrap.innerHTML = `<p class="muted" style="font-size:12px;">Noch keine Trainer vorhanden.</p>`;
+    return;
+  }
+
+  const sorted = [...appData.trainer].sort((a, b) =>
+    (a.nachname + a.vorname).localeCompare(b.nachname + b.vorname, "de")
+  );
+
+  const rows = sorted.map(t => {
+    const lizenz    = (t.lizenz    || "").trim();
+    const pauschale = (t.pauschale || "").trim();
+    return `<tr>
+      <td style="padding:6px 10px;">${_esc(t.vorname)} ${_esc(t.nachname)}</td>
+      <td style="padding:6px 10px;">${lizenz    ? _esc(lizenz)    : `<span class="badge offen">fehlt</span>`}</td>
+      <td style="padding:6px 10px;">${pauschale ? _esc(pauschale) : `<span class="badge offen">fehlt</span>`}</td>
+    </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <p class="muted" style="font-size:12px; margin-bottom:8px;">${sorted.length} Trainer</p>
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead style="background:var(--gray);">
+        <tr>
+          <th style="padding:6px 10px; text-align:left;">Name</th>
+          <th style="padding:6px 10px; text-align:left;">Lizenz</th>
+          <th style="padding:6px 10px; text-align:left;">Pauschale</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
 function _renderTextImportPreview() {
   const rows = _importRows.map((cols, i) => {
     const name      = (cols[0] || "").trim();
@@ -782,6 +822,7 @@ async function _doImportRow(idx, btn) {
   if (statusEl) statusEl.innerHTML = `<span class="badge generiert">✓ übernommen</span>`;
   btn.disabled = false;
   btn.textContent = "Erneut importieren";
+  _renderImportCurrentStatus();
 }
 
 async function _doImport() {
@@ -827,4 +868,5 @@ async function _doImport() {
     <p class="muted"><strong>${updated}</strong> Trainer aktualisiert</p>
     ${skipped ? `<p class="muted"><strong>${skipped}</strong> Zeilen nicht zugeordnet (Name nicht gefunden)</p>` : ""}
   `;
+  _renderImportCurrentStatus();
 }

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -32,6 +32,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.4",
+    groups: [
+      {
+        title: "Import",
+        items: [
+          "Neuer Bereich „Aktueller Stand“ im Import-Tab zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz und Pauschale (bzw. „fehlt“, falls noch nicht gepflegt) — aktualisiert sich sofort nach jedem Einzel- oder Sammel-Import."
+        ]
+      }
+    ]
+  },
   {
     version: "1.3",
     groups: [
