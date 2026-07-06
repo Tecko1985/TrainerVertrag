@@ -1,4 +1,4 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =

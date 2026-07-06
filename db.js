@@ -89,6 +89,13 @@ async function fetchMe() {
   return gatewayRequest({ action: "me" });
 }
 
+// Zentrales Trainerprofil (Lizenz + Mannschaften) ALLER Nutzer — für das Vorbefüllen
+// der Lizenz im Admin-Detail (Namensabgleich, siehe _matchTrainer()-Konvention in app.js).
+async function fetchTrainerProfiles() {
+  const body = await gatewayRequest({ action: "list-trainer-profiles" });
+  return Array.isArray(body.profiles) ? body.profiles : [];
+}
+
 // Fragt beim submit-worker die eigene, bereits eingereichte Erfassung ab (falls
 // vorhanden) — der Worker verifiziert den Token serverseitig selbst (Service
 // Binding zum landingpage-Worker), das hier mitgeschickte Token ist nur der

@@ -14,6 +14,7 @@ let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto 
 let currentUsername = null;
 let currentVorname   = null;
 let currentNachname  = null;
+let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -534,6 +535,32 @@ function _openAdminDetail(id) {
     input.parentNode.replaceChild(fresh, input);
     fresh.addEventListener("input", _scheduleAutosave);
   });
+
+  if (!t.lizenz) _prefillLizenzFromProfile(t);
+}
+
+// Vorbefüllung der Lizenz aus dem zentralen Trainerprofil (ToolsUebersicht), per
+// Namensabgleich wie _matchTrainer() — nur wenn das Feld noch leer ist und der Admin
+// inzwischen nicht selbst etwas eingetragen oder einen anderen Trainer geöffnet hat.
+// Best effort: Admin-Modus läuft über eigene WebDAV-Credentials, ein Gateway-Login
+// (tu_session_token) ist hier nicht garantiert vorhanden — Fehler werden verschluckt.
+async function _prefillLizenzFromProfile(t) {
+  if (trainerProfiles === null) {
+    try {
+      trainerProfiles = await fetchTrainerProfiles();
+    } catch (_) {
+      trainerProfiles = [];
+      return;
+    }
+  }
+  if (currentTrainerId !== t.id) return;
+  const fullName = `${t.vorname} ${t.nachname}`.trim().toLowerCase();
+  const matches = trainerProfiles.filter((p) => p.lizenz && `${p.vorname} ${p.nachname}`.trim().toLowerCase() === fullName);
+  if (matches.length !== 1) return;
+  const el = document.getElementById("d-lizenz");
+  if (!el || el.value) return;
+  el.value = matches[0].lizenz;
+  _scheduleAutosave();
 }
 
 function _collectDetailData() {
