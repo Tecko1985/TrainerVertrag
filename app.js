@@ -106,8 +106,6 @@ function _renderChangelog() {
 
   const b2 = document.getElementById("version-badge-2");
   if (b2) b2.textContent = "v" + APP_VERSION;
-  const bNav = document.getElementById("version-badge-nav");
-  if (bNav) bNav.textContent = "v" + APP_VERSION;
 }
 
 // ─── Trainer-Flow ─────────────────────────────────────────────────────────────
