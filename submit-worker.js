@@ -160,10 +160,13 @@ async function handleMySubmission(session, env, corsHeaders) {
 
 async function handleSubmit(body, session, env, corsHeaders) {
   // Pflichtfelder prüfen
-  for (const field of ["vorname", "nachname", "iban"]) {
+  for (const field of ["vorname", "nachname", "iban", "nebentaetigkeit"]) {
     if (!body[field] || !String(body[field]).trim()) {
       return json({ error: `Pflichtfeld fehlt: ${field}` }, 400, corsHeaders);
     }
+  }
+  if (body.nebentaetigkeit === "andere" && !String(body.nebentaetigkeitBetrag || "").trim()) {
+    return json({ error: "Pflichtfeld fehlt: nebentaetigkeitBetrag" }, 400, corsHeaders);
   }
 
   if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
@@ -193,6 +196,10 @@ async function handleSubmit(body, session, env, corsHeaders) {
     iban:         String(body.iban     || "").replace(/\s+/g, "").toUpperCase(),
     bankname:     String(body.bankname || "").trim(),
     bic:          String(body.bic      || "").trim().toUpperCase(),
+    // Anlage 1 (§3 Nr.26 EStG): nur die beiden erlaubten Werte durchlassen
+    nebentaetigkeit: (body.nebentaetigkeit === "keine" || body.nebentaetigkeit === "andere")
+      ? body.nebentaetigkeit : "",
+    nebentaetigkeitBetrag: String(body.nebentaetigkeitBetrag || "").trim(),
     // Nur echte PNG-DataURLs durchlassen
     signatureDataUrl: (typeof body.signatureDataUrl === "string" &&
                        /^data:image\/png;base64,/.test(body.signatureDataUrl))
