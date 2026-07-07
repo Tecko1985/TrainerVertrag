@@ -15,6 +15,7 @@ let currentUsername = null;
 let currentVorname   = null;
 let currentNachname  = null;
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
+let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -435,6 +436,14 @@ function _trainerStatus(t) {
   return t.username ? "ausstehend" : "unvollstaendig";
 }
 
+// "Eingereicht (unterschrieben) am": unterschriftAm wird erst seit 1.5 vom
+// submit-worker gesetzt. Ältere echte Einreichungen haben nur erstelltAm — bei
+// vorhandener Unterschrift ist das ihr Einreichzeitpunkt (Fallback), Import-Stubs
+// (keine Unterschrift) bekommen weiterhin bewusst kein Datum.
+function _eingereichtAm(t) {
+  return t.unterschriftAm || (t.signatureDataUrl ? t.erstelltAm : null);
+}
+
 // Baut die Lizenz-Filteroptionen aus den tatsächlich vorhandenen Werten neu auf
 // (ändert sich mit jedem Import) und erhält dabei die aktuelle Auswahl, falls
 // der Wert noch existiert.
@@ -496,7 +505,7 @@ function _renderAdminListe() {
     return `
     <div class="trainer-row" data-id="${_esc(t.id)}">
       <span class="trainer-name">${_esc(t.nachname)}, ${_esc(t.vorname)}${t.lizenz ? ` <span class="muted" style="font-weight:400;">· ${_esc(t.lizenz)}</span>` : ""}</span>
-      <span class="muted">${t.unterschriftAm ? _fmtIso(t.unterschriftAm) : "—"}</span>
+      <span class="muted">${_eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—"}</span>
       <span>
         <span class="badge ${status === "generiert" ? "generiert" : "offen"}">
           ${statusLabel[status]}
@@ -549,7 +558,7 @@ function _openAdminDetail(id) {
   document.getElementById("d-nebentaetigkeit-andere").checked  = t.nebentaetigkeit === "andere";
   document.getElementById("d-status").value = _trainerStatus(t);
   document.getElementById("d-eingereicht-am").textContent =
-    t.unterschriftAm ? _fmtIso(t.unterschriftAm) : "—";
+    _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—";
 
   // Unterschrift-Vorschau
   const prev = document.getElementById("d-signature-preview");
@@ -587,11 +596,14 @@ function _openAdminDetail(id) {
   _updateNebentaetigkeitBetragVisibility("d");
 
   // Select feuert kein "input"-Event in allen Browsern zuverlässig -> "change".
+  // _statusTouched: erst eine echte Nutzer-Änderung am Dropdown macht den Status
+  // zum gespeicherten Override (siehe _collectDetailData).
+  _statusTouched = false;
   const statusSel = document.getElementById("d-status");
   const statusFresh = statusSel.cloneNode(true);
   statusFresh.value = statusSel.value;
   statusSel.parentNode.replaceChild(statusFresh, statusSel);
-  statusFresh.addEventListener("change", _scheduleAutosave);
+  statusFresh.addEventListener("change", () => { _statusTouched = true; _scheduleAutosave(); });
 
   if (!t.lizenz) _prefillLizenzFromProfile(t);
 }
@@ -621,7 +633,7 @@ async function _prefillLizenzFromProfile(t) {
 }
 
 function _collectDetailData() {
-  return {
+  const data = {
     vorname:      document.getElementById("d-vorname").value.trim(),
     nachname:     document.getElementById("d-nachname").value.trim(),
     geburtsdatum: document.getElementById("d-geburtsdatum").value,
@@ -636,9 +648,15 @@ function _collectDetailData() {
     pauschale:    document.getElementById("d-pauschale").value.trim(),
     lizenz:       document.getElementById("d-lizenz").value.trim(),
     nebentaetigkeit: (document.querySelector('input[name="d-nebentaetigkeit"]:checked') || {}).value || "",
-    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim(),
-    status: document.getElementById("d-status").value
+    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim()
   };
+  // status nur übernehmen, wenn der Admin das Dropdown in dieser Detail-Sitzung
+  // wirklich angefasst hat. Sonst würde jedes Autosave (z.B. Pauschale tippen) den
+  // gerade ANGEZEIGTEN, automatisch abgeleiteten Status als expliziten Override
+  // festschreiben — und damit künftige automatische Übergänge (Stub reicht ein
+  // -> "Ausstehend") dauerhaft maskieren.
+  if (_statusTouched) data.status = document.getElementById("d-status").value;
+  return data;
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────

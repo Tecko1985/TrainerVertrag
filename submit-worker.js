@@ -238,6 +238,11 @@ async function handleSubmit(body, session, env, corsHeaders) {
       username: session.username,
       // Daten haben sich möglicherweise geändert — ein bereits erzeugter Vertrag ist damit veraltet.
       vertragsGeneriert: false,
+      // Ein evtl. manuell gesetzter/eingefrorener Status-Override (Admin-Detail bzw.
+      // "Vertrag generieren") wird bei einer neuen Einreichung zurückgesetzt, sonst
+      // bliebe z.B. "generiert" stehen und der veraltete Vertrag fiele nie auf —
+      // leer = automatische Ableitung greift wieder (Badge "Ausstehend").
+      status: "",
       ...unterschriftPatch
     };
     resultId = appData.trainer[existingIdx].id;

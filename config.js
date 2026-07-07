@@ -1,4 +1,4 @@
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -122,6 +122,19 @@ const APP_CHANGELOG = [
         items: [
           "Das Datum in der Spalte „Eingereicht“ zeigt jetzt den Zeitpunkt der echten Unterschrift — nicht mehr das Anlage-/Erstellungsdatum eines Datensatzes (z. B. aus dem Personalkosten-Import), das fälschlich wie eine Einreichung aussah.",
           "Status im Admin-Detail ist jetzt manuell umstellbar (Unvollständig / Ausstehend / Vertrag erstellt) statt nur automatisch abgeleitet zu werden."
+        ]
+      }
+    ]
+  },
+  {
+    version: "1.6",
+    groups: [
+      {
+        title: "Fehlerbehebungen Status & Eingereicht-Datum",
+        items: [
+          "Der Status wird beim automatischen Speichern nur noch übernommen, wenn das Status-Dropdown wirklich umgestellt wurde — vorher fror jede andere Detail-Änderung den gerade angezeigten Status dauerhaft ein und spätere automatische Übergänge (z. B. „Unvollständig“ → „Ausstehend“ nach echter Einreichung) blieben unsichtbar.",
+          "Reicht ein Trainer seine Daten erneut ein, wird ein manuell gesetzter Status zurückgesetzt und der Eintrag erscheint wieder als „Ausstehend“ — ein bereits generierter Vertrag ist dann veraltet und fiel vorher nicht mehr auf.",
+          "Einreichungen aus der Zeit vor Version 1.5 zeigen ihr Eingereicht-Datum wieder an (Rückgriff auf das Erstelldatum, wenn eine Unterschrift vorliegt)."
         ]
       }
     ]
