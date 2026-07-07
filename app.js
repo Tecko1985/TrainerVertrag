@@ -741,13 +741,98 @@ function _fmtIso(iso) {
   return d.toLocaleDateString("de-DE") + ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
-// ─── Text-Import ──────────────────────────────────────────────────────────────
-// Format: eine Zeile pro Trainer, Tab-getrennt: Name[Tab]Lizenz[Tab]Pauschale
+// ─── Import: Vorschau, Übernahme, Aktueller Stand ──────────────────────────────
+// _importRows ist ein Array von [name, lizenz, pauschale]-Tripeln. Wird seit
+// 1.2 ausschließlich von _loadFromPersonalkosten() befüllt (siehe unten);
+// Matching/Stub-Erzeugung/Vorschau/Übernahme darunter sind quellen-agnostisch.
 
 let _importRows = [];
 
+// ─── Personalkosten-Sync ──────────────────────────────────────────────────────
+// Liest Lizenz + monatliche Pauschale read-only aus der Personalkosten-App
+// (gleiche Nextcloud-Freigabe/Account, siehe PERSONALKOSTEN_WEBDAV_URL in
+// config.js) und speist sie in die bestehende Vorschau/Übernahme unten ein.
+// Personalkosten ist damit die einzige Pflegestelle für diese Werte, kein
+// manuelles Einfügen mehr.
+
+function _cloneConfigForUrl(url) {
+  return { ...davConfig, url };
+}
+
+// Repliziert betragOf/trainerAe100/trainerAeIst aus E:\Personalkosten\app.js
+// (Stand 2026-07-07). Kein gemeinsames JS-Modul zwischen den beiden Build-
+// step-losen Apps — bei einer künftigen Formeländerung dort muss dieser Block
+// manuell nachgezogen werden (gleiche Duplizierungs-Konvention wie _matchTrainer()).
+function _betragOf(list, label) {
+  if (!label) return 0;
+  const hit = (list || []).find(x => x.label === label);
+  return hit ? (Number(hit.betrag) || 0) : 0;
+}
+function _trainerAe100(t, parameter) {
+  return _betragOf(parameter.positionen, t.position)
+    + _betragOf(parameter.lizenzen, t.lizenz)
+    + _betragOf(parameter.landesebene, t.landesebene)
+    + _betragOf(parameter.jahrgangsleiter, t.jahrgangsleiter);
+}
+function _trainerAeIst(t, parameter) {
+  // manuellAE: 0 ist ein gültiger Override (siehe Personalkosten) - deshalb
+  // explizit auf null/"" prüfen statt auf Truthy.
+  if (t.manuellAE != null && t.manuellAE !== "") return Number(t.manuellAE) || 0;
+  return _trainerAe100(t, parameter) * (Number(t.stelle) || 0);
+}
+
+// Gibt die Pauschale im selben Rohformat zurück, das der bisherige manuelle
+// Text-Import lieferte: einfache Zahl als String, Komma als Dezimaltrennzeichen
+// nur bei Nachkommastellen, kein Euro-Zeichen - wird unverändert in den
+// {{PAUSCHALE}}-Platzhalter im Word-Vertrag gespliced (siehe pdf-utils.js).
+function _fmtPauschale(n) {
+  return (Number(n) || 0).toLocaleString("de-DE", { maximumFractionDigits: 2 });
+}
+
+async function _loadFromPersonalkosten() {
+  const errEl = document.getElementById("import-error");
+  errEl.classList.remove("visible");
+  const btn = document.getElementById("btn-import-load-pk");
+  btn.disabled = true;
+  btn.textContent = "Lade …";
+
+  try {
+    const raw = await davReadFile(_cloneConfigForUrl(PERSONALKOSTEN_WEBDAV_URL));
+    if (!raw || !raw.meta || !raw.seasons) {
+      throw new Error("Personalkosten-Datei leer oder unerwartetes Format.");
+    }
+    const season = raw.seasons[raw.meta.currentSeason];
+    if (!season || !Array.isArray(season.trainer)) {
+      throw new Error(`Saison „${raw.meta.currentSeason}" nicht in Personalkosten gefunden.`);
+    }
+    const parameter = raw.parameter || {};
+
+    _importRows = season.trainer
+      .map(t => [
+        (t.name || "").trim(),
+        (t.lizenz || "").trim(),
+        _fmtPauschale(_trainerAeIst(t, parameter))
+      ])
+      .filter(cols => cols[0] && cols[0] !== "0");
+
+    if (!_importRows.length) {
+      throw new Error("Keine Trainer in Personalkosten gefunden.");
+    }
+
+    _renderTextImportPreview();
+    document.getElementById("import-step-1").style.display = "none";
+    document.getElementById("import-step-2").style.display = "";
+  } catch (err) {
+    errEl.textContent = "Fehler beim Laden von Personalkosten: " + err.message;
+    errEl.classList.add("visible");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Von Personalkosten laden";
+  }
+}
+
 function _initImport() {
-  document.getElementById("btn-import-parse").addEventListener("click", _handleTextImport);
+  document.getElementById("btn-import-load-pk").addEventListener("click", _loadFromPersonalkosten);
   document.getElementById("btn-import-start").addEventListener("click", _doImport);
   document.getElementById("btn-import-reset").addEventListener("click", _resetImport);
   document.getElementById("btn-import-nochmal").addEventListener("click", _resetImport);
@@ -755,34 +840,11 @@ function _initImport() {
 
 function _resetImport() {
   _importRows = [];
-  document.getElementById("import-text-input").value = "";
   document.getElementById("import-step-1").style.display = "";
   document.getElementById("import-step-2").style.display = "none";
   document.getElementById("import-step-3").style.display = "none";
   document.getElementById("import-error").classList.remove("visible");
   document.getElementById("import-preview-wrap").innerHTML = "";
-}
-
-function _handleTextImport() {
-  const raw = document.getElementById("import-text-input").value;
-  _importRows = raw
-    .split(/\r?\n/)
-    .map(line => line.split("\t"))
-    .filter(cols => {
-      const name = (cols[0] || "").trim();
-      return name && name !== "0";
-    });
-
-  if (!_importRows.length) {
-    document.getElementById("import-error").textContent = "Keine gültigen Zeilen gefunden.";
-    document.getElementById("import-error").classList.add("visible");
-    return;
-  }
-
-  _renderTextImportPreview();
-  document.getElementById("import-step-1").style.display = "none";
-  document.getElementById("import-step-2").style.display = "";
-  document.getElementById("import-error").classList.remove("visible");
 }
 
 function _matchTrainer(fullName) {

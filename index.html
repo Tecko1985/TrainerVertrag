@@ -238,7 +238,7 @@
 
             <div class="error-banner" id="admin-detail-error"></div>
             <p class="muted" id="d-stub-notice" style="display:none; font-size:13px; margin:0 0 16px; padding:10px 12px; background:var(--gray); border-radius:6px;">
-              Dieser Trainer hat sich noch nicht selbst über das Online-Formular angemeldet — die Daten stammen aus dem Text-Import. Fehlende Angaben (IBAN, Adresse, Unterschrift) können hier manuell ergänzt werden oder werden automatisch übernommen, sobald sich die Person selbst anmeldet.
+              Dieser Trainer hat sich noch nicht selbst über das Online-Formular angemeldet — die Daten stammen aus dem Personalkosten-Import. Fehlende Angaben (IBAN, Adresse, Unterschrift) können hier manuell ergänzt werden oder werden automatisch übernommen, sobald sich die Person selbst anmeldet.
             </p>
 
             <div class="section-divider">Persönliche Daten</div>
@@ -288,10 +288,9 @@
       <!-- Tab: Import -->
       <section class="tab-section" id="tab-import">
         <div class="card">
-          <h2>Pauschalen &amp; Lizenzen importieren</h2>
+          <h2>Pauschalen &amp; Lizenzen aus Personalkosten</h2>
           <p class="muted" style="margin-bottom:16px; line-height:1.5;">
-            Füge die Daten direkt ein — eine Zeile pro Trainer, Felder mit <strong>Tab</strong> getrennt.
-            Format: <code>Name[Tab]Lizenz[Tab]Pauschale</code>. Zeilen mit „0" als Name werden übersprungen.
+            Lädt Lizenz und monatliche Pauschale aus Personalkosten (Bereich „Trainer", aktuelle Saison) und ordnet sie per Namensabgleich den Trainern hier zu.
             Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Stammdaten fehlen, bis sich die Person selbst über das Trainer-Formular anmeldet oder ein Admin sie ergänzt).
           </p>
 
@@ -300,15 +299,10 @@
 
           <div class="error-banner" id="import-error"></div>
 
-          <!-- Schritt 1: Text einfügen -->
+          <!-- Schritt 1: Von Personalkosten laden -->
           <div id="import-step-1">
-            <textarea id="import-text-input"
-              placeholder="Martin Heinevetter&#9;ohne Lizenz&#9;40&#10;Andreas Eib&#9;C&#9;100"
-              rows="10"
-              style="width:100%; box-sizing:border-box; font-family:monospace; font-size:13px; padding:10px; border:1px solid var(--border); border-radius:6px; resize:vertical;"
-              spellcheck="false"></textarea>
             <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
-              <button type="button" class="btn" id="btn-import-parse">Vorschau anzeigen</button>
+              <button type="button" class="btn" id="btn-import-load-pk">Von Personalkosten laden</button>
             </div>
           </div>
 
@@ -355,10 +349,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.1"></script>
-<script src="db.js?v=1.1"></script>
+<script src="config.js?v=1.2"></script>
+<script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.1"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

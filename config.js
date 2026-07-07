@@ -1,4 +1,4 @@
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -6,6 +6,16 @@ const WEBDAV_DEFAULT_URL =
   "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/TrainerVertrag/trainervertrag.json";
 const WEBDAV_DEFAULT_USERNAME = "admin";
 const CORS_PROXY_DEFAULT_URL = "https://trainervertrag.michel-brunner.workers.dev";
+
+// Read-only-Quelle für den Lizenz/Pauschale-Sync im Import-Tab: gleiche
+// Nextcloud-Freigabe/Account wie oben, daher mit denselben Admin-WebDAV-
+// Credentials + demselben CORS-Proxy lesbar (siehe cors-proxy-worker.js,
+// prüft nur das Freigabe-Präfix, nicht den Dateinamen). Kanonischer Pfad
+// steht in DAV_APPS["personalkosten"] in E:\ToolsUebersicht\admin-worker.js —
+// dort nachsehen, falls die Datei mal verschoben wird.
+const PERSONALKOSTEN_WEBDAV_URL =
+  "https://nx88695.your-storageshare.de/remote.php/dav/files/admin/" +
+  "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Personalkosten/personalkosten.json";
 
 // Trainer-Einreichung (Login über das ToolsUebersicht-Konto): POST an diesen
 // Cloudflare-Worker-Endpunkt. Der Worker hält die Nextcloud-Zugangsdaten als
@@ -76,6 +86,18 @@ const APP_CHANGELOG = [
         items: [
           "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht).",
           "Verarbeitet dabei nur Trainer mit Status „Ausstehend“ — unvollständige (Stub ohne Anmeldung) und bereits generierte Verträge werden automatisch übersprungen."
+        ]
+      }
+    ]
+  },
+  {
+    version: "1.2",
+    groups: [
+      {
+        title: "Datenimport",
+        items: [
+          "Import-Tab lädt Lizenz und monatliche Pauschale jetzt direkt aus Personalkosten (Bereich „Trainer“, aktuelle Saison) statt sie manuell einzufügen — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
+          "Namensabgleich, Vorschau mit Einzel-/Sammel-Übernahme und „Aktueller Stand“ funktionieren unverändert wie beim bisherigen Text-Import."
         ]
       }
     ]

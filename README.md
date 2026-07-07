@@ -30,9 +30,9 @@ Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung vo
 - Einträge löschen (mit Sicherheitsabfrage)
 
 ### Import
-Pauschalen und Lizenzen per Text-Import aktualisieren:
-1. Daten im Format `Name[Tab]Lizenz[Tab]Pauschale` einfügen (z. B. direkt aus Excel kopiert)
-2. Vorschau zeigt alle eingefügten Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button
+Pauschalen und Lizenzen aus Personalkosten übernehmen (seit 1.2 — vorher manueller Text-Import):
+1. „Von Personalkosten laden“ holt alle Trainer der aktuellen Saison aus der Personalkosten-App (Namensabgleich)
+2. Vorschau zeigt alle geladenen Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button
 3. Import starten — schreibt `lizenz` und `pauschale` in die Trainer-Datensätze; Ergebnis listet aktualisierte Trainer und nicht zugeordnete Namen einzeln auf
 4. Namen ohne bestehenden Trainer werden als unvollständiger Eintrag angelegt (Status „Unvollständig“) und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet
 5. Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz/Pauschale, aktualisiert sich nach jedem Import
