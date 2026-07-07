@@ -310,9 +310,20 @@
             <div id="d-signature-preview" style="margin-bottom:6px;"></div>
             <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
 
-            <div style="margin-top:8px;">
-              <span class="muted" style="font-size:12px;">Eingereicht am: </span>
-              <span class="muted" style="font-size:12px;" id="d-erstellt-am">—</span>
+            <div class="section-divider">Status</div>
+            <div class="form-grid">
+              <div class="form-field" style="max-width:220px;">
+                <label>Status</label>
+                <select id="d-status">
+                  <option value="unvollstaendig">Unvollständig</option>
+                  <option value="ausstehend">Ausstehend</option>
+                  <option value="generiert">Vertrag erstellt</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:4px;">
+              <span class="muted" style="font-size:12px;">Eingereicht (unterschrieben) am: </span>
+              <span class="muted" style="font-size:12px;" id="d-eingereicht-am">—</span>
             </div>
           </div>
         </div>
@@ -383,10 +394,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.4"></script>
+<script src="config.js?v=1.5"></script>
 <script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.4"></script>
-<script src="app.js?v=1.4"></script>
+<script src="app.js?v=1.5"></script>
 </body>
 </html>

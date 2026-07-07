@@ -1,4 +1,4 @@
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -110,6 +110,18 @@ const APP_CHANGELOG = [
         items: [
           "Trainer-Formular und Admin-Detail fragen jetzt die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG ab (keine anderen Einnahmen aus nebenberuflicher Tätigkeit bzw. andere Einnahmen in bestimmter Höhe) — bislang musste dieser Teil des Vertrags (Anlage 1) von Hand angekreuzt werden.",
           "Der generierte Word-Vertrag setzt die passende Ankreuz-Box automatisch und trägt bei „andere Einnahmen“ den angegebenen Betrag ein — sowohl beim Einzel-Download als auch beim lokalen Stapel-Export (generate-pdfs.ps1)."
+        ]
+      }
+    ]
+  },
+  {
+    version: "1.5",
+    groups: [
+      {
+        title: "Admin-Liste",
+        items: [
+          "Das Datum in der Spalte „Eingereicht“ zeigt jetzt den Zeitpunkt der echten Unterschrift — nicht mehr das Anlage-/Erstellungsdatum eines Datensatzes (z. B. aus dem Personalkosten-Import), das fälschlich wie eine Einreichung aussah.",
+          "Status im Admin-Detail ist jetzt manuell umstellbar (Unvollständig / Ausstehend / Vertrag erstellt) statt nur automatisch abgeleitet zu werden."
         ]
       }
     ]

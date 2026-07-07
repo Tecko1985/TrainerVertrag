@@ -223,6 +223,13 @@ async function handleSubmit(body, session, env, corsHeaders) {
     );
   }
 
+  // "Eingereicht" (admin-seitig angezeigtes Datum) heißt: es liegt eine echte
+  // Unterschrift vor — nicht bloß "Datensatz existiert" oder "wurde bearbeitet".
+  // Ein Import-Stub oder ein Submit ohne Signatur bekommt daher kein Datum;
+  // eine bereits vorhandene Signaturzeit wird bei leerer Signatur nicht gelöscht.
+  const nowIso = new Date().toISOString();
+  const unterschriftPatch = fields.signatureDataUrl ? { unterschriftAm: nowIso } : {};
+
   let resultId;
   if (existingIdx !== -1) {
     appData.trainer[existingIdx] = {
@@ -230,7 +237,8 @@ async function handleSubmit(body, session, env, corsHeaders) {
       ...fields,
       username: session.username,
       // Daten haben sich möglicherweise geändert — ein bereits erzeugter Vertrag ist damit veraltet.
-      vertragsGeneriert: false
+      vertragsGeneriert: false,
+      ...unterschriftPatch
     };
     resultId = appData.trainer[existingIdx].id;
   } else {
@@ -238,8 +246,9 @@ async function handleSubmit(body, session, env, corsHeaders) {
       id: crypto.randomUUID(),
       username: session.username,
       ...fields,
-      erstelltAm: new Date().toISOString(),
-      vertragsGeneriert: false
+      erstelltAm: nowIso,
+      vertragsGeneriert: false,
+      ...unterschriftPatch
     };
     appData.trainer.push(newEntry);
     resultId = newEntry.id;

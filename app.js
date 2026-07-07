@@ -428,6 +428,9 @@ function _showAdminListe() {
 }
 
 function _trainerStatus(t) {
+  // Admin kann den Status im Detail manuell überschreiben (Select "d-status").
+  // Ohne expliziten Wert bleibt es bei der bisherigen automatischen Ableitung.
+  if (t.status) return t.status;
   if (t.vertragsGeneriert) return "generiert";
   return t.username ? "ausstehend" : "unvollstaendig";
 }
@@ -493,7 +496,7 @@ function _renderAdminListe() {
     return `
     <div class="trainer-row" data-id="${_esc(t.id)}">
       <span class="trainer-name">${_esc(t.nachname)}, ${_esc(t.vorname)}${t.lizenz ? ` <span class="muted" style="font-weight:400;">· ${_esc(t.lizenz)}</span>` : ""}</span>
-      <span class="muted">${t.erstelltAm ? _fmtIso(t.erstelltAm) : "—"}</span>
+      <span class="muted">${t.unterschriftAm ? _fmtIso(t.unterschriftAm) : "—"}</span>
       <span>
         <span class="badge ${status === "generiert" ? "generiert" : "offen"}">
           ${statusLabel[status]}
@@ -544,8 +547,9 @@ function _openAdminDetail(id) {
   document.getElementById("d-nebentaetigkeit-betrag").value    = t.nebentaetigkeitBetrag || "";
   document.getElementById("d-nebentaetigkeit-keine").checked   = t.nebentaetigkeit === "keine";
   document.getElementById("d-nebentaetigkeit-andere").checked  = t.nebentaetigkeit === "andere";
-  document.getElementById("d-erstellt-am").textContent =
-    t.erstelltAm ? _fmtIso(t.erstelltAm) : "—";
+  document.getElementById("d-status").value = _trainerStatus(t);
+  document.getElementById("d-eingereicht-am").textContent =
+    t.unterschriftAm ? _fmtIso(t.unterschriftAm) : "—";
 
   // Unterschrift-Vorschau
   const prev = document.getElementById("d-signature-preview");
@@ -581,6 +585,13 @@ function _openAdminDetail(id) {
     });
   });
   _updateNebentaetigkeitBetragVisibility("d");
+
+  // Select feuert kein "input"-Event in allen Browsern zuverlässig -> "change".
+  const statusSel = document.getElementById("d-status");
+  const statusFresh = statusSel.cloneNode(true);
+  statusFresh.value = statusSel.value;
+  statusSel.parentNode.replaceChild(statusFresh, statusSel);
+  statusFresh.addEventListener("change", _scheduleAutosave);
 
   if (!t.lizenz) _prefillLizenzFromProfile(t);
 }
@@ -625,7 +636,8 @@ function _collectDetailData() {
     pauschale:    document.getElementById("d-pauschale").value.trim(),
     lizenz:       document.getElementById("d-lizenz").value.trim(),
     nebentaetigkeit: (document.querySelector('input[name="d-nebentaetigkeit"]:checked') || {}).value || "",
-    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim()
+    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim(),
+    status: document.getElementById("d-status").value
   };
 }
 
@@ -716,7 +728,13 @@ async function _generatePdf() {
 
     // Status auf "generiert" setzen und speichern
     appData.trainer[idx].vertragsGeneriert = true;
+    appData.trainer[idx].status = "generiert";
     await _saveMerged();
+
+    // Select in der Detailansicht nachziehen, sonst zeigt es bis zum nächsten
+    // Öffnen noch den alten Stand (Autosave würde ihn sonst zurückschreiben).
+    const statusSel = document.getElementById("d-status");
+    if (statusSel) statusSel.value = "generiert";
 
     // Badge in Detailansicht aktualisieren
     document.getElementById("admin-detail-title").textContent =
