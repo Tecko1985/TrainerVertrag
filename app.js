@@ -122,6 +122,10 @@ function _initTrainerForm() {
 
   document.getElementById("btn-trainer-edit").addEventListener("click", _startEditTrainer);
 
+  document.querySelectorAll('input[name="tf-nebentaetigkeit"]').forEach(r => {
+    r.addEventListener("change", () => _updateNebentaetigkeitBetragVisibility("tf"));
+  });
+
   // IBAN auto-formatieren (Leerzeichen alle 4 Stellen)
   const ibanInput = document.getElementById("tf-iban");
   ibanInput.addEventListener("input", () => {
@@ -150,6 +154,16 @@ async function _handleTrainerSubmit(e) {
     return _setTrainerError("Die IBAN scheint ungültig zu sein. Bitte prüfen.");
   }
 
+  const nebentaetigkeitEl = document.querySelector('input[name="tf-nebentaetigkeit"]:checked');
+  if (!nebentaetigkeitEl) {
+    return _setTrainerError("Bitte die Erklärung zur Nebentätigkeit (§ 3 Nr. 26 EStG) auswählen.");
+  }
+  const nebentaetigkeit = nebentaetigkeitEl.value;
+  const nebentaetigkeitBetrag = document.getElementById("tf-nebentaetigkeit-betrag").value.trim();
+  if (nebentaetigkeit === "andere" && !nebentaetigkeitBetrag) {
+    return _setTrainerError("Bitte die Höhe der anderen Einnahmen angeben.");
+  }
+
   const payload = {
     vorname,
     nachname,
@@ -162,6 +176,8 @@ async function _handleTrainerSubmit(e) {
     iban,
     bankname:     document.getElementById("tf-bankname").value.trim(),
     bic:          document.getElementById("tf-bic").value.trim().toUpperCase(),
+    nebentaetigkeit,
+    nebentaetigkeitBetrag: nebentaetigkeit === "andere" ? nebentaetigkeitBetrag : "",
     signatureDataUrl: trainerSigPad.toDataURL()
   };
 
@@ -218,10 +234,21 @@ function _startEditTrainer() {
   document.getElementById("tf-iban").value         = myTrainerRecord.iban ? myTrainerRecord.iban.replace(/(.{4})/g, "$1 ").trim() : "";
   document.getElementById("tf-bankname").value     = myTrainerRecord.bankname || "";
   document.getElementById("tf-bic").value          = myTrainerRecord.bic || "";
+  document.getElementById("tf-nebentaetigkeit-keine").checked  = myTrainerRecord.nebentaetigkeit === "keine";
+  document.getElementById("tf-nebentaetigkeit-andere").checked = myTrainerRecord.nebentaetigkeit === "andere";
+  document.getElementById("tf-nebentaetigkeit-betrag").value   = myTrainerRecord.nebentaetigkeitBetrag || "";
+  _updateNebentaetigkeitBetragVisibility("tf");
   trainerSigPad.loadDataURL(myTrainerRecord.signatureDataUrl || "");
 
   _setTrainerError("");
   _showTrainerFormScreen();
+}
+
+// Blendet das Betrags-Feld nur ein, wenn "andere Einnahmen" gewählt ist. Gemeinsam
+// für Trainer-Formular ("tf") und Admin-Detail ("d") genutzt (gleiche Feld-Suffixe).
+function _updateNebentaetigkeitBetragVisibility(prefix) {
+  const andere = document.getElementById(`${prefix}-nebentaetigkeit-andere`).checked;
+  document.getElementById(`${prefix}-nebentaetigkeit-betrag-wrap`).style.display = andere ? "" : "none";
 }
 
 function _setTrainerError(msg) {
@@ -246,6 +273,10 @@ function _renderTrainerReceipt(payload) {
   document.getElementById("r-iban").textContent = payload.iban ? payload.iban.replace(/(.{4})/g, "$1 ").trim() : "—";
   document.getElementById("r-bankname").textContent = payload.bankname || "—";
   document.getElementById("r-bic").textContent = payload.bic || "—";
+  document.getElementById("r-nebentaetigkeit").textContent =
+    payload.nebentaetigkeit === "andere" ? `Ja, ${payload.nebentaetigkeitBetrag || "—"} EUR`
+    : payload.nebentaetigkeit === "keine" ? "Keine"
+    : "—";
 
   const sigImg = document.getElementById("r-signature");
   sigImg.src = payload.signatureDataUrl || "";
@@ -510,6 +541,9 @@ function _openAdminDetail(id) {
   document.getElementById("d-bic").value         = t.bic         || "";
   document.getElementById("d-pauschale").value   = t.pauschale   || "";
   document.getElementById("d-lizenz").value      = t.lizenz      || "";
+  document.getElementById("d-nebentaetigkeit-betrag").value    = t.nebentaetigkeitBetrag || "";
+  document.getElementById("d-nebentaetigkeit-keine").checked   = t.nebentaetigkeit === "keine";
+  document.getElementById("d-nebentaetigkeit-andere").checked  = t.nebentaetigkeit === "andere";
   document.getElementById("d-erstellt-am").textContent =
     t.erstelltAm ? _fmtIso(t.erstelltAm) : "—";
 
@@ -526,13 +560,27 @@ function _openAdminDetail(id) {
 
   // Änderungen live speichern
   ["d-vorname","d-nachname","d-geburtsdatum","d-strasse","d-plz","d-ort",
-   "d-telefon","d-email","d-iban","d-bankname","d-bic","d-pauschale","d-lizenz"].forEach(fid => {
+   "d-telefon","d-email","d-iban","d-bankname","d-bic","d-pauschale","d-lizenz",
+   "d-nebentaetigkeit-betrag"].forEach(fid => {
     const input = document.getElementById(fid);
     // Vorherige Listener entfernen (neu klonen)
     const fresh = input.cloneNode(true);
     input.parentNode.replaceChild(fresh, input);
     fresh.addEventListener("input", _scheduleAutosave);
   });
+  // Radios brauchen "change" statt "input" plus Sichtbarkeits-Toggle des Betragsfelds.
+  // cloneNode(true) übernimmt den zuvor gesetzten .checked-Zustand (Cloning-Steps von
+  // <input>), das Neu-Klonen zum Entfernen alter Listener muss also danach passieren.
+  ["d-nebentaetigkeit-keine","d-nebentaetigkeit-andere"].forEach(fid => {
+    const input = document.getElementById(fid);
+    const fresh = input.cloneNode(true);
+    input.parentNode.replaceChild(fresh, input);
+    fresh.addEventListener("change", () => {
+      _updateNebentaetigkeitBetragVisibility("d");
+      _scheduleAutosave();
+    });
+  });
+  _updateNebentaetigkeitBetragVisibility("d");
 
   if (!t.lizenz) _prefillLizenzFromProfile(t);
 }
@@ -575,7 +623,9 @@ function _collectDetailData() {
     bankname:     document.getElementById("d-bankname").value.trim(),
     bic:          document.getElementById("d-bic").value.trim().toUpperCase(),
     pauschale:    document.getElementById("d-pauschale").value.trim(),
-    lizenz:       document.getElementById("d-lizenz").value.trim()
+    lizenz:       document.getElementById("d-lizenz").value.trim(),
+    nebentaetigkeit: (document.querySelector('input[name="d-nebentaetigkeit"]:checked') || {}).value || "",
+    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim()
   };
 }
 

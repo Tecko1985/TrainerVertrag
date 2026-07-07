@@ -221,6 +221,7 @@ async function generiereVertragDocx(trainer) {
     "{{BIC}}":       trainer.bic       || "",
     "{{DATUM}}":     `${dd}.${mm}.${yyyy}`,
     "{{JAHR}}":      String(yyyy),
+    ..._nebentaetigkeitPlatzhalter(trainer),
   };
 
   const resp = await fetch("vertrag-template.docx");
@@ -255,6 +256,23 @@ async function generiereVertragDocx(trainer) {
   a.download = `Trainervertrag_${trainer.nachname}_${trainer.vorname}.docx`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// Anlage 1 (§ 3 Nr. 26 EStG): welche der beiden Ankreuz-Boxen im Template markiert
+// wird ({{CHECK_KEINE}}/{{CHECK_ANDERE}}, je 5 Zeichen breit wie die unbefüllte Box
+// im Original, damit sich am Layout nichts verschiebt) + der Betrags-Blank bei
+// "andere Einnahmen". Fehlt die Erklärung (alte/unvollständige Datensätze), bleiben
+// beide Boxen bewusst leer statt zu raten — spiegelt sich 1:1 in generate-pdfs.ps1
+// (Build-Replacements), da dort kein gemeinsames JS-Modul eingebunden werden kann.
+function _nebentaetigkeitPlatzhalter(trainer) {
+  const gewaehlt = trainer.nebentaetigkeit;
+  return {
+    "{{CHECK_KEINE}}":  gewaehlt === "keine"  ? "  X  " : "     ",
+    "{{CHECK_ANDERE}}": gewaehlt === "andere" ? "  X  " : "     ",
+    "{{NEBENTAETIGKEIT_BETRAG}}": (gewaehlt === "andere" && trainer.nebentaetigkeitBetrag)
+      ? `${trainer.nebentaetigkeitBetrag} EUR`
+      : "",
+  };
 }
 
 function _escXml(str) {

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -98,6 +98,18 @@ const APP_CHANGELOG = [
         items: [
           "Import-Tab lädt Lizenz und monatliche Pauschale jetzt direkt aus Personalkosten (Bereich „Trainer“, aktuelle Saison) statt sie manuell einzufügen — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
           "Namensabgleich, Vorschau mit Einzel-/Sammel-Übernahme und „Aktueller Stand“ funktionieren unverändert wie beim bisherigen Text-Import."
+        ]
+      }
+    ]
+  },
+  {
+    version: "1.4",
+    groups: [
+      {
+        title: "Erklärung Nebentätigkeit (Anlage 1)",
+        items: [
+          "Trainer-Formular und Admin-Detail fragen jetzt die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG ab (keine anderen Einnahmen aus nebenberuflicher Tätigkeit bzw. andere Einnahmen in bestimmter Höhe) — bislang musste dieser Teil des Vertrags (Anlage 1) von Hand angekreuzt werden.",
+          "Der generierte Word-Vertrag setzt die passende Ankreuz-Box automatisch und trägt bei „andere Einnahmen“ den angegebenen Betrag ein — sowohl beim Einzel-Download als auch beim lokalen Stapel-Export (generate-pdfs.ps1)."
         ]
       }
     ]

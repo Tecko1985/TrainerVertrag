@@ -172,6 +172,31 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 .form-field textarea { resize: vertical; }
 .form-field.required label::after { content: " *"; color: var(--red); }
 
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.radio-option:has(input:checked) { border-color: var(--blue); background: var(--blue-light); }
+.radio-option input[type="radio"] { margin-top: 3px; flex-shrink: 0; }
+.radio-option .radio-amount { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 600; }
+.radio-option .radio-amount input {
+  width: 110px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: inherit;
+}
+
 .muted { color: var(--muted); font-size: 13px; }
 .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
 

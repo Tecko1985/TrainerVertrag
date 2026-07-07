@@ -65,10 +65,26 @@ function Fill-Docx([string]$dest, [hashtable]$repl) {
   }
 }
 
+# Anlage 1 (§3 Nr.26 EStG): welche Ankreuz-Box markiert wird + Betrags-Blank bei
+# "andere Einnahmen". Manuell dieselbe Logik wie _nebentaetigkeitPlatzhalter() in
+# pdf-utils.js (kein gemeinsames Modul zwischen Browser-App und diesem Skript) —
+# bei künftigen Änderungen an einer Stelle die andere von Hand nachziehen.
+function Build-NebentaetigkeitReplacements($t) {
+  $gewaehlt = $t.nebentaetigkeit
+  $checkKeine  = if ($gewaehlt -eq 'keine')  { '  X  ' } else { '     ' }
+  $checkAndere = if ($gewaehlt -eq 'andere') { '  X  ' } else { '     ' }
+  $betrag = if ($gewaehlt -eq 'andere' -and $t.nebentaetigkeitBetrag) { "$($t.nebentaetigkeitBetrag) EUR" } else { '' }
+  return @{
+    '{{CHECK_KEINE}}'  = $checkKeine
+    '{{CHECK_ANDERE}}' = $checkAndere
+    '{{NEBENTAETIGKEIT_BETRAG}}' = Escape-Xml $betrag
+  }
+}
+
 function Build-Replacements($t) {
   $heute = Get-Date -Format 'dd.MM.yyyy'
   $jahr  = (Get-Date).Year
-  return @{
+  $repl = @{
     '{{VORNAME}}'   = Escape-Xml $t.vorname
     '{{NACHNAME}}'  = Escape-Xml $t.nachname
     '{{LIZENZ}}'    = Escape-Xml $t.lizenz
@@ -79,6 +95,8 @@ function Build-Replacements($t) {
     '{{DATUM}}'     = Escape-Xml $heute
     '{{JAHR}}'      = Escape-Xml ([string]$jahr)
   }
+  (Build-NebentaetigkeitReplacements $t).GetEnumerator() | ForEach-Object { $repl[$_.Key] = $_.Value }
+  return $repl
 }
 
 # ── Trainerdaten beschaffen ──────────────────────────────────────────────────

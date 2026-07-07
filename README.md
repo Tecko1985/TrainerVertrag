@@ -86,6 +86,9 @@ Voraussetzung: Microsoft Word muss installiert sein.
 | `{{BIC}}` | BIC |
 | `{{DATUM}}` | Aktuelles Datum (TT.MM.JJJJ) |
 | `{{JAHR}}` | Aktuelles Jahr (JJJJ) |
+| `{{CHECK_KEINE}}` | Ankreuz-Box Anlage 1 „keine anderen Einnahmen“ (`  X  ` oder 5 Leerzeichen) |
+| `{{CHECK_ANDERE}}` | Ankreuz-Box Anlage 1 „andere Einnahmen“ (`  X  ` oder 5 Leerzeichen) |
+| `{{NEBENTAETIGKEIT_BETRAG}}` | Betrag der anderen Einnahmen inkl. „EUR“, nur bei „andere Einnahmen“ gefüllt |
 
 ---
 
