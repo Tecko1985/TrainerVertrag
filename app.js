@@ -386,16 +386,25 @@ function _updateFileStatus(connected) {
 
 // ─── Admin-Panel-Nav ──────────────────────────────────────────────────────────
 
+function _activateAdminTab(tab) {
+  activeAdminTab = tab;
+  document.querySelectorAll("nav button[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === activeAdminTab));
+  document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
+  document.getElementById("tab-" + activeAdminTab).classList.add("active");
+  if (activeAdminTab === "import") _renderImportCurrentStatus();
+}
+
 function _initAdminPanel() {
   document.querySelectorAll("nav button[data-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      activeAdminTab = btn.dataset.tab;
-      document.querySelectorAll("nav button[data-tab]").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
-      document.getElementById("tab-" + activeAdminTab).classList.add("active");
-      if (activeAdminTab === "import") _renderImportCurrentStatus();
-    });
+    btn.addEventListener("click", () => _activateAdminTab(btn.dataset.tab));
+  });
+
+  // Header-Versionsbadge (auch im Trainer-Modus sichtbar) springt in den
+  // Admin-Bereich zur Versionshistorie -- entspricht "Admin"-Button + Einstellungen-Tab.
+  const versionBadgeHeader = document.getElementById("version-badge");
+  versionBadgeHeader.addEventListener("click", () => { _switchToAdmin(); _activateAdminTab("einstellungen"); });
+  versionBadgeHeader.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _switchToAdmin(); _activateAdminTab("einstellungen"); }
   });
 
   document.getElementById("btn-disconnect").addEventListener("click", async () => {

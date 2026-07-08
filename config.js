@@ -1,4 +1,4 @@
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -135,6 +135,17 @@ const APP_CHANGELOG = [
           "Der Status wird beim automatischen Speichern nur noch übernommen, wenn das Status-Dropdown wirklich umgestellt wurde — vorher fror jede andere Detail-Änderung den gerade angezeigten Status dauerhaft ein und spätere automatische Übergänge (z. B. „Unvollständig“ → „Ausstehend“ nach echter Einreichung) blieben unsichtbar.",
           "Reicht ein Trainer seine Daten erneut ein, wird ein manuell gesetzter Status zurückgesetzt und der Eintrag erscheint wieder als „Ausstehend“ — ein bereits generierter Vertrag ist dann veraltet und fiel vorher nicht mehr auf.",
           "Einreichungen aus der Zeit vor Version 1.5 zeigen ihr Eingereicht-Datum wieder an (Rückgriff auf das Erstelldatum, wenn eine Unterschrift vorliegt)."
+        ]
+      }
+    ]
+  },
+  {
+    version: "1.7",
+    groups: [
+      {
+        title: "Versionsbadge",
+        items: [
+          "Der Versionshinweis oben neben dem Titel ist jetzt anklickbar und führt direkt zur Versionshistorie im Einstellungen-Tab des Admin-Bereichs."
         ]
       }
     ]
