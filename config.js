@@ -1,4 +1,4 @@
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.0";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -49,9 +49,9 @@ const APP_CHANGELOG = [
         title: "Trainer-Dateneingabe",
         items: [
           "Formular für Trainer: Stammdaten (Name, Adresse, Geburtsdatum, Telefon, E-Mail) und Bankdaten (IBAN, BIC, Bank) + digitale Unterschrift.",
-          "Anmeldung über das Tools-Übersicht-Konto: die eigene Einreichung wird auf jedem Gerät wiedererkannt; pro Konto gibt es genau eine Einreichung, erneutes Absenden aktualisiert sie.",
+          "Anmeldung über das zentrale Tools-Übersicht-Konto ist Pflicht: die eigene Einreichung wird eindeutig dem Konto zugeordnet und auf jedem Gerät wiedererkannt; pro Konto gibt es genau eine Einreichung, erneutes Absenden aktualisiert sie.",
           "Bestätigungs-Screen zeigt die übermittelten Daten samt Unterschrift zur Selbstkontrolle — mit „Bearbeiten“-Button und Link zurück zur Tools-Übersicht.",
-          "Daten werden sicher auf dem vereinseigenen Nextcloud-Server gespeichert; die Zugangsdaten liegen ausschließlich auf dem Server, nie im Browser."
+          "Daten werden über einen Cloudflare Worker sicher auf dem vereinseigenen Nextcloud-Server gespeichert; die Zugangsdaten liegen ausschließlich auf dem Server, nie im Browser."
         ]
       },
       {
@@ -60,25 +60,26 @@ const APP_CHANGELOG = [
           "Übersicht aller eingereichten Trainer-Einträge mit Status (Unvollständig / Ausstehend / Vertrag generiert) und Lizenz direkt in der Liste.",
           "Suchfeld (nach Name) sowie Filter nach Status und Lizenz.",
           "Trainer-Daten bearbeiten und speichern (automatisches Speichern); Eintrag löschen mit Sicherheitsabfrage.",
-          "Während einer Admin-Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben."
+          "Während einer Admin-Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
+          "Status im Detail ist manuell umstellbar, wird bei einer erneuten Einreichung des Trainers aber automatisch zurückgesetzt (ein bereits generierter Vertrag fällt so wieder als veraltet auf).",
+          "Lizenz wird beim Öffnen eines Trainer-Details automatisch aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist."
         ]
       },
       {
         title: "Vertragsgenerierung",
         items: [
-          "Word-Vertrag generieren — befüllt das Original-Vertragstemplate mit den Trainerdaten, originalgetreues Layout.",
-          "PDF-Datenblatt herunterladen — einzeln oder als ZIP für alle Trainer auf einmal (namensgleiche Trainer werden automatisch nummeriert).",
-          "Digitale Unterschrift des Trainers wird eingebettet; Status wird beim Word-Vertrag auf „Generiert“ gesetzt."
+          "Word-Vertrag generieren — befüllt das Original-Vertragstemplate mit den Trainerdaten, originalgetreues Layout, inkl. digitaler Unterschrift.",
+          "Erklärung zur Übungsleiterpauschale (Anlage 1, § 3 Nr. 26 EStG) wird im Formular abgefragt und im Word-Vertrag automatisch angekreuzt bzw. mit Betrag befüllt — nicht mehr von Hand nötig.",
+          "PDF-Datenblatt herunterladen — einzeln oder als ZIP für alle Trainer auf einmal (namensgleiche Trainer werden automatisch nummeriert)."
         ]
       },
       {
         title: "Datenimport",
         items: [
-          "Pauschalen und Lizenzen per Text-Import aktualisieren (Format: Name, Lizenz, Pauschale, Tab-getrennt).",
-          "Vorschau zeigt alle eingefügten Zeilen mit ihren Werten; jede Zeile hat einen eigenen Import-Button, um einzelne Trainer unabhängig vom Sammel-Import zu übernehmen.",
-          "Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Lizenz/Pauschale, Stammdaten fehlen noch) statt übersprungen zu werden — als „Unvollständig“ markiert und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet.",
-          "Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz und Pauschale (bzw. „fehlt“), aktualisiert sich nach jedem Import.",
-          "Ergebnis-Anzeige nach dem Sammel-Import listet die tatsächlich aktualisierten Trainer samt neuer Werte sowie nicht zugeordnete Namen einzeln auf."
+          "„Von Personalkosten laden“ holt Lizenz und monatliche Pauschale aller Trainer der aktuellen Saison direkt aus der Personalkosten-App (Namensabgleich) — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
+          "Vorschau zeigt alle geladenen Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button, um einzelne Trainer unabhängig vom Sammel-Import zu übernehmen.",
+          "Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Lizenz/Pauschale, Stammdaten fehlen noch) — als „Unvollständig“ markiert und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet.",
+          "Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz und Pauschale (bzw. „fehlt“), aktualisiert sich nach jedem Import."
         ]
       },
       {
@@ -86,66 +87,6 @@ const APP_CHANGELOG = [
         items: [
           "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht).",
           "Verarbeitet dabei nur Trainer mit Status „Ausstehend“ — unvollständige (Stub ohne Anmeldung) und bereits generierte Verträge werden automatisch übersprungen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.2",
-    groups: [
-      {
-        title: "Datenimport",
-        items: [
-          "Import-Tab lädt Lizenz und monatliche Pauschale jetzt direkt aus Personalkosten (Bereich „Trainer“, aktuelle Saison) statt sie manuell einzufügen — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
-          "Namensabgleich, Vorschau mit Einzel-/Sammel-Übernahme und „Aktueller Stand“ funktionieren unverändert wie beim bisherigen Text-Import."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.4",
-    groups: [
-      {
-        title: "Erklärung Nebentätigkeit (Anlage 1)",
-        items: [
-          "Trainer-Formular und Admin-Detail fragen jetzt die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG ab (keine anderen Einnahmen aus nebenberuflicher Tätigkeit bzw. andere Einnahmen in bestimmter Höhe) — bislang musste dieser Teil des Vertrags (Anlage 1) von Hand angekreuzt werden.",
-          "Der generierte Word-Vertrag setzt die passende Ankreuz-Box automatisch und trägt bei „andere Einnahmen“ den angegebenen Betrag ein — sowohl beim Einzel-Download als auch beim lokalen Stapel-Export (generate-pdfs.ps1)."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.5",
-    groups: [
-      {
-        title: "Admin-Liste",
-        items: [
-          "Das Datum in der Spalte „Eingereicht“ zeigt jetzt den Zeitpunkt der echten Unterschrift — nicht mehr das Anlage-/Erstellungsdatum eines Datensatzes (z. B. aus dem Personalkosten-Import), das fälschlich wie eine Einreichung aussah.",
-          "Status im Admin-Detail ist jetzt manuell umstellbar (Unvollständig / Ausstehend / Vertrag erstellt) statt nur automatisch abgeleitet zu werden."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.6",
-    groups: [
-      {
-        title: "Fehlerbehebungen Status & Eingereicht-Datum",
-        items: [
-          "Der Status wird beim automatischen Speichern nur noch übernommen, wenn das Status-Dropdown wirklich umgestellt wurde — vorher fror jede andere Detail-Änderung den gerade angezeigten Status dauerhaft ein und spätere automatische Übergänge (z. B. „Unvollständig“ → „Ausstehend“ nach echter Einreichung) blieben unsichtbar.",
-          "Reicht ein Trainer seine Daten erneut ein, wird ein manuell gesetzter Status zurückgesetzt und der Eintrag erscheint wieder als „Ausstehend“ — ein bereits generierter Vertrag ist dann veraltet und fiel vorher nicht mehr auf.",
-          "Einreichungen aus der Zeit vor Version 1.5 zeigen ihr Eingereicht-Datum wieder an (Rückgriff auf das Erstelldatum, wenn eine Unterschrift vorliegt)."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.7",
-    groups: [
-      {
-        title: "Versionsbadge",
-        items: [
-          "Der Versionshinweis oben neben dem Titel ist jetzt anklickbar und führt direkt zur Versionshistorie im Einstellungen-Tab des Admin-Bereichs."
         ]
       }
     ]

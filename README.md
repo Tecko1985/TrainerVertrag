@@ -24,13 +24,15 @@ Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung vo
 - Suchfeld (nach Name) sowie Filter nach Status und Lizenz
 - Trainer-Daten bearbeiten (automatisches Speichern); während der Sitzung neu
   eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben
+- Lizenz wird beim Öffnen eines Trainer-Details automatisch aus dem zentralen
+  Trainerprofil (Tools-Übersicht) vorbelegt, sofern das Feld noch leer ist
 - **Word-Vertrag generieren** – befüllt `vertrag-template.docx` mit den Trainerdaten und lädt die `.docx` direkt herunter
 - **PDF herunterladen** – erzeugt ein PDF-Datenblatt für einzelne Trainer
 - **Alle als PDF-ZIP** – erzeugt PDFs für alle Trainer und packt sie in eine ZIP-Datei
 - Einträge löschen (mit Sicherheitsabfrage)
 
 ### Import
-Pauschalen und Lizenzen aus Personalkosten übernehmen (seit 1.2 — vorher manueller Text-Import):
+Pauschalen und Lizenzen aus Personalkosten übernehmen:
 1. „Von Personalkosten laden“ holt alle Trainer der aktuellen Saison aus der Personalkosten-App (Namensabgleich)
 2. Vorschau zeigt alle geladenen Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button
 3. Import starten — schreibt `lizenz` und `pauschale` in die Trainer-Datensätze; Ergebnis listet aktualisierte Trainer und nicht zugeordnete Namen einzeln auf
