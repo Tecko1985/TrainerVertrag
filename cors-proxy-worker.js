@@ -3,8 +3,10 @@
 // diesen Code einfügen -> Deploy.
 // Worker-Name: trainerdaten (URL: trainerdaten.michel-brunner.workers.dev)
 //
-// Dieser Worker ist nur für GET/PUT des Admin-Zugriffs (volle Lese-/Schreibrechte
-// mit Nextcloud-Zugangsdaten, die der Admin im Connect-Formular eingibt).
+// Dieser Worker ist für GET/PUT/DELETE/MKCOL des Admin-Zugriffs (volle Lese-/
+// Schreibrechte mit Nextcloud-Zugangsdaten, die der Admin im Connect-Formular
+// eingibt). Seit 1.1 zusätzlich DELETE/MKCOL für Dokument-Uploads (Führerschein/
+// Führungszeugnis) im Admin-Detail — reiner Passthrough, keine Content-Prüfung.
 // Trainer-Einreichungen laufen über submit-worker.js (separater Worker).
 
 const ALLOWED_ORIGINS = [
@@ -20,7 +22,7 @@ export default {
 
     const corsHeaders = {
       "Access-Control-Allow-Origin": allowOrigin,
-      "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, PUT, DELETE, MKCOL, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
       "Access-Control-Max-Age": "86400"
     };
@@ -29,7 +31,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    if (request.method !== "GET" && request.method !== "PUT") {
+    if (!["GET", "PUT", "DELETE", "MKCOL"].includes(request.method)) {
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     }
 
@@ -46,6 +48,7 @@ export default {
     if (request.method === "PUT") {
       init.body = await request.arrayBuffer();
     }
+    // DELETE/MKCOL haben keinen Body — nur GET/PUT (oben) senden einen mit.
 
     const upstreamResp = await fetch(targetUrl, init);
     const respBody = await upstreamResp.arrayBuffer();

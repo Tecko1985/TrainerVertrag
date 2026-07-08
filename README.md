@@ -1,4 +1,4 @@
-# Trainerdaten (v1.0)
+# Trainerdaten (v1.1)
 
 Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung von Trainerverträgen als Word- und PDF-Dokument.
 

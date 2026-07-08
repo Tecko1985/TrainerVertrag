@@ -14,6 +14,9 @@ let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto 
 let currentUsername = null;
 let currentVorname   = null;
 let currentNachname  = null;
+let currentIsAdmin   = false;
+let currentGroupIds  = [];
+let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
 let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
 
@@ -24,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   _renderChangelog();
   _initTrainerForm();
+  _initTrainerDocuments();
   _initAdminToggle();
   _initAdminConnect();
   _initAdminPanel();
@@ -49,18 +53,26 @@ async function _initTrainerGateway() {
     currentUsername = me.username;
     currentVorname   = me.vorname || null;
     currentNachname  = me.nachname || null;
+    currentIsAdmin   = !!me.isAdmin;
+    currentGroupIds  = Array.isArray(me.groupIds) ? me.groupIds : [];
 
-    if (saved) {
+    // iban ist ein Pflichtfeld der echten Formular-Einreichung — ein Datensatz kann
+    // aber auch schon existieren, weil nur ein Dokument hochgeladen wurde (siehe
+    // resolveOwnTrainerRecord in submit-worker.js), ohne dass je das Hauptformular
+    // ausgefüllt wurde. Nur ein echtes iban zeigt den Bestätigungs-Screen.
+    if (saved && saved.iban) {
       myTrainerRecord = saved;
       _renderTrainerReceipt(myTrainerRecord);
       _showReceiptScreen({ justSubmitted: false });
     } else {
+      myTrainerRecord = saved || null;
       _showTrainerFormScreen();
-      document.getElementById("tf-vorname").value  = currentVorname  || "";
-      document.getElementById("tf-nachname").value = currentNachname || "";
+      document.getElementById("tf-vorname").value  = (saved && saved.vorname) || currentVorname  || "";
+      document.getElementById("tf-nachname").value = (saved && saved.nachname) || currentNachname || "";
     }
     document.getElementById("tf-angemeldet-als").textContent =
       [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername;
+    _initFuehrerscheinRegisterPanel();
   } catch (e) {
     if (e instanceof NotLoggedInError) {
       _showTrainerConnectScreen();
@@ -74,6 +86,7 @@ function _showTrainerConnectScreen(errorMsg) {
   document.getElementById("trainer-connect-screen").style.display = "";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "none";
+  document.getElementById("trainer-documents-panel").style.display = "none";
   const err = document.getElementById("trainer-connect-error");
   err.style.display = errorMsg ? "block" : "none";
   err.textContent = errorMsg || "";
@@ -83,9 +96,11 @@ function _showTrainerFormScreen() {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
+  document.getElementById("trainer-documents-panel").style.display = "";
   // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
   // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
   trainerSigPad.resize();
+  _renderTrainerDocumentsStatus();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -191,7 +206,9 @@ async function _handleTrainerSubmit(e) {
     // legt/aktualisiert damit immer genau den eigenen Datensatz (kein id-Handling
     // mehr auf Client-Seite nötig, siehe submitTrainerData in db.js).
     const data = await submitTrainerData(payload);
-    myTrainerRecord = { ...payload, id: data.id, username: currentUsername };
+    // Bestehende Dokument-Felder (falls vor dem Hauptformular schon ein Führerschein/
+    // Führungszeugnis hochgeladen wurde) erhalten — payload kennt diese Felder nicht.
+    myTrainerRecord = { ...(myTrainerRecord || {}), ...payload, id: data.id, username: currentUsername };
 
     _renderTrainerReceipt(myTrainerRecord);
     _showReceiptScreen({ justSubmitted: true });
@@ -216,6 +233,8 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "";
+  document.getElementById("trainer-documents-panel").style.display = "";
+  _renderTrainerDocumentsStatus();
 }
 
 // Öffnet das Formular vorausgefüllt mit der eigenen, serverseitig geladenen Einreichung.
@@ -289,6 +308,270 @@ function _renderTrainerReceipt(payload) {
 function _fmtDateOnly(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+
+// ─── Dokumente (Trainer-Modus: Führerschein/Führungszeugnis) ───────────────────
+// Panel ist unabhängig vom Haupt-Formular sichtbar/nutzbar (siehe resolveOwnTrainerRecord
+// in submit-worker.js) — ein Trainer kann ein Dokument hochladen, bevor er das
+// Hauptformular je ausgefüllt hat.
+
+function _initTrainerDocuments() {
+  document.getElementById("btn-tf-fs-camera").addEventListener("click", () => document.getElementById("tf-fs-camera-input").click());
+  document.getElementById("tf-fs-camera-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("fuehrerschein", f);
+  });
+  document.getElementById("btn-tf-fs-upload").addEventListener("click", () => document.getElementById("tf-fs-file-input").click());
+  document.getElementById("tf-fs-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("fuehrerschein", f);
+  });
+  document.getElementById("btn-tf-fs-ansehen").addEventListener("click", _viewMyFuehrerschein);
+
+  document.getElementById("btn-tf-fz-camera").addEventListener("click", () => document.getElementById("tf-fz-camera-input").click());
+  document.getElementById("tf-fz-camera-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("fuehrungszeugnis", f);
+  });
+  document.getElementById("btn-tf-fz-upload").addEventListener("click", () => document.getElementById("tf-fz-file-input").click());
+  document.getElementById("tf-fz-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("fuehrungszeugnis", f);
+  });
+
+  document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
+}
+
+async function _uploadTrainerDocument(docType, file) {
+  if (file.size > MAX_FILE_BYTES) {
+    alert(`Datei ist zu groß (max. ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB).`);
+    return;
+  }
+  const errEl = document.getElementById(docType === "fuehrerschein" ? "tf-fs-error" : "tf-fz-error");
+  errEl.classList.remove("visible");
+  const camBtn  = document.getElementById(docType === "fuehrerschein" ? "btn-tf-fs-camera" : "btn-tf-fz-camera");
+  const fileBtn = document.getElementById(docType === "fuehrerschein" ? "btn-tf-fs-upload" : "btn-tf-fz-upload");
+  camBtn.disabled = true; fileBtn.disabled = true;
+  const prevLabel = fileBtn.textContent;
+  fileBtn.textContent = "Lädt hoch…";
+  try {
+    await submitDocument(docType, file, currentVorname, currentNachname);
+    const nowIso = new Date().toISOString();
+    myTrainerRecord = docType === "fuehrerschein"
+      ? { ...(myTrainerRecord || {}), fuehrerscheinHochgeladenAm: nowIso, fuehrerscheinDateiName: file.name, fuehrerscheinContentType: file.type || "" }
+      : { ...(myTrainerRecord || {}), fuehrungszeugnisEingereichtAm: nowIso, fuehrungszeugnisDateiName: file.name, fuehrungszeugnisContentType: file.type || "" };
+    _renderTrainerDocumentsStatus();
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du das Dokument erneut hochladen.");
+    } else {
+      errEl.textContent = "Upload fehlgeschlagen: " + err.message;
+      errEl.classList.add("visible");
+    }
+  } finally {
+    camBtn.disabled = false; fileBtn.disabled = false;
+    if (fileBtn.textContent === "Lädt hoch…") fileBtn.textContent = prevLabel;
+  }
+}
+
+function _renderTrainerDocumentsStatus() {
+  const t = myTrainerRecord || {};
+
+  const fsStatusEl   = document.getElementById("tf-fs-status");
+  const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
+  if (t.fuehrerscheinHochgeladenAm) {
+    const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
+    const gueltig = faelligAm.getTime() > Date.now();
+    fsStatusEl.textContent = gueltig
+      ? `✅ Gültig bis ${faelligAm.toLocaleDateString("de-DE")}`
+      : `⚠️ Abgelaufen seit ${faelligAm.toLocaleDateString("de-DE")} — bitte erneut hochladen.`;
+    fsAnsehenBtn.disabled = false;
+    document.getElementById("btn-tf-fs-upload").textContent = "Datei ersetzen…";
+    document.getElementById("btn-tf-fs-camera").textContent = "📷 Neu aufnehmen";
+  } else {
+    fsStatusEl.textContent = "⚠️ Noch keine Führerschein-Kopie eingereicht.";
+    fsAnsehenBtn.disabled = true;
+    document.getElementById("btn-tf-fs-upload").textContent = "Datei / Galerie wählen…";
+    document.getElementById("btn-tf-fs-camera").textContent = "📷 Foto aufnehmen";
+  }
+
+  const fzStatusEl = document.getElementById("tf-fz-status");
+  if (t.fuehrungszeugnisEingereichtAm) {
+    fzStatusEl.textContent = "✅ Eingereicht am " + _fmtIso(t.fuehrungszeugnisEingereichtAm);
+    document.getElementById("btn-tf-fz-upload").textContent = "Datei ersetzen…";
+    document.getElementById("btn-tf-fz-camera").textContent = "📷 Neu aufnehmen";
+  } else {
+    fzStatusEl.textContent = "⚠️ Noch nicht eingereicht.";
+    document.getElementById("btn-tf-fz-upload").textContent = "Datei / Galerie wählen…";
+    document.getElementById("btn-tf-fz-camera").textContent = "📷 Foto aufnehmen";
+  }
+}
+
+async function _viewMyFuehrerschein() {
+  try {
+    const blob = await fetchMyFuehrerscheinBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
+    } else {
+      alert("Datei nicht abrufbar: " + err.message);
+    }
+  }
+}
+
+// ─── Führerschein-Register (Admin / Gruppe fuehrerschein-einsicht) ─────────────
+// Eigene UI-Fläche innerhalb des Trainer-Gateway-Bereichs, da diese Personen keinen
+// WebDAV-Admin-Zugang haben — der Worker prüft die Berechtigung serverseitig erneut.
+
+async function _initFuehrerscheinRegisterPanel() {
+  const card = document.getElementById("tf-fs-register-card");
+  const mayView = currentIsAdmin || currentGroupIds.includes(FS_VIEW_GROUP_ID);
+  if (!mayView) { card.style.display = "none"; return; }
+  try {
+    _fuehrerscheinRegisterList = await fetchFuehrerscheinRegister();
+  } catch (_) {
+    _fuehrerscheinRegisterList = [];
+  }
+  if (_fuehrerscheinRegisterList === null) { card.style.display = "none"; return; }
+  card.style.display = "";
+  _renderFuehrerscheinRegisterRows(_fuehrerscheinRegisterList);
+}
+
+function _renderFuehrerscheinRegisterRows(list) {
+  const wrap  = document.getElementById("tf-fs-register-rows");
+  const empty = document.getElementById("tf-fs-register-empty");
+  document.getElementById("btn-tf-fs-export").disabled = list.length === 0;
+  if (!list.length) { wrap.innerHTML = ""; empty.style.display = ""; return; }
+  empty.style.display = "none";
+
+  const sorted = list.slice().sort((a, b) => (a.nachname + a.vorname).localeCompare(b.nachname + b.vorname, "de"));
+  wrap.innerHTML = `
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead style="background:var(--gray);">
+        <tr>
+          <th style="padding:6px 10px; text-align:left;">Name</th>
+          <th style="padding:6px 10px; text-align:left;">Hochgeladen</th>
+          <th style="padding:6px 10px; text-align:left;">Status</th>
+          <th style="padding:6px 10px; text-align:left;"></th>
+        </tr>
+      </thead>
+      <tbody>${sorted.map(t => {
+        const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
+        const gueltig = faelligAm.getTime() > Date.now();
+        return `<tr>
+          <td style="padding:6px 10px;">${_esc(t.vorname)} ${_esc(t.nachname)}</td>
+          <td style="padding:6px 10px;">${_esc(_fmtIso(t.fuehrerscheinHochgeladenAm))}</td>
+          <td style="padding:6px 10px;"><span class="badge ${gueltig ? "generiert" : "abgelaufen"}">${gueltig ? "Gültig" : "Abgelaufen"}</span></td>
+          <td style="padding:6px 10px;"><button type="button" class="btn secondary small" data-view-fs-owner="${_esc(t.id)}">Ansehen</button></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>
+  `;
+  wrap.querySelectorAll("[data-view-fs-owner]").forEach(btn => {
+    btn.addEventListener("click", () => _viewFuehrerscheinForOwner(btn.dataset.viewFsOwner));
+  });
+}
+
+async function _viewFuehrerscheinForOwner(trainerId) {
+  try {
+    const blob = await fetchFuehrerscheinFileForOwner(trainerId);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    alert("Datei nicht abrufbar: " + err.message);
+  }
+}
+
+// A4 in PDF-Punkten (72dpi) — für Deckblätter und eingebettete Fotos im Sammel-Export.
+const PDF_PAGE_A4 = [595.28, 841.89];
+function _pdfAddImagePage(doc, image) {
+  const [pw, ph] = PDF_PAGE_A4;
+  const maxW = pw - 100, maxH = ph - 140;
+  const scale = Math.min(maxW / image.width, maxH / image.height, 1);
+  const w = image.width * scale, h = image.height * scale;
+  doc.addPage(PDF_PAGE_A4).drawImage(image, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+}
+
+// 1:1 aus dem migrierten Fahrtenbuch-Feature portiert (exportFuehrerscheinePdf),
+// nur auf die Register-Aktionen von submit-worker.js umgestellt. pdf-lib ist bereits
+// über pdf-utils.js/CDN geladen, kein neuer Script-Tag nötig.
+async function _exportFuehrerscheinePdf() {
+  const list = (_fuehrerscheinRegisterList || []).slice()
+    .sort((a, b) => (a.nachname + a.vorname).localeCompare(b.nachname + b.vorname, "de"));
+  if (!list.length) return;
+  const btn = document.getElementById("btn-tf-fs-export");
+  const statusEl = document.getElementById("tf-fs-export-status");
+  btn.disabled = true;
+  statusEl.textContent = "Erstelle PDF …";
+  try {
+    const { PDFDocument, StandardFonts, rgb } = PDFLib;
+    const out = await PDFDocument.create();
+    const font = await out.embedFont(StandardFonts.HelveticaBold);
+    const drawLabelPage = (lines) => {
+      const page = out.addPage(PDF_PAGE_A4);
+      let y = 780;
+      lines.forEach((line, i) => {
+        page.drawText(line, { x: 50, y, size: i === 0 ? 18 : 12, font, color: rgb(0.1, 0.1, 0.1) });
+        y -= i === 0 ? 30 : 20;
+      });
+    };
+    drawLabelPage(["Führerschein-Register", `Export vom ${new Date().toLocaleDateString("de-DE")} · ${list.length} Trainer`]);
+
+    const fehler = [];
+    for (const t of list) {
+      const wer = `${t.vorname} ${t.nachname}`.trim() || t.id;
+      let bytes;
+      try {
+        const blob = await fetchFuehrerscheinFileForOwner(t.id);
+        bytes = new Uint8Array(await blob.arrayBuffer());
+      } catch (e) {
+        fehler.push(`${wer} (Datei nicht abrufbar: ${e.message})`);
+        continue;
+      }
+      const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
+      const gueltig = faelligAm.getTime() > Date.now();
+      drawLabelPage([wer, `Hochgeladen: ${_fmtIso(t.fuehrerscheinHochgeladenAm)}`, `Gültig bis: ${faelligAm.toLocaleDateString("de-DE")} (${gueltig ? "gültig" : "abgelaufen"})`]);
+      const ct = (t.fuehrerscheinContentType || "").toLowerCase();
+      try {
+        if (ct === "application/pdf") {
+          const src = await PDFDocument.load(bytes);
+          (await out.copyPages(src, src.getPageIndices())).forEach((p) => out.addPage(p));
+        } else if (ct === "image/png") {
+          _pdfAddImagePage(out, await out.embedPng(bytes));
+        } else if (ct === "image/jpeg" || ct === "image/jpg") {
+          _pdfAddImagePage(out, await out.embedJpg(bytes));
+        } else {
+          fehler.push(`${wer} (Dateiformat „${t.fuehrerscheinContentType || "unbekannt"}“ wird nicht unterstützt)`);
+        }
+      } catch (e) {
+        fehler.push(`${wer} (Datei beschädigt oder nicht lesbar)`);
+      }
+    }
+
+    const pdfBytes = await out.save();
+    const url = URL.createObjectURL(new Blob([pdfBytes], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Fuehrerscheine-Export_${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Verzögert freigeben: sofortiges revoke direkt nach click() bricht den Download
+    // auf manchen (v.a. mobilen) Browsern ab — gleiche Konvention wie im migrierten
+    // Fahrtenbuch-Export.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    statusEl.textContent = "";
+    if (fehler.length) alert("PDF erstellt, aber nicht alle Kopien konnten eingefügt werden:\n\n" + fehler.join("\n"));
+  } catch (e) {
+    statusEl.textContent = "";
+    alert("PDF-Export fehlgeschlagen: " + e.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ─── Admin-Toggle ─────────────────────────────────────────────────────────────
@@ -426,6 +709,22 @@ function _initAdminPanel() {
   document.getElementById("liste-search").addEventListener("input", _renderAdminListe);
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
+
+  // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
+  // (die Buttons werden anders als die Autosave-Felder nicht per cloneNode ersetzt).
+  document.getElementById("btn-d-fs-upload").addEventListener("click", () => document.getElementById("d-fs-file-input").click());
+  document.getElementById("d-fs-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("fuehrerscheine", f, "fuehrerscheinHochgeladenAm", "fuehrerscheinDateiName", "fuehrerscheinContentType");
+  });
+  document.getElementById("btn-d-fs-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrerscheine"));
+
+  document.getElementById("btn-d-fz-upload").addEventListener("click", () => document.getElementById("d-fz-file-input").click());
+  document.getElementById("d-fz-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
+  });
+  document.getElementById("btn-d-fz-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrungszeugnisse"));
 }
 
 // ─── Admin-Liste ──────────────────────────────────────────────────────────────
@@ -615,6 +914,101 @@ function _openAdminDetail(id) {
   statusFresh.addEventListener("change", () => { _statusTouched = true; _scheduleAutosave(); });
 
   if (!t.lizenz) _prefillLizenzFromProfile(t);
+
+  _renderDocumentsSection(t);
+}
+
+// ─── Dokumente (Admin-Detail: Führerschein/Führungszeugnis) ────────────────────
+
+function _addMonths(date, n) {
+  const d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+// Leitet die WebDAV-Config für ein Dokument-Binärobjekt aus davConfig ab (Geschwister-
+// Unterordner von trainerdaten.json) — gleiche Technik wie _cloneConfigForUrl().
+function _trainerDocConfig(subdir, trainerId) {
+  const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
+  return { ...davConfig, url: dir + "/" + subdir + "/" + trainerId };
+}
+
+function _renderDocumentsSection(t) {
+  const fsStatusEl   = document.getElementById("d-fs-status");
+  const fsAnsehenBtn = document.getElementById("btn-d-fs-ansehen");
+  const fsUploadBtn  = document.getElementById("btn-d-fs-upload");
+  if (t.fuehrerscheinHochgeladenAm) {
+    const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
+    const gueltig = faelligAm.getTime() > Date.now();
+    fsStatusEl.innerHTML = `Hochgeladen am ${_esc(_fmtIso(t.fuehrerscheinHochgeladenAm))} · ` +
+      `<span class="badge ${gueltig ? "generiert" : "abgelaufen"}">${gueltig ? "Gültig bis " + _esc(faelligAm.toLocaleDateString("de-DE")) : "Abgelaufen seit " + _esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
+    fsAnsehenBtn.disabled = false;
+    fsUploadBtn.textContent = "Ersetzen…";
+  } else {
+    fsStatusEl.textContent = "Noch nicht hochgeladen.";
+    fsAnsehenBtn.disabled = true;
+    fsUploadBtn.textContent = "Hochladen…";
+  }
+
+  const fzStatusEl   = document.getElementById("d-fz-status");
+  const fzAnsehenBtn = document.getElementById("btn-d-fz-ansehen");
+  const fzUploadBtn  = document.getElementById("btn-d-fz-upload");
+  if (t.fuehrungszeugnisEingereichtAm) {
+    fzStatusEl.textContent = "Eingereicht am " + _fmtIso(t.fuehrungszeugnisEingereichtAm);
+    fzAnsehenBtn.disabled = false;
+    fzUploadBtn.textContent = "Ersetzen…";
+  } else {
+    fzStatusEl.textContent = "Noch nicht eingereicht.";
+    fzAnsehenBtn.disabled = true;
+    fzUploadBtn.textContent = "Hochladen…";
+  }
+}
+
+async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeField) {
+  if (!currentTrainerId) return;
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+
+  try {
+    await davWriteBinary(_trainerDocConfig(subdir, appData.trainer[idx].id), file, file.type || "application/octet-stream");
+  } catch (err) {
+    errEl.textContent = "Upload fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+    return;
+  }
+
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    [dateField]: new Date().toISOString(),
+    [nameField]: file.name,
+    [ctypeField]: file.type || "application/octet-stream"
+  };
+  try {
+    await _saveMerged();
+  } catch (err) {
+    errEl.textContent = "Datei hochgeladen, aber Speichern der Metadaten fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  _renderDocumentsSection(appData.trainer[idx]);
+}
+
+async function _ansehenDocumentAdmin(subdir) {
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  try {
+    const blob = await davReadBinary(_trainerDocConfig(subdir, t.id));
+    if (!blob) { alert("Datei nicht gefunden."); return; }
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    // Verzögert freigeben: sofortiges revoke direkt nach dem Öffnen bricht die Anzeige
+    // auf manchen (v.a. mobilen) Browsern ab — gleiche Konvention wie im migrierten
+    // Fahrtenbuch-Export.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    alert("Datei nicht abrufbar: " + err.message);
+  }
 }
 
 // Vorbefüllung der Lizenz aus dem zentralen Trainerprofil (ToolsUebersicht), per

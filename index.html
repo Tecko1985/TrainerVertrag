@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.0" />
+<link rel="stylesheet" href="style.css?v=1.1" />
 </head>
 <body>
 
@@ -146,6 +146,53 @@
     <div class="btn-row" style="margin-top:24px;">
       <button type="button" class="btn" id="btn-trainer-edit">Bearbeiten</button>
       <a class="btn secondary" href="https://tecko1985.github.io/ToolsUebersicht/">← Zur Übersicht</a>
+    </div>
+  </div>
+
+  <!-- Dokumente: Führerschein + Führungszeugnis (unabhängig vom Haupt-Formular sichtbar) -->
+  <div id="trainer-documents-panel" class="trainer-form-screen" style="display:none;">
+    <div class="card">
+      <h2>Führerschein</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Die Kopie deiner Fahrerlaubnis ist nach der ersten Einreichung <strong>alle 6 Monate</strong> erneut hochzuladen.
+      </p>
+      <p class="muted" id="tf-fs-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-tf-fs-ansehen" disabled>Ansehen</button>
+        <button type="button" class="btn small" id="btn-tf-fs-camera">📷 Foto aufnehmen</button>
+        <button type="button" class="btn small secondary" id="btn-tf-fs-upload">Datei / Galerie wählen…</button>
+        <input type="file" id="tf-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <p class="error-banner" id="tf-fs-error"></p>
+    </div>
+
+    <div class="card">
+      <h2>Führungszeugnis</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF). Aus Datenschutzgründen kann
+        ausschließlich der Admin die eingereichte Datei einsehen — hier siehst du nur den Status.
+      </p>
+      <p class="muted" id="tf-fz-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn small" id="btn-tf-fz-camera">📷 Foto aufnehmen</button>
+        <button type="button" class="btn small secondary" id="btn-tf-fz-upload">Datei / Galerie wählen…</button>
+        <input type="file" id="tf-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <p class="error-banner" id="tf-fz-error"></p>
+    </div>
+
+    <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -->
+    <div class="card" id="tf-fs-register-card" style="display:none;">
+      <h2>Führerschein-Register</h2>
+      <p class="muted" style="margin-bottom:14px;">Wer hat eine Kopie hinterlegt? Nur für berechtigte Nutzer sichtbar.</p>
+      <div class="btn-row" style="justify-content:flex-start; gap:10px; margin-bottom:14px;">
+        <button type="button" class="btn secondary small" id="btn-tf-fs-export">📄 Alle als PDF exportieren</button>
+        <span class="muted" id="tf-fs-export-status" style="font-size:12px;"></span>
+      </div>
+      <div class="empty-state" id="tf-fs-register-empty" style="display:none;">Noch keine Führerschein-Kopien hinterlegt.</div>
+      <div id="tf-fs-register-rows" style="overflow-x:auto;"></div>
     </div>
   </div>
 
@@ -310,6 +357,31 @@
             <div id="d-signature-preview" style="margin-bottom:6px;"></div>
             <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
 
+            <div class="section-divider">Dokumente</div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Führerschein</span>
+                <span class="muted" id="d-fs-status">—</span>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-d-fs-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn secondary small" id="btn-d-fs-upload">Hochladen…</button>
+                <input type="file" id="d-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Führungszeugnis</span>
+                <span class="muted" id="d-fz-status">—</span>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-d-fz-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn secondary small" id="btn-d-fz-upload">Hochladen…</button>
+                <input type="file" id="d-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+              </div>
+            </div>
+            <p class="muted" id="d-doc-error" style="display:none; color:#c0392b; margin-top:6px; font-size:12px;"></p>
+
             <div class="section-divider">Status</div>
             <div class="form-grid">
               <div class="form-field" style="max-width:220px;">
@@ -394,10 +466,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.0"></script>
-<script src="db.js?v=1.0"></script>
-<script src="signature-pad.js?v=1.0"></script>
-<script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.0"></script>
+<script src="config.js?v=1.1"></script>
+<script src="db.js?v=1.1"></script>
+<script src="signature-pad.js?v=1.1"></script>
+<script src="pdf-utils.js?v=1.1"></script>
+<script src="app.js?v=1.1"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -22,6 +22,18 @@ const PERSONALKOSTEN_WEBDAV_URL =
 // Worker-Secrets (nie im Code) und verifiziert den Login-Token serverseitig.
 const SUBMIT_WORKER_URL = "https://trainerdaten1.michel-brunner.workers.dev";
 
+// Führerschein-Kopie: nach der ersten Einreichung alle 6 Monate erneut einzureichen
+// (1:1 aus dem migrierten Fahrtenbuch-Feature übernommen, siehe [[project-trainerdaten]]).
+const FUEHRERSCHEIN_GUELTIGKEIT_MONATE = 6;
+
+// Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
+// Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
+const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
+
+// Größenlimit pro hochgeladener Datei (Führerschein/Führungszeugnis) — muss zum
+// Worker-Cap DOC_MAX_FILE_BYTES in submit-worker.js passen.
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
 // angepasst werden. Bis dahin greift der Fallback-PDF-Pfad in pdf-utils.js.
@@ -42,6 +54,28 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.1",
+    groups: [
+      {
+        title: "Führerschein (umgezogen von Fahrtenbuch)",
+        items: [
+          "Führerschein-Kopie direkt hier hochladen (Kamera oder Datei/PDF) — löst das bisherige Führerschein-Register in Fahrtenbuch ab, das entfernt wurde.",
+          "Bereits eingereichte Kopien wurden einmalig aus Fahrtenbuch übernommen.",
+          "„Gültig bis …“ wie gewohnt: alle 6 Monate erneut einzureichen.",
+          "Register für Admin und die Gruppe „Führerschein Einsicht“, inklusive Sammel-PDF-Export aller eingereichten Kopien.",
+          "Admin kann Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen (Personalkosten-Import-Stubs)."
+        ]
+      },
+      {
+        title: "Führungszeugnis (neu)",
+        items: [
+          "Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF).",
+          "Aus Datenschutzgründen kann ausschließlich der Admin die eingereichte Datei ansehen — Trainer sehen nur den Status „eingereicht am“."
+        ]
+      }
+    ]
+  },
   {
     version: "1.0",
     groups: [

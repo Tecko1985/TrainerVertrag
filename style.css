@@ -276,8 +276,23 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
   width: fit-content;
   white-space: nowrap;
 }
-.badge.offen     { background: var(--gray); color: var(--muted); }
-.badge.generiert { background: var(--green-light); color: var(--green); }
+.badge.offen      { background: var(--gray); color: var(--muted); }
+.badge.generiert  { background: var(--green-light); color: var(--green); }
+.badge.abgelaufen { background: var(--red-light); color: var(--red); }
+
+/* Dokumente (Admin-Detail: Führerschein/Führungszeugnis) */
+.doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.doc-row:last-of-type { border-bottom: none; }
+.doc-row-main { display: flex; flex-direction: column; gap: 2px; }
+.doc-row-label { font-weight: 700; font-size: 14px; }
 
 /* Detail (Admin) */
 .detail-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }

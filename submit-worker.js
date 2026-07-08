@@ -29,6 +29,20 @@
 //     nicht vom Client) -> { success:true, id }
 //   { action: "my-submission" }                    -> { data: eigenerDatensatzOderNull }
 //
+// SEIT 1.1 (Dokumente, migriert aus Fahrtenbuch + neu Führungszeugnis):
+//   { action: "upload-fuehrerschein", contentType, dataBase64, dateiName?, vorname?, nachname? }
+//   { action: "upload-fuehrungszeugnis", contentType, dataBase64, dateiName?, vorname?, nachname? }
+//     -> legt/ersetzt die EIGENE Datei ab (Eigentümer = verifizierter Nutzername, wie
+//     bei "submit"); vorname/nachname optional fürs Stub-Matching, falls das Haupt-
+//     formular noch nie ausgefüllt wurde -> { success:true, id }
+//   { action: "my-fuehrerschein-file" }             -> rohe Datei-Bytes | 404
+//     (Führungszeugnis hat bewusst KEINE äquivalente Aktion — nur Admin darf es
+//     ansehen, siehe [[project-trainerdaten]])
+//   { action: "list-fuehrerscheine" }  (Admin ODER Gruppe fuehrerschein-einsicht)
+//     -> { trainer: [{id,vorname,nachname,fuehrerscheinHochgeladenAm}] }
+//   { action: "fuehrerschein-file-for-owner", trainerId }  (Admin ODER Gruppe fuehrerschein-einsicht)
+//     -> rohe Datei-Bytes | 404
+//
 // SEIT 1.6 (Import): Der Admin-Text-Import kann für Namen ohne Konto-Treffer einen
 // unvollständigen Stub-Datensatz anlegen (nur vorname/nachname/lizenz/pauschale,
 // KEIN username-Feld). Meldet sich diese Person später selbst an, findet
@@ -41,6 +55,45 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8769",
   "https://tecko1985.github.io"
 ];
+
+// Dokument-Uploads (seit 1.1, Führerschein migriert aus Fahrtenbuch + neu Führungszeugnis):
+// je Trainer-id (nicht username, siehe [[project-trainerdaten]] — Stub-Trainer aus dem
+// Personalkosten-Import haben keinen username) genau eine Datei je Typ, Re-Upload
+// überschreibt. Ablage in Geschwister-Unterordnern von trainerdaten.json.
+const DOCUMENT_TYPES = {
+  fuehrerschein: {
+    subdir: "fuehrerscheine",
+    uploadedAtField: "fuehrerscheinHochgeladenAm",
+    nameField: "fuehrerscheinDateiName",
+    ctypeField: "fuehrerscheinContentType"
+  },
+  fuehrungszeugnis: {
+    subdir: "fuehrungszeugnisse",
+    uploadedAtField: "fuehrungszeugnisEingereichtAm",
+    nameField: "fuehrungszeugnisDateiName",
+    ctypeField: "fuehrungszeugnisContentType"
+  }
+};
+// Muss zum Client-Cap MAX_FILE_BYTES in config.js passen (gleiche Duplizierungs-
+// Konvention wie im migrierten Fahrtenbuch-Feature).
+const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
+// Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
+const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// Nextcloud-Verzeichnis, das trainerdaten.json enthält — Dokument-Unterordner liegen
+// als Geschwister direkt daneben.
+function trainerdatenDir(env) {
+  return env.NEXTCLOUD_URL.slice(0, env.NEXTCLOUD_URL.lastIndexOf("/"));
+}
 
 export default {
   async fetch(request, env) {
@@ -84,6 +137,21 @@ export default {
     if (body.action === "submit") {
       return handleSubmit(body, session, env, corsHeaders);
     }
+    if (body.action === "upload-fuehrerschein") {
+      return handleUploadDocument(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrerschein);
+    }
+    if (body.action === "upload-fuehrungszeugnis") {
+      return handleUploadDocument(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrungszeugnis);
+    }
+    if (body.action === "my-fuehrerschein-file") {
+      return handleMyFuehrerscheinFile(session, env, corsHeaders);
+    }
+    if (body.action === "list-fuehrerscheine") {
+      return handleListFuehrerscheine(session, env, corsHeaders);
+    }
+    if (body.action === "fuehrerschein-file-for-owner") {
+      return handleFuehrerscheinFileForOwner(body, session, env, corsHeaders);
+    }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
 };
@@ -101,7 +169,13 @@ async function verifySession(env, authHeader) {
     if (!resp.ok) return null;
     const me = await resp.json();
     if (!me || typeof me.username !== "string" || !me.username) return null;
-    return { username: me.username, vorname: me.vorname || null, nachname: me.nachname || null };
+    return {
+      username: me.username,
+      vorname: me.vorname || null,
+      nachname: me.nachname || null,
+      isAdmin: !!me.isAdmin,
+      groupIds: Array.isArray(me.groupIds) ? me.groupIds : []
+    };
   } catch (_) {
     return null;
   }
@@ -271,6 +345,200 @@ async function handleSubmit(body, session, env, corsHeaders) {
   }
 
   return json({ success: true, id: resultId }, 201, corsHeaders);
+}
+
+// Eigenen Trainer-Datensatz per verifiziertem Nutzernamen finden. Ohne Treffer (und
+// falls vorname/nachname mitgeschickt werden) zusätzlich ein unvollständiger Stub aus
+// dem Personalkosten-Import per exaktem Namensabgleich versucht (gleiche Konvention
+// wie handleSubmit oben) — verhindert einen doppelten Datensatz, falls ein Trainer ein
+// Dokument hochlädt, bevor er das Hauptformular ausgefüllt hat. Ohne Treffer wird ein
+// neuer Minimal-Datensatz angelegt. Gibt { idx } zurück, idx zeigt in appData.trainer.
+function resolveOwnTrainerRecord(appData, session, vorname, nachname) {
+  let idx = appData.trainer.findIndex(t => t.username === session.username);
+  if (idx === -1 && vorname && nachname) {
+    const nl = (vorname + " " + nachname).toLowerCase();
+    idx = appData.trainer.findIndex(t =>
+      !t.username && `${t.vorname || ""} ${t.nachname || ""}`.toLowerCase() === nl
+    );
+  }
+  if (idx !== -1) return { idx };
+  const newEntry = {
+    id: crypto.randomUUID(),
+    username: session.username,
+    vorname: vorname || "",
+    nachname: nachname || "",
+    erstelltAm: new Date().toISOString(),
+    vertragsGeneriert: false
+  };
+  appData.trainer.push(newEntry);
+  return { idx: appData.trainer.length - 1 };
+}
+
+// Lädt Führerschein ODER Führungszeugnis hoch (docType bestimmt Unterordner/Feldnamen).
+// Eigentümer ist IMMER der verifizierte Nutzername (wie bei "submit") — nie aus dem
+// Body vertraut. Datei wird als separates Binärobjekt neben trainerdaten.json abgelegt
+// (nicht wie die Signatur inline in der JSON, da hier deutlich größere Scans/Fotos
+// erwartet werden), nur die Metadaten landen in appData.trainer.
+async function handleUploadDocument(body, session, env, corsHeaders, docType) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+
+  let bytes;
+  try {
+    bytes = base64ToBytes(String(body.dataBase64 || ""));
+  } catch (_) {
+    return json({ error: "Datei-Inhalt ist kein gültiges base64" }, 400, corsHeaders);
+  }
+  if (bytes.length === 0) return json({ error: "Leere Datei" }, 400, corsHeaders);
+  if (bytes.length > DOC_MAX_FILE_BYTES) return json({ error: "Datei zu groß" }, 413, corsHeaders);
+
+  let ctype = String(body.contentType || "").replace(/[^\x20-\x7e]/g, "");
+  if (!ctype || ctype.length > 200) ctype = "application/octet-stream";
+
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
+  const trainerId = appData.trainer[idx].id;
+
+  const dir = trainerdatenDir(env) + "/" + docType.subdir;
+  const fileUrl = dir + "/" + trainerId;
+  const headers = { Authorization: authHeader, "Content-Type": ctype };
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+    // 404/409 = der Unterordner (fuehrerscheine/fuehrungszeugnisse) fehlt noch -> anlegen und EINMAL wiederholen.
+    if (resp.status === 404 || resp.status === 409) {
+      await fetch(dir, { method: "MKCOL", headers: { Authorization: authHeader } });
+      resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+    }
+  } catch (e) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (!resp.ok) return json({ error: `Nextcloud PUT ${resp.status}` }, 502, corsHeaders);
+
+  const nowIso = new Date().toISOString();
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    [docType.uploadedAtField]: nowIso,
+    [docType.nameField]: String(body.dateiName || "").trim().slice(0, 200),
+    [docType.ctypeField]: ctype
+  };
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Datei gespeichert, aber Metadaten-Update fehlgeschlagen: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, id: trainerId, [docType.uploadedAtField]: nowIso }, 200, corsHeaders);
+}
+
+// Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene). Für
+// Führungszeugnis gibt es bewusst KEIN Äquivalent — nur Admin darf es ansehen.
+async function handleMyFuehrerscheinFile(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const mine = appData.trainer.find(t => t.username === session.username);
+  if (!mine || !mine.fuehrerscheinHochgeladenAm) return json({ error: "Keine Datei hinterlegt" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/fuehrerscheine/" + mine.id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  const ctype = mine.fuehrerscheinContentType || resp.headers.get("Content-Type") || "application/octet-stream";
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+  });
+}
+
+// Delegierte Sichtgruppe (natives Äquivalent zur früheren Fahrtenbuch-Gruppe): Admin
+// ODER Mitglied von FS_VIEW_GROUP_ID dürfen alle Führerschein-Kopien einsehen — NICHT
+// für Führungszeugnis (siehe Datei-Kopf, bewusste Sicherheitsentscheidung).
+function mayViewAllFuehrerscheine(session) {
+  return !!session.isAdmin || (session.groupIds || []).includes(FS_VIEW_GROUP_ID);
+}
+
+async function handleListFuehrerscheine(session, env, corsHeaders) {
+  if (!mayViewAllFuehrerscheine(session)) return json({ error: "Nicht berechtigt" }, 403, corsHeaders);
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  // Schmale Projektion — bewusst ohne IBAN/Adresse, gleiche Sichtbarkeit wie die
+  // frühere Fahrtenbuch-Gruppe (nur Name + Führerschein-Status).
+  const trainer = appData.trainer
+    .filter(t => t.fuehrerscheinHochgeladenAm)
+    .map(t => ({
+      id: t.id, vorname: t.vorname || "", nachname: t.nachname || "",
+      fuehrerscheinHochgeladenAm: t.fuehrerscheinHochgeladenAm,
+      fuehrerscheinContentType: t.fuehrerscheinContentType || ""
+    }));
+  return json({ trainer }, 200, corsHeaders);
+}
+
+async function handleFuehrerscheinFileForOwner(body, session, env, corsHeaders) {
+  if (!mayViewAllFuehrerscheine(session)) return json({ error: "Nicht berechtigt" }, 403, corsHeaders);
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const trainerId = String(body.trainerId || "");
+  const t = appData.trainer.find(x => x.id === trainerId);
+  if (!t || !t.fuehrerscheinHochgeladenAm) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/fuehrerscheine/" + t.id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  const ctype = t.fuehrerscheinContentType || resp.headers.get("Content-Type") || "application/octet-stream";
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+  });
 }
 
 function json(obj, status, corsHeaders) {

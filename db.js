@@ -131,6 +131,94 @@ async function submitTrainerData(payload) {
   return data;
 }
 
+// ─── Dokument-Uploads (Führerschein/Führungszeugnis, Trainer-Selbstbedienung) ──────
+// Base64-Kodierung wie beim migrierten Fahrtenbuch-Vorbild: FileReader.readAsDataURL,
+// dann den "data:...;base64,"-Präfix abschneiden.
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const res = String(r.result || "");
+      const comma = res.indexOf(",");
+      resolve(comma >= 0 ? res.slice(comma + 1) : res);
+    };
+    r.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
+    r.readAsDataURL(blob);
+  });
+}
+
+// docType: "fuehrerschein" | "fuehrungszeugnis". vorname/nachname optional, dienen
+// nur dem serverseitigen Stub-Matching, falls das Hauptformular noch nie ausgefüllt wurde.
+async function submitDocument(docType, file, vorname, nachname) {
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error("Datei ist zu groß (max. " + Math.round(MAX_FILE_BYTES / 1024 / 1024) + " MB).");
+  }
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const dataBase64 = await _blobToBase64(file);
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({
+      action: "upload-" + docType,
+      contentType: file.type || "application/octet-stream",
+      dateiName: file.name,
+      vorname: vorname || "",
+      nachname: nachname || "",
+      dataBase64
+    })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+// Eigene Führerschein-Datei als Blob holen (für "Ansehen"). Für Führungszeugnis gibt
+// es bewusst KEINE Entsprechung — nur Admin darf es ansehen (siehe submit-worker.js).
+async function fetchMyFuehrerscheinBlob() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "my-fuehrerschein-file" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
+// Führerschein-Register für Admin/Gruppe "fuehrerschein-einsicht" — der Worker prüft
+// die Berechtigung serverseitig erneut, hier nur UI-seitiges Ein-/Ausblenden.
+async function fetchFuehrerscheinRegister() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "list-fuehrerscheine" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 403) return null; // nicht berechtigt -> Panel bleibt einfach verborgen
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  return Array.isArray(data.trainer) ? data.trainer : [];
+}
+
+async function fetchFuehrerscheinFileForOwner(trainerId) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "fuehrerschein-file-for-owner", trainerId })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
 function davAuthHeader(config) {
   return "Basic " + btoa(unescape(encodeURIComponent(config.username + ":" + config.password)));
 }
@@ -163,5 +251,40 @@ async function davWriteFile(config, dataObj) {
     },
     body: JSON.stringify(dataObj, null, 2)
   });
+  if (!resp.ok) throw new Error(`WebDAV-Schreibfehler (HTTP ${resp.status})`);
+}
+
+// ─── Binärdateien (Admin: Führerschein/Führungszeugnis ansehen/hochladen) ──────────
+// Läuft über denselben CORS-Proxy wie davReadFile/davWriteFile — der ist bereits
+// Content-Type-transparent, nur die JSON-(De-)Serialisierung wird hier übersprungen.
+async function davReadBinary(config) {
+  const resp = await fetch(davRequestUrl(config), {
+    method: "GET",
+    headers: { Authorization: davAuthHeader(config) }
+  });
+  if (resp.status === 404) return null;
+  if (!resp.ok) throw new Error(`WebDAV-Lesefehler (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
+async function davWriteBinary(config, blob, contentType) {
+  const doPut = () => fetch(davRequestUrl(config), {
+    method: "PUT",
+    headers: { Authorization: davAuthHeader(config), "Content-Type": contentType || "application/octet-stream" },
+    body: blob
+  });
+  let resp = await doPut();
+  // 404/409 = der Unterordner (fuehrerscheine/fuehrungszeugnisse) fehlt noch -> anlegen und EINMAL wiederholen.
+  if (resp.status === 404 || resp.status === 409) {
+    const dirUrl = config.url.slice(0, config.url.lastIndexOf("/"));
+    const mk = await fetch(davRequestUrl({ ...config, url: dirUrl }), {
+      method: "MKCOL",
+      headers: { Authorization: davAuthHeader(config) }
+    });
+    if (mk.status !== 201 && mk.status !== 405 && mk.status !== 409) {
+      throw new Error(`Ordner anlegen fehlgeschlagen (MKCOL ${mk.status})`);
+    }
+    resp = await doPut();
+  }
   if (!resp.ok) throw new Error(`WebDAV-Schreibfehler (HTTP ${resp.status})`);
 }
