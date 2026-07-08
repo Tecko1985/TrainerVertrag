@@ -1,4 +1,4 @@
-# Trainerdaten (v1.1)
+# Trainerdaten (v1.0)
 
 Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung von Trainerverträgen als Word- und PDF-Dokument.
 
@@ -16,6 +16,9 @@ Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung vo
   wiedererkannt, erneutes Absenden aktualisiert sie (kein Duplikat)
 - Bestätigungs-Screen zeigt die übermittelten Daten samt Unterschrift zur
   Selbstkontrolle, mit „Bearbeiten“-Button
+- Führerschein- und Führungszeugnis-Kopie hochladen (Kamera oder Datei/PDF);
+  Führerschein mit „Gültig bis …“-Erinnerung (alle 6 Monate), das eigene
+  Führungszeugnis selbst einsehbar
 - Daten werden verschlüsselt an den Vereinsserver übertragen (Cloudflare Worker → Nextcloud);
   der Worker verifiziert den Login-Token serverseitig
 
@@ -30,6 +33,9 @@ Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung vo
 - **PDF herunterladen** – erzeugt ein PDF-Datenblatt für einzelne Trainer
 - **Alle als PDF-ZIP** – erzeugt PDFs für alle Trainer und packt sie in eine ZIP-Datei
 - Einträge löschen (mit Sicherheitsabfrage)
+- Führerschein-/Führungszeugnis-Dokumente je Trainer ansehen und hochladen (auch
+  für Import-Stubs ohne eigenen Login); Führerschein-Register mit Sammel-PDF-Export
+  für Admin und die Gruppe „Führerschein Einsicht“
 
 ### Import
 Pauschalen und Lizenzen aus Personalkosten übernehmen:

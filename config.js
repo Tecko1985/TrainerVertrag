@@ -1,4 +1,4 @@
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.0";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -55,40 +55,6 @@ const PDF_FIELDS = {
 
 const APP_CHANGELOG = [
   {
-    version: "1.2",
-    groups: [
-      {
-        title: "Führungszeugnis: Ansehen freigegeben",
-        items: [
-          "Du kannst dein eigenes eingereichtes Führungszeugnis jetzt selbst ansehen (neuer „Ansehen“-Button), nicht mehr nur der Admin.",
-          "Der Admin behält zusätzlich weiterhin Zugriff, u. a. direkt aus der Personalakte heraus."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.1",
-    groups: [
-      {
-        title: "Führerschein (umgezogen von Fahrtenbuch)",
-        items: [
-          "Führerschein-Kopie direkt hier hochladen (Kamera oder Datei/PDF) — löst das bisherige Führerschein-Register in Fahrtenbuch ab, das entfernt wurde.",
-          "Bereits eingereichte Kopien wurden einmalig aus Fahrtenbuch übernommen.",
-          "„Gültig bis …“ wie gewohnt: alle 6 Monate erneut einzureichen.",
-          "Register für Admin und die Gruppe „Führerschein Einsicht“, inklusive Sammel-PDF-Export aller eingereichten Kopien.",
-          "Admin kann Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen (Personalkosten-Import-Stubs)."
-        ]
-      },
-      {
-        title: "Führungszeugnis (neu)",
-        items: [
-          "Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF).",
-          "Aus Datenschutzgründen kann ausschließlich der Admin die eingereichte Datei ansehen — Trainer sehen nur den Status „eingereicht am“."
-        ]
-      }
-    ]
-  },
-  {
     version: "1.0",
     groups: [
       {
@@ -98,6 +64,14 @@ const APP_CHANGELOG = [
           "Anmeldung über das zentrale Tools-Übersicht-Konto ist Pflicht: die eigene Einreichung wird eindeutig dem Konto zugeordnet und auf jedem Gerät wiedererkannt; pro Konto gibt es genau eine Einreichung, erneutes Absenden aktualisiert sie.",
           "Bestätigungs-Screen zeigt die übermittelten Daten samt Unterschrift zur Selbstkontrolle — mit „Bearbeiten“-Button und Link zurück zur Tools-Übersicht.",
           "Daten werden über einen Cloudflare Worker sicher auf dem vereinseigenen Nextcloud-Server gespeichert; die Zugangsdaten liegen ausschließlich auf dem Server, nie im Browser."
+        ]
+      },
+      {
+        title: "Dokumente: Führerschein & Führungszeugnis",
+        items: [
+          "Führerschein-Kopie direkt hochladen (Kamera oder Datei/PDF); „Gültig bis …“ mit Erinnerung, alle 6 Monate erneut einzureichen. Register für Admin und die Gruppe „Führerschein Einsicht“ inklusive Sammel-PDF-Export aller eingereichten Kopien.",
+          "Erweitertes Führungszeugnis hochladen; die eigene Datei ist selbst einsehbar, fremde Führungszeugnisse aus Datenschutzgründen nur für Admins (u. a. direkt aus der Personalakte).",
+          "Admin kann beide Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen (Personalkosten-Import-Stubs)."
         ]
       },
       {
