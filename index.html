@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.1" />
+<link rel="stylesheet" href="style.css?v=1.2" />
 </head>
 <body>
 
@@ -170,11 +170,12 @@
     <div class="card">
       <h2>Führungszeugnis</h2>
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
-        Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF). Aus Datenschutzgründen kann
-        ausschließlich der Admin die eingereichte Datei einsehen — hier siehst du nur den Status.
+        Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF). Du kannst deine eigene
+        eingereichte Datei jederzeit ansehen; zusätzlich hat der Admin Zugriff.
       </p>
       <p class="muted" id="tf-fz-status" style="margin-bottom:10px;">—</p>
       <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-tf-fz-ansehen" disabled>Ansehen</button>
         <button type="button" class="btn small" id="btn-tf-fz-camera">📷 Foto aufnehmen</button>
         <button type="button" class="btn small secondary" id="btn-tf-fz-upload">Datei / Galerie wählen…</button>
         <input type="file" id="tf-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
@@ -466,10 +467,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.1"></script>
-<script src="db.js?v=1.1"></script>
-<script src="signature-pad.js?v=1.1"></script>
-<script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=1.1"></script>
+<script src="config.js?v=1.2"></script>
+<script src="db.js?v=1.2"></script>
+<script src="signature-pad.js?v=1.2"></script>
+<script src="pdf-utils.js?v=1.2"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

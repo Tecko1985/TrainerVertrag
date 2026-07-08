@@ -327,6 +327,7 @@ function _initTrainerDocuments() {
     if (f) _uploadTrainerDocument("fuehrerschein", f);
   });
   document.getElementById("btn-tf-fs-ansehen").addEventListener("click", _viewMyFuehrerschein);
+  document.getElementById("btn-tf-fz-ansehen").addEventListener("click", _viewMyFuehrungszeugnis);
 
   document.getElementById("btn-tf-fz-camera").addEventListener("click", () => document.getElementById("tf-fz-camera-input").click());
   document.getElementById("tf-fz-camera-input").addEventListener("change", (e) => {
@@ -396,12 +397,15 @@ function _renderTrainerDocumentsStatus() {
   }
 
   const fzStatusEl = document.getElementById("tf-fz-status");
+  const fzAnsehenBtn = document.getElementById("btn-tf-fz-ansehen");
   if (t.fuehrungszeugnisEingereichtAm) {
     fzStatusEl.textContent = "✅ Eingereicht am " + _fmtIso(t.fuehrungszeugnisEingereichtAm);
+    fzAnsehenBtn.disabled = false;
     document.getElementById("btn-tf-fz-upload").textContent = "Datei ersetzen…";
     document.getElementById("btn-tf-fz-camera").textContent = "📷 Neu aufnehmen";
   } else {
     fzStatusEl.textContent = "⚠️ Noch nicht eingereicht.";
+    fzAnsehenBtn.disabled = true;
     document.getElementById("btn-tf-fz-upload").textContent = "Datei / Galerie wählen…";
     document.getElementById("btn-tf-fz-camera").textContent = "📷 Foto aufnehmen";
   }
@@ -410,6 +414,21 @@ function _renderTrainerDocumentsStatus() {
 async function _viewMyFuehrerschein() {
   try {
     const blob = await fetchMyFuehrerscheinBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
+    } else {
+      alert("Datei nicht abrufbar: " + err.message);
+    }
+  }
+}
+
+async function _viewMyFuehrungszeugnis() {
+  try {
+    const blob = await fetchMyFuehrungszeugnisBlob();
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
     setTimeout(() => URL.revokeObjectURL(url), 10000);

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -54,6 +54,18 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.2",
+    groups: [
+      {
+        title: "Führungszeugnis: Ansehen freigegeben",
+        items: [
+          "Du kannst dein eigenes eingereichtes Führungszeugnis jetzt selbst ansehen (neuer „Ansehen“-Button), nicht mehr nur der Admin.",
+          "Der Admin behält zusätzlich weiterhin Zugriff, u. a. direkt aus der Personalakte heraus."
+        ]
+      }
+    ]
+  },
   {
     version: "1.1",
     groups: [

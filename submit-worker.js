@@ -36,8 +36,9 @@
 //     bei "submit"); vorname/nachname optional fürs Stub-Matching, falls das Haupt-
 //     formular noch nie ausgefüllt wurde -> { success:true, id }
 //   { action: "my-fuehrerschein-file" }             -> rohe Datei-Bytes | 404
-//     (Führungszeugnis hat bewusst KEINE äquivalente Aktion — nur Admin darf es
-//     ansehen, siehe [[project-trainerdaten]])
+//   { action: "my-fuehrungszeugnis-file" }          -> rohe Datei-Bytes | 404
+//     (seit 1.2: Trainer dürfen ihr eigenes Führungszeugnis jetzt auch selbst
+//     ansehen — vorher gab es hierfür bewusst keine Aktion, siehe [[project-trainerdaten]])
 //   { action: "list-fuehrerscheine" }  (Admin ODER Gruppe fuehrerschein-einsicht)
 //     -> { trainer: [{id,vorname,nachname,fuehrerscheinHochgeladenAm}] }
 //   { action: "fuehrerschein-file-for-owner", trainerId }  (Admin ODER Gruppe fuehrerschein-einsicht)
@@ -148,6 +149,9 @@ export default {
     }
     if (body.action === "my-fuehrerschein-file") {
       return handleMyFuehrerscheinFile(session, env, corsHeaders);
+    }
+    if (body.action === "my-fuehrungszeugnis-file") {
+      return handleMyFuehrungszeugnisFile(session, env, corsHeaders);
     }
     if (body.action === "list-fuehrerscheine") {
       return handleListFuehrerscheine(session, env, corsHeaders);
@@ -452,8 +456,7 @@ async function handleUploadDocument(body, session, env, corsHeaders, docType) {
   return json({ success: true, id: trainerId, [docType.uploadedAtField]: nowIso }, 200, corsHeaders);
 }
 
-// Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene). Für
-// Führungszeugnis gibt es bewusst KEIN Äquivalent — nur Admin darf es ansehen.
+// Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).
 async function handleMyFuehrerscheinFile(session, env, corsHeaders) {
   if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
     return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
@@ -478,6 +481,38 @@ async function handleMyFuehrerscheinFile(session, env, corsHeaders) {
   if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
   if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
   const ctype = mine.fuehrerscheinContentType || resp.headers.get("Content-Type") || "application/octet-stream";
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+  });
+}
+
+// Eigene Führungszeugnis-Datei abrufen (Trainer sieht immer nur seine eigene),
+// seit 1.2 -- vorher gab es hierfür bewusst keine Aktion (siehe CLAUDE.md).
+async function handleMyFuehrungszeugnisFile(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const mine = appData.trainer.find(t => t.username === session.username);
+  if (!mine || !mine.fuehrungszeugnisEingereichtAm) return json({ error: "Keine Datei hinterlegt" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/fuehrungszeugnisse/" + mine.id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  const ctype = mine.fuehrungszeugnisContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }

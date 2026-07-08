@@ -174,8 +174,7 @@ async function submitDocument(docType, file, vorname, nachname) {
   return data;
 }
 
-// Eigene Führerschein-Datei als Blob holen (für "Ansehen"). Für Führungszeugnis gibt
-// es bewusst KEINE Entsprechung — nur Admin darf es ansehen (siehe submit-worker.js).
+// Eigene Führerschein-Datei als Blob holen (für "Ansehen").
 async function fetchMyFuehrerscheinBlob() {
   const token = getSessionToken();
   if (!token) throw new NotLoggedInError();
@@ -183,6 +182,21 @@ async function fetchMyFuehrerscheinBlob() {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-fuehrerschein-file" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
+// Eigene Führungszeugnis-Datei als Blob holen (für "Ansehen"), seit 1.2 -- vorher
+// bewusst keine Entsprechung (nur Admin durfte ansehen), siehe CLAUDE.md.
+async function fetchMyFuehrungszeugnisBlob() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "my-fuehrungszeugnis-file" })
   });
   if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
