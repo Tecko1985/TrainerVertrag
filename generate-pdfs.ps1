@@ -7,7 +7,7 @@
 #
 # Aufruf:
 #   .\generate-pdfs.ps1                 -> holt die Trainerdaten per WebDAV (App-Passwort wird abgefragt)
-#   .\generate-pdfs.ps1 -JsonPath x.json-> nutzt eine lokal heruntergeladene trainervertrag.json
+#   .\generate-pdfs.ps1 -JsonPath x.json-> nutzt eine lokal heruntergeladene trainerdaten.json
 #   .\generate-pdfs.ps1 -Test           -> erzeugt EIN Muster-PDF mit Dummy-Daten (zum Prüfen)
 
 param(
@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 $Template = Join-Path $PSScriptRoot 'vertrag-template.docx'
 
 # WebDAV-Defaults (öffentlich unkritisch; App-Passwort wird nie gespeichert)
-$WebdavUrl  = 'https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/TrainerVertrag/trainervertrag.json'
+$WebdavUrl  = 'https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Trainerdaten/trainerdaten.json'
 $WebdavUser = 'admin'
 
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────

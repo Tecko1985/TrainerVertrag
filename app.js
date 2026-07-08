@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Trainer-Modus verlangt seit 1.6 ein Tools-Übersicht-Login (statt eines offenen
 // No-Login-Formulars) — nur so lässt sich die eigene Einreichung serverseitig per
-// Konto wiederfinden, geräte- und browserübergreifend (siehe [[project-trainervertrag]]).
+// Konto wiederfinden, geräte- und browserübergreifend (siehe [[project-trainerdaten]]).
 async function _initTrainerGateway() {
   if (!getSessionToken()) {
     _showTrainerConnectScreen();

@@ -1,7 +1,7 @@
 // WebDAV-Persistenz (Admin-Modus) + IndexedDB-Helfer für Admin-Zugangsdaten.
 // Adaptiert aus E:\TrainerCheckliste\db.js — gleiche Architektur, anderer DB-Name.
 const FileStore = (() => {
-  const DB_NAME = "trainervertrag-db";
+  const DB_NAME = "trainerdaten-db";
   const STORE = "handles";
   const KEY_WEBDAV_CONFIG = "webdavConfig";
 

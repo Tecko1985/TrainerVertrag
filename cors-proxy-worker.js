@@ -1,7 +1,7 @@
 // Cloudflare Worker: CORS-Proxy für Admin-Zugriff auf Nextcloud-WebDAV.
 // Deployment: dash.cloudflare.com -> Workers & Pages -> Create Worker ->
 // diesen Code einfügen -> Deploy.
-// Worker-Name: trainervertrag (URL: trainervertrag.michel-brunner.workers.dev)
+// Worker-Name: trainerdaten (URL: trainerdaten.michel-brunner.workers.dev)
 //
 // Dieser Worker ist nur für GET/PUT des Admin-Zugriffs (volle Lese-/Schreibrechte
 // mit Nextcloud-Zugangsdaten, die der Admin im Connect-Formular eingibt).

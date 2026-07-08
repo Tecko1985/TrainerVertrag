@@ -1,8 +1,8 @@
-# Trainervertrag (v1.0)
+# Trainerdaten (v1.0)
 
 Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung von Trainerverträgen als Word- und PDF-Dokument.
 
-**Live:** https://tecko1985.github.io/TrainerVertrag/
+**Live:** https://tecko1985.github.io/Trainerdaten/
 
 ---
 
@@ -45,7 +45,7 @@ Für echte Vertrags-PDFs im Originallayout (alle Trainer auf einmal, nur Status 
 powershell -ExecutionPolicy Bypass -File .\generate-pdfs.ps1
 
 # Oder mit lokal gespeicherter JSON-Datei:
-powershell -ExecutionPolicy Bypass -File .\generate-pdfs.ps1 -JsonPath .\trainervertrag.json
+powershell -ExecutionPolicy Bypass -File .\generate-pdfs.ps1 -JsonPath .\trainerdaten.json
 
 # Test mit Dummy-Daten:
 powershell -ExecutionPolicy Bypass -File .\generate-pdfs.ps1 -Test
@@ -96,8 +96,8 @@ Voraussetzung: Microsoft Word muss installiert sein.
 
 Zwei Worker sind deployed:
 
-- `trainervertrag.michel-brunner.workers.dev` — CORS-Proxy für Admin-WebDAV-Zugriff (`cors-proxy-worker.js`)
-- `trainervertrag1.michel-brunner.workers.dev` — Trainer-Einreichungen (`submit-worker.js`);
+- `trainerdaten.michel-brunner.workers.dev` — CORS-Proxy für Admin-WebDAV-Zugriff (`cors-proxy-worker.js`)
+- `trainerdaten1.michel-brunner.workers.dev` — Trainer-Einreichungen (`submit-worker.js`);
   verlangt ein gültiges Tools-Übersicht-Login (Bearer-Token) und verifiziert es
   serverseitig beim `landingpage`-Worker. Benötigt Worker-Secrets `NEXTCLOUD_URL`,
   `NEXTCLOUD_USERNAME`, `NEXTCLOUD_PASSWORD` **und** ein Service Binding

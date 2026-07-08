@@ -1,12 +1,12 @@
 // Cloudflare Worker: Trainer-Einreichungs-Endpunkt.
-// Deployment: dash.cloudflare.com -> Workers & Pages -> Worker "trainervertrag1"
-// (URL: trainervertrag1.michel-brunner.workers.dev) -> diesen Code einfügen -> Deploy.
-// NICHT zu verwechseln mit dem Worker "trainervertrag" (ohne "1") — das ist der
+// Deployment: dash.cloudflare.com -> Workers & Pages -> Worker "trainerdaten1"
+// (URL: trainerdaten1.michel-brunner.workers.dev) -> diesen Code einfügen -> Deploy.
+// NICHT zu verwechseln mit dem Worker "trainerdaten" (ohne "1") — das ist der
 // separate cors-proxy-worker.js für den Admin-Modus, unbetroffen von diesem Code.
 //
 // NACH dem Deploy folgende Worker-Secrets in den Cloudflare-Einstellungen setzen
-// (Workers -> trainervertrag1 -> Settings -> Variables -> Add secret):
-//   NEXTCLOUD_URL       = https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_Förderung/Tools/TrainerVertrag/trainervertrag.json
+// (Workers -> trainerdaten1 -> Settings -> Variables -> Add secret):
+//   NEXTCLOUD_URL       = https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_Förderung/Tools/Trainerdaten/trainerdaten.json
 //   NEXTCLOUD_USERNAME  = admin
 //   NEXTCLOUD_PASSWORD  = <App-Passwort aus Nextcloud>
 //
@@ -16,7 +16,7 @@
 // SEIT 1.6: Trainer müssen über das zentrale ToolsUebersicht-Konto angemeldet sein
 // (Bearer-Token im Authorization-Header). Der Worker verifiziert das Token NICHT
 // selbst, sondern delegiert an den landingpage-Worker (Aktion "me") — dafür ist
-// ein SERVICE BINDING nötig (Dashboard -> Worker "trainervertrag1" -> Settings ->
+// ein SERVICE BINDING nötig (Dashboard -> Worker "trainerdaten1" -> Settings ->
 // Bindings -> Add binding -> Service binding -> Ziel-Worker "landingpage",
 // Variablenname "LANDINGPAGE"). Ein normaler fetch() an die *.workers.dev-URL der
 // Landingpage wird von Cloudflare mit Error 1042 geblockt, weil beide Worker

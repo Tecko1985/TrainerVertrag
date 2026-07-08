@@ -3,9 +3,9 @@ const APP_VERSION = "1.6";
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
   "https://nx88695.your-storageshare.de/remote.php/dav/files/admin/" +
-  "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/TrainerVertrag/trainervertrag.json";
+  "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Trainerdaten/trainerdaten.json";
 const WEBDAV_DEFAULT_USERNAME = "admin";
-const CORS_PROXY_DEFAULT_URL = "https://trainervertrag.michel-brunner.workers.dev";
+const CORS_PROXY_DEFAULT_URL = "https://trainerdaten.michel-brunner.workers.dev";
 
 // Read-only-Quelle für den Lizenz/Pauschale-Sync im Import-Tab: gleiche
 // Nextcloud-Freigabe/Account wie oben, daher mit denselben Admin-WebDAV-
@@ -20,7 +20,7 @@ const PERSONALKOSTEN_WEBDAV_URL =
 // Trainer-Einreichung (Login über das ToolsUebersicht-Konto): POST an diesen
 // Cloudflare-Worker-Endpunkt. Der Worker hält die Nextcloud-Zugangsdaten als
 // Worker-Secrets (nie im Code) und verifiziert den Login-Token serverseitig.
-const SUBMIT_WORKER_URL = "https://trainervertrag1.michel-brunner.workers.dev";
+const SUBMIT_WORKER_URL = "https://trainerdaten1.michel-brunner.workers.dev";
 
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
