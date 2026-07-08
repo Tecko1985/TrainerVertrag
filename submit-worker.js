@@ -370,6 +370,11 @@ function resolveOwnTrainerRecord(appData, session, vorname, nachname) {
     idx = appData.trainer.findIndex(t =>
       !t.username && `${t.vorname || ""} ${t.nachname || ""}`.toLowerCase() === nl
     );
+    // Stub aus dem Personalkosten-Import übernommen -> mit dem verifizierten
+    // Nutzernamen verknüpfen (wie handleSubmit), sonst finden my-fuehrerschein-file/
+    // my-fuehrungszeugnis-file und my-submission (Suche per username) die gerade
+    // hochgeladene Datei nie wieder, und beim nächsten Besuch fehlt der Doku-Status.
+    if (idx !== -1) appData.trainer[idx].username = session.username;
   }
   if (idx !== -1) return { idx };
   const newEntry = {
