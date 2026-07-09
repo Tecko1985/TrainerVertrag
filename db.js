@@ -221,6 +221,27 @@ async function submitKodex(signatureDataUrl, vorname, nachname) {
   return data;
 }
 
+// Trainer bestätigt das Jugendschutzkonzept -- 1:1 gleiches Muster wie submitKodex()
+// (eigenständige Aktion, eigenes Dokument, gleiches Stub-Matching server-seitig).
+async function submitJugendschutzkonzept(signatureDataUrl, vorname, nachname) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({
+      action: "submit-jugendschutzkonzept",
+      signatureDataUrl,
+      vorname: vorname || "",
+      nachname: nachname || ""
+    })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 // Eigene Führerschein-Datei als Blob holen (für "Ansehen").
 async function fetchMyFuehrerscheinBlob() {
   const token = getSessionToken();

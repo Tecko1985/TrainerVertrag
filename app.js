@@ -11,6 +11,7 @@ let currentTrainerId = null;
 
 let trainerSigPad = null;
 let kodexSigPad = null; // Signatur-Pad für die Trainerkodex-Bestätigung (seit 1.6, migriert aus trainerkodex)
+let jugendschutzSigPad = null; // Signatur-Pad für die Jugendschutzkonzept-Bestätigung (seit 1.7, gleiches Muster wie Kodex)
 let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto geladen
 let currentUsername = null;
 let currentVorname   = null;
@@ -33,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerForm();
   _initTrainerDocuments();
   _initTrainerKodex();
+  _initTrainerJugendschutz();
   _initAdminToggle();
   _initAdminConnect();
   _initAdminPanel();
@@ -93,6 +95,7 @@ function _showTrainerConnectScreen(errorMsg) {
   document.getElementById("trainer-success-screen").style.display = "none";
   document.getElementById("trainer-documents-panel").style.display = "none";
   document.getElementById("trainer-kodex-panel").style.display = "none";
+  document.getElementById("trainer-jugendschutz-panel").style.display = "none";
   const err = document.getElementById("trainer-connect-error");
   err.style.display = errorMsg ? "block" : "none";
   err.textContent = errorMsg || "";
@@ -104,12 +107,15 @@ function _showTrainerFormScreen() {
   document.getElementById("trainer-success-screen").style.display = "none";
   document.getElementById("trainer-documents-panel").style.display = "";
   document.getElementById("trainer-kodex-panel").style.display = "";
+  document.getElementById("trainer-jugendschutz-panel").style.display = "";
   // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
   // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
   trainerSigPad.resize();
   kodexSigPad.resize();
+  jugendschutzSigPad.resize();
   _renderTrainerDocumentsStatus();
   _renderTrainerKodexStatus();
+  _renderTrainerJugendschutzStatus();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -244,9 +250,12 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-success-screen").style.display = "";
   document.getElementById("trainer-documents-panel").style.display = "";
   document.getElementById("trainer-kodex-panel").style.display = "";
+  document.getElementById("trainer-jugendschutz-panel").style.display = "";
   kodexSigPad.resize();
+  jugendschutzSigPad.resize();
   _renderTrainerDocumentsStatus();
   _renderTrainerKodexStatus();
+  _renderTrainerJugendschutzStatus();
 }
 
 // Öffnet das Formular vorausgefüllt mit der eigenen, serverseitig geladenen Einreichung.
@@ -451,6 +460,56 @@ async function _handleKodexSubmit() {
   }
 }
 
+// Kinder- und Jugendschutzkonzept (seit 1.7) -- eigenständiges Dokument neben dem
+// Trainerkodex, aber 1:1 gleiches Muster (Text + Signatur + Bestätigen-Button, gleiche
+// 6-Monats-Frist, unabhängig vom Kodex berechnet).
+function _initTrainerJugendschutz() {
+  const canvas = document.getElementById("tf-jugendschutz-sig-canvas");
+  jugendschutzSigPad = createSignaturePad(canvas, () => {});
+  document.getElementById("btn-tf-jugendschutz-sig-clear").addEventListener("click", () => {
+    jugendschutzSigPad.clear();
+  });
+  document.getElementById("btn-tf-jugendschutz-submit").addEventListener("click", _handleJugendschutzSubmit);
+  document.getElementById("jugendschutz-placeholder-banner").style.display = JUGENDSCHUTZKONZEPT_IS_PLACEHOLDER ? "flex" : "none";
+  document.getElementById("jugendschutz-text").innerHTML = JUGENDSCHUTZKONZEPT_HTML;
+}
+
+async function _handleJugendschutzSubmit() {
+  const errEl = document.getElementById("tf-jugendschutz-error");
+  errEl.classList.remove("visible");
+  if (jugendschutzSigPad.isEmpty()) {
+    errEl.textContent = "Bitte unterschreibe, um zu bestätigen.";
+    errEl.classList.add("visible");
+    return;
+  }
+  const btn = document.getElementById("btn-tf-jugendschutz-submit");
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = "Wird übermittelt …";
+  try {
+    const signatureDataUrl = jugendschutzSigPad.toDataURL();
+    const data = await submitJugendschutzkonzept(signatureDataUrl, currentVorname, currentNachname);
+    myTrainerRecord = {
+      ...(myTrainerRecord || {}),
+      jugendschutzBestaetigtAm: data.jugendschutzBestaetigtAm,
+      jugendschutzSignatureDataUrl: signatureDataUrl,
+      jugendschutzVersion: data.jugendschutzVersion
+    };
+    jugendschutzSigPad.clear();
+    _renderTrainerJugendschutzStatus();
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du erneut bestätigen.");
+    } else {
+      errEl.textContent = "Bestätigung fehlgeschlagen: " + err.message;
+      errEl.classList.add("visible");
+    }
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === "Wird übermittelt …") btn.textContent = prevLabel;
+  }
+}
+
 // Speichert Checkbox + Lizenzart + Gültig-bis zusammen (immer alle drei aktuellen
 // DOM-Werte, kein Teil-Update) — reine Selbstauskunft ohne Datei-Upload.
 async function _saveTrainerlizenzDetails() {
@@ -602,6 +661,28 @@ function _renderTrainerKodexStatus() {
     statusEl.innerHTML = gueltig
       ? `✅ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
       : `⚠️ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
+    submitBtn.textContent = "Erneut bestätigen";
+  } else {
+    statusEl.textContent = "⚠️ Noch nicht bestätigt.";
+    submitBtn.textContent = "Ich bestätige";
+  }
+}
+
+// Gleiches Muster wie _renderTrainerKodexStatus(), JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE
+// statt KODEX_GUELTIGKEIT_MONATE, eigenes Feld-Trio (jugendschutz* statt kodex*).
+function _renderTrainerJugendschutzStatus() {
+  const t = myTrainerRecord || {};
+  document.getElementById("tf-jugendschutz-name").textContent =
+    [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername || "";
+
+  const statusEl = document.getElementById("tf-jugendschutz-status");
+  const submitBtn = document.getElementById("btn-tf-jugendschutz-submit");
+  if (t.jugendschutzBestaetigtAm) {
+    const faelligAm = _addMonths(new Date(t.jugendschutzBestaetigtAm), JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE);
+    const gueltig = faelligAm.getTime() > Date.now();
+    statusEl.innerHTML = gueltig
+      ? `✅ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
+      : `⚠️ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
     submitBtn.textContent = "Erneut bestätigen";
   } else {
     statusEl.textContent = "⚠️ Noch nicht bestätigt.";
@@ -974,6 +1055,7 @@ function _initAdminPanel() {
     if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
   });
   document.getElementById("btn-d-kodex-reset").addEventListener("click", _resetKodexAdmin);
+  document.getElementById("btn-d-jugendschutz-reset").addEventListener("click", _resetJugendschutzAdmin);
 
   document.getElementById("btn-d-fz-camera").addEventListener("click", () => document.getElementById("d-fz-camera-input").click());
   document.getElementById("d-fz-camera-input").addEventListener("change", (e) => {
@@ -1212,6 +1294,7 @@ function _openAdminDetail(id) {
 
   _renderDocumentsSection(t);
   _renderKodexSection(t);
+  _renderJugendschutzSection(t);
   _renderChecklisteStatus(t);
 }
 
@@ -1346,6 +1429,53 @@ async function _resetKodexAdmin() {
     errEl.style.display = "block";
   }
   _renderKodexSection(appData.trainer[idx]);
+}
+
+// Jugendschutzkonzept im Admin-Detail: gleiches Muster wie _renderKodexSection/
+// _resetKodexAdmin (reine Anzeige + Zurücksetzen-Button, kein Upload).
+function _renderJugendschutzSection(t) {
+  const statusEl = document.getElementById("d-jugendschutz-status");
+  const imgEl = document.getElementById("d-jugendschutz-signature");
+  const resetBtn = document.getElementById("btn-d-jugendschutz-reset");
+  if (t.jugendschutzBestaetigtAm) {
+    const faelligAm = _addMonths(new Date(t.jugendschutzBestaetigtAm), JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE);
+    const abgelaufen = faelligAm.getTime() <= Date.now();
+    statusEl.innerHTML = "Bestätigt am " + _esc(_fmtIso(t.jugendschutzBestaetigtAm)) +
+      ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
+      `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
+    if (t.jugendschutzSignatureDataUrl) {
+      imgEl.src = t.jugendschutzSignatureDataUrl;
+      imgEl.style.display = "";
+    } else {
+      imgEl.style.display = "none";
+    }
+    resetBtn.disabled = false;
+  } else {
+    statusEl.textContent = "Noch nicht bestätigt.";
+    imgEl.style.display = "none";
+    resetBtn.disabled = true;
+  }
+}
+
+async function _resetJugendschutzAdmin() {
+  if (!currentTrainerId) return;
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  if (!confirm(`Jugendschutzkonzept-Bestätigung von ${t.vorname} ${t.nachname} wirklich zurücksetzen?`)) return;
+
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+
+  appData.trainer[idx] = { ...appData.trainer[idx], jugendschutzBestaetigtAm: "", jugendschutzSignatureDataUrl: "", jugendschutzVersion: "" };
+  try {
+    await _saveMerged();
+  } catch (err) {
+    errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  _renderJugendschutzSection(appData.trainer[idx]);
 }
 
 async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeField) {

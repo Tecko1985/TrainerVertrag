@@ -1,4 +1,4 @@
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -38,6 +38,10 @@ const FUEHRERSCHEIN_GUELTIGKEIT_MONATE = 6;
 // Trainerkodex: nach der letzten Bestätigung alle 6 Monate erneut zu bestätigen
 // (gleiche Frist/Berechnung wie beim Führerschein, unabhängig davon gewählt).
 const KODEX_GUELTIGKEIT_MONATE = 6;
+
+// Jugendschutzkonzept: gleiche 6-Monats-Frist wie beim Trainerkodex, unabhängig
+// davon berechnet (eigenständiges Dokument, eigene Bestätigung).
+const JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE = 6;
 
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
@@ -83,6 +87,25 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.7",
+    groups: [
+      {
+        title: "Kinder- und Jugendschutzkonzept",
+        items: [
+          "Neuer Bereich „Jugendschutzkonzept\" — Text lesen und mit Unterschrift bestätigen, gleiches Prinzip wie beim Trainerkodex, direkt hier im Trainerdaten-Tab.",
+          "Die Bestätigung ist ebenfalls alle 6 Monate erneut fällig; ist sie abgelaufen, zählt das mit zum Gesamtstatus (rotes Kreuz auf der Dashboard-Kachel, Eingabe erforderlich).",
+          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+        ]
+      },
+      {
+        title: "Trainerkodex: Darstellung zusammengelegt",
+        items: [
+          "Text und Bestätigung (Unterschrift) stehen jetzt in einer gemeinsamen Karte statt in zwei getrennten — rein optische Vereinfachung, keine Funktionsänderung."
+        ]
+      }
+    ]
+  },
   {
     version: "1.6",
     groups: [

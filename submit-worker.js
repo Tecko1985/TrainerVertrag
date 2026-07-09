@@ -122,6 +122,10 @@ const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
 // veralteter Client keine neuere Version behaupten kann als tatsächlich gezeigt.
 const KODEX_VERSION = "1.0";
 
+// Muss manuell synchron zu JUGENDSCHUTZKONZEPT_VERSION in jugendschutz-text.js
+// gehalten werden (gleiche Duplizierungs-Konvention wie KODEX_VERSION oben).
+const JUGENDSCHUTZKONZEPT_VERSION = "1.0";
+
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
 const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
@@ -216,6 +220,9 @@ export default {
     }
     if (body.action === "submit-kodex") {
       return handleSubmitKodex(body, session, env, corsHeaders);
+    }
+    if (body.action === "submit-jugendschutzkonzept") {
+      return handleSubmitJugendschutzkonzept(body, session, env, corsHeaders);
     }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
@@ -605,6 +612,48 @@ async function handleSubmitKodex(body, session, env, corsHeaders) {
   }
 
   return json({ success: true, kodexBestaetigtAm: nowIso, kodexVersion: KODEX_VERSION }, 200, corsHeaders);
+}
+
+// Jugendschutzkonzept-Bestätigung -- 1:1 gleiches Muster wie handleSubmitKodex()
+// (eigenständiges Dokument, eigenes Feld-Trio, gleiches Stub-Matching, gleiche
+// Server-Autorität für die Version).
+async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) {
+  const signatureDataUrl = (typeof body.signatureDataUrl === "string" &&
+                             /^data:image\/png;base64,/.test(body.signatureDataUrl))
+    ? body.signatureDataUrl : "";
+  if (!signatureDataUrl) {
+    return json({ error: "Unterschrift fehlt" }, 400, corsHeaders);
+  }
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
+  const nowIso = new Date().toISOString();
+  appData.trainer[idx].jugendschutzBestaetigtAm = nowIso;
+  appData.trainer[idx].jugendschutzSignatureDataUrl = signatureDataUrl;
+  appData.trainer[idx].jugendschutzVersion = JUGENDSCHUTZKONZEPT_VERSION;
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, jugendschutzBestaetigtAm: nowIso, jugendschutzVersion: JUGENDSCHUTZKONZEPT_VERSION }, 200, corsHeaders);
 }
 
 // Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).
