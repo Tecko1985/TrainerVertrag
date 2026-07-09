@@ -1,4 +1,4 @@
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -87,6 +87,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.9",
+    groups: [
+      {
+        title: "Admin-Dokumente",
+        items: [
+          "\"Ansehen\" bei Führerschein/Führungszeugnis/Trainerlizenz im Admin-Detail zeigt die Datei jetzt im Browser an, statt sie herunterzuladen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.8",
     groups: [
