@@ -1,4 +1,4 @@
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -17,6 +17,15 @@ const PERSONALKOSTEN_WEBDAV_URL =
   "https://nx88695.your-storageshare.de/remote.php/dav/files/admin/" +
   "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Personalkosten/personalkosten.json";
 
+// Read-only-Quelle für den TrainerCheckliste-Status im Admin-Detail (Phase 3,
+// siehe CLAUDE.md) — gleiche Technik wie PERSONALKOSTEN_WEBDAV_URL oben, gleiche
+// Nextcloud-Freigabe/Account, gleicher CORS-Proxy. Achtung Namensfalle: Ordner/
+// Datei heißen "TrainerCheckin"/"trainercheckin.json", NICHT "TrainerCheckliste"
+// (siehe DAV_APPS["trainercheckliste"] in admin-worker.js).
+const TRAINERCHECKLISTE_WEBDAV_URL =
+  "https://nx88695.your-storageshare.de/remote.php/dav/files/admin/" +
+  "05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/TrainerCheckin/trainercheckin.json";
+
 // Trainer-Einreichung (Login über das ToolsUebersicht-Konto): POST an diesen
 // Cloudflare-Worker-Endpunkt. Der Worker hält die Nextcloud-Zugangsdaten als
 // Worker-Secrets (nie im Code) und verifiziert den Login-Token serverseitig.
@@ -25,6 +34,10 @@ const SUBMIT_WORKER_URL = "https://trainerdaten1.michel-brunner.workers.dev";
 // Führerschein-Kopie: nach der ersten Einreichung alle 6 Monate erneut einzureichen
 // (1:1 aus dem migrierten Fahrtenbuch-Feature übernommen, siehe [[project-trainerdaten]]).
 const FUEHRERSCHEIN_GUELTIGKEIT_MONATE = 6;
+
+// Trainerkodex: nach der letzten Bestätigung alle 6 Monate erneut zu bestätigen
+// (gleiche Frist/Berechnung wie beim Führerschein, unabhängig davon gewählt).
+const KODEX_GUELTIGKEIT_MONATE = 6;
 
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
@@ -70,6 +83,26 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.6",
+    groups: [
+      {
+        title: "Trainerkodex",
+        items: [
+          "Der Verhaltenskodex ist keine eigene App mehr: Kodex lesen und mit Unterschrift bestätigen läuft jetzt direkt hier, über denselben Gateway-Login wie das Hauptformular.",
+          "Die Bestätigung ist alle 6 Monate erneut fällig (wie die Führerschein-Kopie) — abgelaufene Bestätigungen werden entsprechend markiert.",
+          "Bestehende Bestätigungen aus der bisherigen Trainerkodex-App wurden übernommen.",
+          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift der jeweiligen Person, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+        ]
+      },
+      {
+        title: "TrainerCheckliste-Status im Admin-Detail",
+        items: [
+          "Zeigt zusätzlich an, ob für den Trainer in TrainerCheckliste Zugang bzw. Abgang abgeschlossen sind (rein informativ, ohne Auswirkung auf den Ampel-Status der Trainerdaten-Kachel)."
+        ]
+      }
+    ]
+  },
   {
     version: "1.5",
     groups: [

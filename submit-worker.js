@@ -62,6 +62,18 @@
 //     möglich) — Art/Gültig-bis beschreiben das Dokument selbst und bleiben bei
 //     einem Re-Upload (z.B. neuer Scan derselben Lizenz) unangetastet.
 //
+// SEIT 1.6 (Trainerkodex, migriert aus dem eigenständigen trainerkodex-Tool, siehe
+// [[project-trainerkodex]]): Verhaltenskodex lesen + bestätigen ist jetzt Teil von
+// Trainerdaten statt einer eigenen App/Kachel.
+//   { action: "submit-kodex", signatureDataUrl, vorname?, nachname? } -> setzt
+//     kodexBestaetigtAm (nur bei echter Signatur, gleiche Konvention wie
+//     unterschriftAm bei "submit"), kodexSignatureDataUrl, kodexVersion (server-
+//     seitig fest, nicht vom Client) auf dem EIGENEN Datensatz; gleiches Stub-
+//     Matching wie bei den Dokument-Uploads (resolveOwnTrainerRecord)
+//     -> { success:true, kodexBestaetigtAm }
+//     Kein neuer Lese-Weg nötig -- "my-submission" liefert den ganzen (jetzt um
+//     die drei Kodex-Felder erweiterten) Datensatz bereits mit.
+//
 // SEIT 1.6 (Import): Der Admin-Text-Import kann für Namen ohne Konto-Treffer einen
 // unvollständigen Stub-Datensatz anlegen (nur vorname/nachname/lizenz/pauschale,
 // KEIN username-Feld). Meldet sich diese Person später selbst an, findet
@@ -103,6 +115,12 @@ const DOCUMENT_TYPES = {
 // Muss zum Client-Cap MAX_FILE_BYTES in config.js passen (gleiche Duplizierungs-
 // Konvention wie im migrierten Fahrtenbuch-Feature).
 const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Muss manuell synchron zu KODEX_VERSION in kodex-text.js gehalten werden (kein
+// gemeinsames Modul zwischen Worker und Frontend, gleiche Duplizierungs-Konvention
+// wie an anderen Stellen dieser App). Server-autoritativ (wie username), damit ein
+// veralteter Client keine neuere Version behaupten kann als tatsächlich gezeigt.
+const KODEX_VERSION = "1.0";
 
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
@@ -195,6 +213,9 @@ export default {
     }
     if (body.action === "set-trainerlizenz-details") {
       return handleSetTrainerlizenzDetails(body, session, env, corsHeaders);
+    }
+    if (body.action === "submit-kodex") {
+      return handleSubmitKodex(body, session, env, corsHeaders);
     }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
@@ -538,6 +559,52 @@ async function handleSetTrainerlizenzDetails(body, session, env, corsHeaders) {
   }
 
   return json({ success: true, trainerlizenzNichtVorhanden: nichtVorhanden, trainerlizenzArt: art, trainerlizenzGueltigBis: gueltigBis }, 200, corsHeaders);
+}
+
+// Kodex-Bestätigung (Name+Signatur, migriert aus dem eigenständigen trainerkodex-
+// Tool). Gleiches Stub-Matching wie handleSetTrainerlizenzDetails/handleUploadDocument
+// (resolveOwnTrainerRecord). kodexBestaetigtAm nur bei echter, gültiger Signatur
+// gesetzt -- gleiche Konvention wie unterschriftAm bei handleSubmit, ein leerer/
+// ungültiger Wert wird abgelehnt statt stillschweigend als "bestätigt ohne
+// Unterschrift" gespeichert. kodexVersion kommt server-seitig aus KODEX_VERSION,
+// nicht vom Client (wie username nie vom Client vertraut).
+async function handleSubmitKodex(body, session, env, corsHeaders) {
+  const signatureDataUrl = (typeof body.signatureDataUrl === "string" &&
+                             /^data:image\/png;base64,/.test(body.signatureDataUrl))
+    ? body.signatureDataUrl : "";
+  if (!signatureDataUrl) {
+    return json({ error: "Unterschrift fehlt" }, 400, corsHeaders);
+  }
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
+  const nowIso = new Date().toISOString();
+  appData.trainer[idx].kodexBestaetigtAm = nowIso;
+  appData.trainer[idx].kodexSignatureDataUrl = signatureDataUrl;
+  appData.trainer[idx].kodexVersion = KODEX_VERSION;
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, kodexBestaetigtAm: nowIso, kodexVersion: KODEX_VERSION }, 200, corsHeaders);
 }
 
 // Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).

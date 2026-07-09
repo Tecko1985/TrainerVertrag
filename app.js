@@ -10,6 +10,7 @@ let activeAdminTab = "liste";
 let currentTrainerId = null;
 
 let trainerSigPad = null;
+let kodexSigPad = null; // Signatur-Pad für die Trainerkodex-Bestätigung (seit 1.6, migriert aus trainerkodex)
 let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto geladen
 let currentUsername = null;
 let currentVorname   = null;
@@ -18,6 +19,7 @@ let currentIsAdmin   = false;
 let currentGroupIds  = [];
 let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
+let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only Cross-Read), lazy geladen (siehe _renderChecklisteStatus)
 let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -30,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _populateLizenzArtSelect("d-tl-art");
   _initTrainerForm();
   _initTrainerDocuments();
+  _initTrainerKodex();
   _initAdminToggle();
   _initAdminConnect();
   _initAdminPanel();
@@ -89,6 +92,7 @@ function _showTrainerConnectScreen(errorMsg) {
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "none";
   document.getElementById("trainer-documents-panel").style.display = "none";
+  document.getElementById("trainer-kodex-panel").style.display = "none";
   const err = document.getElementById("trainer-connect-error");
   err.style.display = errorMsg ? "block" : "none";
   err.textContent = errorMsg || "";
@@ -99,10 +103,13 @@ function _showTrainerFormScreen() {
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
   document.getElementById("trainer-documents-panel").style.display = "";
+  document.getElementById("trainer-kodex-panel").style.display = "";
   // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
   // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
   trainerSigPad.resize();
+  kodexSigPad.resize();
   _renderTrainerDocumentsStatus();
+  _renderTrainerKodexStatus();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -236,7 +243,10 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "";
   document.getElementById("trainer-documents-panel").style.display = "";
+  document.getElementById("trainer-kodex-panel").style.display = "";
+  kodexSigPad.resize();
   _renderTrainerDocumentsStatus();
+  _renderTrainerKodexStatus();
 }
 
 // Öffnet das Formular vorausgefüllt mit der eigenen, serverseitig geladenen Einreichung.
@@ -386,6 +396,61 @@ function _initTrainerDocuments() {
   document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
 }
 
+// Trainerkodex (migriert aus der eigenständigen App trainerkodex, siehe CLAUDE.md) --
+// anders als dort keine eigenen Name-Eingabefelder mehr (Trainerdaten kennt den Namen
+// schon aus dem Gateway-Login), nur noch Text + Signatur + Bestätigen-Button.
+function _initTrainerKodex() {
+  const canvas = document.getElementById("tf-kodex-sig-canvas");
+  kodexSigPad = createSignaturePad(canvas, () => {});
+  document.getElementById("btn-tf-kodex-sig-clear").addEventListener("click", () => {
+    kodexSigPad.clear();
+  });
+  document.getElementById("btn-tf-kodex-submit").addEventListener("click", _handleKodexSubmit);
+  document.getElementById("kodex-placeholder-banner").style.display = KODEX_IS_PLACEHOLDER ? "flex" : "none";
+  document.getElementById("kodex-text").innerHTML = KODEX_HTML;
+}
+
+// Anders als beim Hauptformular (Unterschrift dort weiterhin kein Pflichtfeld, siehe
+// _handleTrainerSubmit) ist die Signatur hier die einzige Bestätigung überhaupt --
+// client-seitig per isEmpty() erzwungen, wie im ursprünglichen trainerkodex-Tool.
+async function _handleKodexSubmit() {
+  const errEl = document.getElementById("tf-kodex-error");
+  errEl.classList.remove("visible");
+  if (kodexSigPad.isEmpty()) {
+    errEl.textContent = "Bitte unterschreibe, um zu bestätigen.";
+    errEl.classList.add("visible");
+    return;
+  }
+  const btn = document.getElementById("btn-tf-kodex-submit");
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = "Wird übermittelt …";
+  try {
+    const signatureDataUrl = kodexSigPad.toDataURL();
+    const data = await submitKodex(signatureDataUrl, currentVorname, currentNachname);
+    myTrainerRecord = {
+      ...(myTrainerRecord || {}),
+      kodexBestaetigtAm: data.kodexBestaetigtAm,
+      kodexSignatureDataUrl: signatureDataUrl,
+      kodexVersion: data.kodexVersion
+    };
+    kodexSigPad.clear();
+    _renderTrainerKodexStatus();
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du erneut bestätigen.");
+    } else {
+      errEl.textContent = "Bestätigung fehlgeschlagen: " + err.message;
+      errEl.classList.add("visible");
+    }
+  } finally {
+    btn.disabled = false;
+    // Nur zurücksetzen, wenn _renderTrainerKodexStatus() den Text (Erfolgsfall) noch
+    // nicht schon korrekt gesetzt hat -- gleiche Guard-Konvention wie _uploadTrainerDocument.
+    if (btn.textContent === "Wird übermittelt …") btn.textContent = prevLabel;
+  }
+}
+
 // Speichert Checkbox + Lizenzart + Gültig-bis zusammen (immer alle drei aktuellen
 // DOM-Werte, kein Teil-Update) — reine Selbstauskunft ohne Datei-Upload.
 async function _saveTrainerlizenzDetails() {
@@ -518,6 +583,29 @@ function _renderTrainerDocumentsStatus() {
     fzAnsehenBtn.disabled = true;
     document.getElementById("btn-tf-fz-upload").textContent = "Datei / Galerie wählen…";
     document.getElementById("btn-tf-fz-camera").textContent = "📷 Foto aufnehmen";
+  }
+}
+
+// Gleiche Gültigkeits-Berechnung wie beim Führerschein (_addMonths + Date.now()-
+// Vergleich, KODEX_GUELTIGKEIT_MONATE statt FUEHRERSCHEIN_GUELTIGKEIT_MONATE),
+// dieselben .badge.generiert/.badge.abgelaufen-Klassen.
+function _renderTrainerKodexStatus() {
+  const t = myTrainerRecord || {};
+  document.getElementById("tf-kodex-name").textContent =
+    [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername || "";
+
+  const statusEl = document.getElementById("tf-kodex-status");
+  const submitBtn = document.getElementById("btn-tf-kodex-submit");
+  if (t.kodexBestaetigtAm) {
+    const faelligAm = _addMonths(new Date(t.kodexBestaetigtAm), KODEX_GUELTIGKEIT_MONATE);
+    const gueltig = faelligAm.getTime() > Date.now();
+    statusEl.innerHTML = gueltig
+      ? `✅ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
+      : `⚠️ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
+    submitBtn.textContent = "Erneut bestätigen";
+  } else {
+    statusEl.textContent = "⚠️ Noch nicht bestätigt.";
+    submitBtn.textContent = "Ich bestätige";
   }
 }
 
@@ -885,6 +973,8 @@ function _initAdminPanel() {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
   });
+  document.getElementById("btn-d-kodex-reset").addEventListener("click", _resetKodexAdmin);
+
   document.getElementById("btn-d-fz-camera").addEventListener("click", () => document.getElementById("d-fz-camera-input").click());
   document.getElementById("d-fz-camera-input").addEventListener("change", (e) => {
     const f = e.target.files[0]; e.target.value = "";
@@ -1121,6 +1211,8 @@ function _openAdminDetail(id) {
   if (!t.lizenz) _prefillLizenzFromProfile(t);
 
   _renderDocumentsSection(t);
+  _renderKodexSection(t);
+  _renderChecklisteStatus(t);
 }
 
 // ─── Dokumente (Admin-Detail: Führerschein/Führungszeugnis) ────────────────────
@@ -1206,6 +1298,56 @@ function _renderDocumentsSection(t) {
   }
 }
 
+// Trainerkodex im Admin-Detail: reine Anzeige (Datum + Signatur-Vorschau, Signatur
+// liegt inline als DataURL im Datensatz, kein separates Binärobjekt wie bei den drei
+// Dokumenten oben) plus ein Zurücksetzen-Button -- anders als Führerschein/Führungs-
+// zeugnis/Trainerlizenz kann der Admin hier nichts hochladen (die Bestätigung ist
+// eine Selbstauskunft des Trainers, kein Dokument-Scan).
+function _renderKodexSection(t) {
+  const statusEl = document.getElementById("d-kodex-status");
+  const imgEl = document.getElementById("d-kodex-signature");
+  const resetBtn = document.getElementById("btn-d-kodex-reset");
+  if (t.kodexBestaetigtAm) {
+    const faelligAm = _addMonths(new Date(t.kodexBestaetigtAm), KODEX_GUELTIGKEIT_MONATE);
+    const abgelaufen = faelligAm.getTime() <= Date.now();
+    statusEl.innerHTML = "Bestätigt am " + _esc(_fmtIso(t.kodexBestaetigtAm)) +
+      ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
+      `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
+    if (t.kodexSignatureDataUrl) {
+      imgEl.src = t.kodexSignatureDataUrl;
+      imgEl.style.display = "";
+    } else {
+      imgEl.style.display = "none";
+    }
+    resetBtn.disabled = false;
+  } else {
+    statusEl.textContent = "Noch nicht bestätigt.";
+    imgEl.style.display = "none";
+    resetBtn.disabled = true;
+  }
+}
+
+async function _resetKodexAdmin() {
+  if (!currentTrainerId) return;
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  if (!confirm(`Kodex-Bestätigung von ${t.vorname} ${t.nachname} wirklich zurücksetzen?`)) return;
+
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+
+  appData.trainer[idx] = { ...appData.trainer[idx], kodexBestaetigtAm: "", kodexSignatureDataUrl: "", kodexVersion: "" };
+  try {
+    await _saveMerged();
+  } catch (err) {
+    errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  _renderKodexSection(appData.trainer[idx]);
+}
+
 async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeField) {
   if (!currentTrainerId) return;
   const errEl = document.getElementById("d-doc-error");
@@ -1282,6 +1424,54 @@ async function _prefillLizenzFromProfile(t) {
   if (!el || el.value) return;
   el.value = matches[0].lizenz;
   _scheduleAutosave();
+}
+
+// ─── TrainerCheckliste-Status (Phase 3, rein informativ) ───────────────────────
+// Liest TrainerCheckliste read-only per WebDAV (TRAINERCHECKLISTE_WEBDAV_URL,
+// gleiche Cross-Read-Technik wie _loadFromPersonalkosten), lazy geladen + gecacht.
+// Zeigt NUR an, ob Zugang/Abgang abgeschlossen sind -- fließt bewusst an keiner
+// Stelle in den Ampel-Status (trainerdatenGesamtOk in admin-worker.js) ein.
+
+// Order-tolerante Namens-Übereinstimmung, gleiche Logik wie sameNamePair() in
+// admin-worker.js -- kein gemeinsames Modul zwischen Worker und dieser App,
+// kleine Helfer werden konventionsgemäß pro App dupliziert.
+function _sameNamePair(aFirst, aLast, bFirst, bLast) {
+  const norm = (s) => String(s || "").trim().toLowerCase();
+  return (norm(aFirst) === norm(bFirst) && norm(aLast) === norm(bLast)) ||
+         (norm(aFirst) === norm(bLast) && norm(aLast) === norm(bFirst));
+}
+
+async function _loadTrainerCheckliste() {
+  if (_trainerchecklisteEintraege === null) {
+    try {
+      const raw = await davReadFile(_cloneConfigForUrl(TRAINERCHECKLISTE_WEBDAV_URL));
+      _trainerchecklisteEintraege = (raw && Array.isArray(raw.trainerEintraege)) ? raw.trainerEintraege : [];
+    } catch (_) {
+      _trainerchecklisteEintraege = [];
+    }
+  }
+  return _trainerchecklisteEintraege;
+}
+
+// Gleiche Match-Konvention wie buildTrainerRecord() in admin-worker.js: erst
+// linkedUsername (Provisioning-Stub), sonst Namensfallback -- Achtung, in
+// TrainerCheckliste ist "name" das Nachname-Feld, nicht der volle Name.
+function _findChecklisteEintrag(eintraege, t) {
+  return eintraege.find((e) =>
+    (e.linkedUsername && t.username && e.linkedUsername === t.username) ||
+    _sameNamePair(e.vorname, e.name, t.vorname, t.nachname)) || null;
+}
+
+async function _renderChecklisteStatus(t) {
+  const el = document.getElementById("d-checkliste-status");
+  el.textContent = "wird geladen …";
+  const eintraege = await _loadTrainerCheckliste();
+  if (currentTrainerId !== t.id) return; // Admin hat währenddessen einen anderen Trainer geöffnet
+  const eintrag = _findChecklisteEintrag(eintraege, t);
+  const teil = (s) => (s && s.abgeschlossen) ? '<span class="badge generiert">✓</span>' : '<span class="badge offen">–</span>';
+  el.innerHTML = eintrag
+    ? `Zugang ${teil(eintrag.zugang)} · Abgang ${teil(eintrag.abgang)}`
+    : "kein Eintrag gefunden";
 }
 
 function _collectDetailData() {
