@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trainerdaten</title>
+<meta name="theme-color" content="#1a56a0" />
+<link rel="stylesheet" href="style.css?v=1.0" />
+</head>
+<body>
+
+<header>
+  <h1>📄 Trainerdaten <span class="version-badge version-badge-link" id="version-badge" role="button" tabindex="0" title="Versionshistorie ansehen"></span></h1>
+  <a href="https://tecko1985.github.io/ToolsUebersicht/" class="back-to-dashboard">← Zurück zum Dashboard</a>
+  <div class="header-right">
+    <div class="file-status" id="file-status" style="display:none;">
+      <span class="dot"></span><span class="label">Nicht verbunden</span>
+    </div>
+    <button class="admin-toggle-btn" id="btn-admin-toggle" type="button">Admin</button>
+    <img class="header-logo" src="logo.png" alt="1. SC 1911 e.V. Heilbad Heiligenstadt" />
+  </div>
+</header>
+
+<!-- ===== TRAINER-FORMULAR (Standard-Ansicht) ===== -->
+<div id="trainer-flow">
+
+  <!-- Connect-Screen (ToolsUebersicht-Login erforderlich) -->
+  <div class="connect-screen" id="trainer-connect-screen" style="display:none;">
+    <div class="card">
+      <h2>Anmeldung erforderlich</h2>
+      <p class="muted">
+        Damit du deine eingereichten Daten später auf jedem Gerät wiedersehen und bearbeiten
+        kannst, läuft Trainerdaten jetzt über dein <strong>Tools-Übersicht</strong>-Konto.
+        Melde dich dort einmalig an – danach wird diese Seite automatisch geladen.
+      </p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <a class="btn" href="https://tecko1985.github.io/ToolsUebersicht/">Zur Tools-Übersicht &amp; anmelden</a>
+      </div>
+      <p class="muted" id="trainer-connect-error" style="display:none; color:#c0392b; margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- Formular -->
+  <div id="trainer-form-screen" class="trainer-form-screen" style="display:none;">
+    <div class="card">
+      <h2>Deine Trainerdaten</h2>
+      <p class="muted" style="margin-bottom:6px; line-height:1.5;">
+        Bitte füll das Formular vollständig aus und unterschreibe am Ende.
+        Deine Daten werden sicher auf unserem Vereinsserver gespeichert.
+      </p>
+      <p class="muted" style="margin-bottom:18px; font-size:13px;">
+        Angemeldet als <strong id="tf-angemeldet-als">…</strong> ·
+        <a href="https://tecko1985.github.io/ToolsUebersicht/">Konto verwalten</a>
+      </p>
+
+      <div class="error-banner" id="trainer-error"></div>
+
+      <form id="trainer-form" novalidate>
+
+        <div class="section-divider">Persönliche Daten</div>
+        <div class="form-grid">
+          <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
+          <div class="form-field required"><label>Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
+          <div class="form-field"><label>Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field" style="grid-column:1/-1;"><label>Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
+          <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
+          <div class="form-field"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
+          <div class="form-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
+        </div>
+
+        <div class="section-divider">Bankverbindung</div>
+        <div class="form-grid">
+          <div class="form-field required" style="grid-column:1/-1;">
+            <label>IBAN</label>
+            <input type="text" id="tf-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="form-field"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
+          <div class="form-field"><label>BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
+        </div>
+
+        <div class="section-divider">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG) — Anlage 1</div>
+        <p class="muted" style="margin:-4px 0 10px; line-height:1.5;">
+          Für die steuerfreie Übungsleiterpauschale musst du erklären, ob du im laufenden Kalenderjahr weitere Einnahmen aus einer anderen nebenberuflichen Tätigkeit im Sinne des § 3 Nr. 26 EStG hast bzw. hattest.
+        </p>
+        <label class="radio-option">
+          <input type="radio" name="tf-nebentaetigkeit" id="tf-nebentaetigkeit-keine" value="keine" />
+          <span>Ich erkläre, dass ich <strong>keine</strong> anderen Einnahmen aus nebenberuflichen Tätigkeiten im Sinne des § 3 Nr. 26 EStG bezogen habe bzw. beziehe.</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="tf-nebentaetigkeit" id="tf-nebentaetigkeit-andere" value="andere" />
+          <span>
+            Ich erkläre, dass ich Einnahmen aus einer anderen nebenberuflichen Tätigkeit im Sinne des § 3 Nr. 26 EStG (z. B. als Übungsleiter/Betreuer für einen anderen Verein) in Anspruch genommen habe bzw. in Anspruch nehmen werde.
+            <span class="radio-amount" id="tf-nebentaetigkeit-betrag-wrap" style="display:none;">
+              in Höhe von <input type="text" id="tf-nebentaetigkeit-betrag" placeholder="z.B. 150,00" /> EUR
+            </span>
+          </span>
+        </label>
+
+        <div class="section-divider">Unterschrift</div>
+        <div class="signature-box">
+          <label>Hier unterschreiben (Maus oder Finger)</label>
+          <canvas id="trainer-sig-canvas"></canvas>
+          <p class="sig-hint">Mit dem Zeichnen bestätigst du, dass die oben eingetragenen Daten korrekt sind.</p>
+          <div class="btn-row" style="justify-content:flex-start; margin-top:8px;">
+            <button type="button" class="btn secondary small" id="btn-sig-clear">Löschen</button>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:24px; justify-content:flex-start;">
+          <button type="submit" class="btn success" id="btn-trainer-submit">Daten einreichen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Erfolgs-Screen / Bereits-eingereicht-Screen -->
+  <div id="trainer-success-screen" class="success-screen" style="display:none;">
+    <div class="success-icon">✅</div>
+    <h2 id="success-heading">Danke!</h2>
+    <p id="success-text">Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist.</p>
+
+    <div class="card receipt-card">
+      <h3>Deine übermittelten Daten</h3>
+      <p class="muted" style="margin-bottom:12px;">Zur Kontrolle – bitte kurz prüfen, ob alles korrekt angekommen ist.</p>
+      <div class="receipt-rows">
+        <div class="receipt-row"><span class="receipt-label">Vorname</span><span class="receipt-value" id="r-vorname"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Nachname</span><span class="receipt-value" id="r-nachname"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Geburtsdatum</span><span class="receipt-value" id="r-geburtsdatum"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Adresse</span><span class="receipt-value" id="r-adresse"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Telefon</span><span class="receipt-value" id="r-telefon"></span></div>
+        <div class="receipt-row"><span class="receipt-label">E-Mail</span><span class="receipt-value" id="r-email"></span></div>
+        <div class="receipt-row"><span class="receipt-label">IBAN</span><span class="receipt-value iban-field" id="r-iban"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Bank</span><span class="receipt-value" id="r-bankname"></span></div>
+        <div class="receipt-row"><span class="receipt-label">BIC</span><span class="receipt-value" id="r-bic"></span></div>
+        <div class="receipt-row"><span class="receipt-label">Nebentätigkeit (§ 3 Nr. 26 EStG)</span><span class="receipt-value" id="r-nebentaetigkeit"></span></div>
+      </div>
+      <div class="section-divider">Unterschrift</div>
+      <img id="r-signature" alt="Unterschrift" class="receipt-signature" />
+    </div>
+
+    <div class="btn-row" style="margin-top:24px;">
+      <button type="button" class="btn" id="btn-trainer-edit">Bearbeiten</button>
+      <a class="btn secondary" href="https://tecko1985.github.io/ToolsUebersicht/">← Zur Übersicht</a>
+    </div>
+  </div>
+
+  <!-- Dokumente: Trainerlizenz + Führerschein + Führungszeugnis (unabhängig vom Haupt-Formular sichtbar) -->
+  <div id="trainer-documents-panel" class="trainer-form-screen" style="display:none;">
+    <!-- TrainerCheckliste-Status (seit 1.8): read-only Spiegel der Checkliste
+         Trainerzu-/-abgang, die die Geschäftsstelle in der eigenständigen App
+         TrainerCheckliste führt. Rein informativ, keine Bestätigung/Signatur hier
+         (die Unterschriften stammen aus TrainerCheckliste selbst und werden nur
+         angezeigt) -- siehe CLAUDE.md. -->
+    <div class="card">
+      <h2>Checkliste Trainerzu-/-abgang</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Status deiner Onboarding-/Offboarding-Checkliste, geführt von der Geschäftsstelle (App TrainerCheckliste). Rein informativ.
+      </p>
+      <p class="muted" id="tf-checkliste-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-checkliste-oeffnen" disabled>Öffnen</button>
+      </div>
+      <div id="checkliste-detail" style="display:none; margin-top:16px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Trainerlizenz</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Lade eine Kopie deiner Trainerlizenz hoch (Kamera oder Datei/PDF).
+      </p>
+      <p class="muted" id="tf-tl-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-tf-tl-ansehen" disabled>Ansehen</button>
+        <button type="button" class="btn small" id="btn-tf-tl-camera">📷 Foto aufnehmen</button>
+        <button type="button" class="btn small secondary" id="btn-tf-tl-upload">Datei / Galerie wählen…</button>
+        <input type="file" id="tf-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <div class="form-grid" style="margin-top:10px; margin-bottom:0;">
+        <div class="form-field">
+          <label>Lizenzart</label>
+          <select id="tf-tl-art"></select>
+        </div>
+        <div class="form-field">
+          <label>Lizenz gültig bis</label>
+          <input type="date" id="tf-tl-gueltig-bis" />
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:13px; color:var(--muted); cursor:pointer;">
+        <input type="checkbox" id="tf-tl-keine" /> Ich habe keine Trainerlizenz
+      </label>
+      <p class="error-banner" id="tf-tl-error"></p>
+    </div>
+
+    <div class="card">
+      <h2>Führerschein</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Die Kopie deiner Fahrerlaubnis ist nach der ersten Einreichung <strong>alle 6 Monate</strong> erneut hochzuladen.
+      </p>
+      <p class="muted" id="tf-fs-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-tf-fs-ansehen" disabled>Ansehen</button>
+        <button type="button" class="btn small" id="btn-tf-fs-camera">📷 Foto aufnehmen</button>
+        <button type="button" class="btn small secondary" id="btn-tf-fs-upload">Datei / Galerie wählen…</button>
+        <input type="file" id="tf-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <p class="error-banner" id="tf-fs-error"></p>
+    </div>
+
+    <div class="card">
+      <h2>Führungszeugnis</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF). Du kannst deine eigene
+        eingereichte Datei jederzeit ansehen; zusätzlich hat der Admin Zugriff.
+      </p>
+      <p class="muted" id="tf-fz-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-tf-fz-ansehen" disabled>Ansehen</button>
+        <button type="button" class="btn small" id="btn-tf-fz-camera">📷 Foto aufnehmen</button>
+        <button type="button" class="btn small secondary" id="btn-tf-fz-upload">Datei / Galerie wählen…</button>
+        <input type="file" id="tf-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <p class="error-banner" id="tf-fz-error"></p>
+    </div>
+
+    <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -->
+    <div class="card" id="tf-fs-register-card" style="display:none;">
+      <h2>Führerschein-Register</h2>
+      <p class="muted" style="margin-bottom:14px;">Wer hat eine Kopie hinterlegt? Nur für berechtigte Nutzer sichtbar.</p>
+      <div class="btn-row" style="justify-content:flex-start; gap:10px; margin-bottom:14px;">
+        <button type="button" class="btn secondary small" id="btn-tf-fs-export">📄 Alle als PDF exportieren</button>
+        <span class="muted" id="tf-fs-export-status" style="font-size:12px;"></span>
+      </div>
+      <div class="empty-state" id="tf-fs-register-empty" style="display:none;">Noch keine Führerschein-Kopien hinterlegt.</div>
+      <div id="tf-fs-register-rows" style="overflow-x:auto;"></div>
+    </div>
+  </div>
+
+  <!-- Trainerkodex (migriert aus der eigenständigen App trainerkodex, seit 1.6;
+       Text+Bestätigung seit 1.7 in einer gemeinsamen Karte, siehe Changelog) -->
+  <div id="trainer-kodex-panel" class="trainer-form-screen" style="display:none;">
+    <div class="card">
+      <h2>Trainerkodex</h2>
+      <div class="placeholder-banner" id="kodex-placeholder-banner" style="display:none;">
+        ⚠️ Platzhaltertext — dies ist noch nicht der endgültige Kodex.
+      </div>
+      <div class="kodex-text" id="kodex-text"></div>
+
+      <div class="section-divider">Bestätigung</div>
+      <p class="muted" id="tf-kodex-status" style="margin-bottom:14px;">—</p>
+      <p class="muted" style="margin-bottom:14px;">
+        Ich, <strong id="tf-kodex-name">…</strong>, bestätige, dass ich den obenstehenden Verhaltenskodex gelesen und verstanden habe.
+      </p>
+      <div class="signature-box">
+        <label>Unterschrift</label>
+        <canvas id="tf-kodex-sig-canvas"></canvas>
+        <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+          <button type="button" class="btn secondary small" id="btn-tf-kodex-sig-clear">Löschen</button>
+        </div>
+      </div>
+      <p class="error-banner" id="tf-kodex-error"></p>
+      <div class="btn-row" style="justify-content:flex-start; margin-top:16px;">
+        <button type="button" class="btn success" id="btn-tf-kodex-submit">Ich bestätige</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kinder- und Jugendschutzkonzept (seit 1.7, gleiches Muster wie Trainerkodex:
+       eigenständiges Dokument, eigene Bestätigung mit Unterschrift, eigene 6-Monats-Frist) -->
+  <div id="trainer-jugendschutz-panel" class="trainer-form-screen" style="display:none;">
+    <div class="card">
+      <h2>Kinder- und Jugendschutzkonzept</h2>
+      <div class="placeholder-banner" id="jugendschutz-placeholder-banner" style="display:none;">
+        ⚠️ Platzhaltertext — dies ist noch nicht der endgültige Text.
+      </div>
+      <div class="kodex-text" id="jugendschutz-text"></div>
+
+      <div class="section-divider">Bestätigung</div>
+      <p class="muted" id="tf-jugendschutz-status" style="margin-bottom:14px;">—</p>
+      <p class="muted" style="margin-bottom:14px;">
+        Ich, <strong id="tf-jugendschutz-name">…</strong>, bestätige, dass ich das obenstehende Kinder- und Jugendschutzkonzept gelesen und verstanden habe.
+      </p>
+      <div class="signature-box">
+        <label>Unterschrift</label>
+        <canvas id="tf-jugendschutz-sig-canvas"></canvas>
+        <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+          <button type="button" class="btn secondary small" id="btn-tf-jugendschutz-sig-clear">Löschen</button>
+        </div>
+      </div>
+      <p class="error-banner" id="tf-jugendschutz-error"></p>
+      <div class="btn-row" style="justify-content:flex-start; margin-top:16px;">
+        <button type="button" class="btn success" id="btn-tf-jugendschutz-submit">Ich bestätige</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== ADMIN-BEREICH ===== -->
+<div id="admin-flow" style="display:none;">
+
+  <!-- Connect-Screen -->
+  <div class="connect-screen" id="admin-connect-screen">
+    <div class="card">
+      <h2>Admin-Zugang</h2>
+      <p class="muted">
+        Verbinde dich mit Nextcloud, um alle eingereichten Trainer-Daten zu sehen und Verträge zu generieren.
+        Benötigt ein <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → App-Passwort).
+      </p>
+      <form id="admin-connect-form">
+        <div class="form-grid">
+          <div class="form-field" style="grid-column:1/-1;">
+            <label>WebDAV-Adresse der Datei</label>
+            <input type="url" id="admin-url" value="https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Trainerdaten/trainerdaten.json" required />
+          </div>
+          <div class="form-field">
+            <label>Benutzername</label>
+            <input type="text" id="admin-username" value="admin" required />
+          </div>
+          <div class="form-field">
+            <label>App-Passwort</label>
+            <input type="password" id="admin-password" required />
+          </div>
+          <div class="form-field" style="grid-column:1/-1;">
+            <label>CORS-Proxy-URL (optional)</label>
+            <input type="url" id="admin-proxy-url" value="https://trainerdaten.michel-brunner.workers.dev" />
+          </div>
+        </div>
+        <p class="error-banner" id="admin-connect-error"></p>
+        <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+          <button type="submit" class="btn" id="btn-admin-connect">Verbinden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin-Panel (nach Login) -->
+  <div id="admin-panel" style="display:none;">
+    <nav>
+      <button data-tab="liste" class="active">Trainer</button>
+      <button data-tab="import">Import</button>
+      <button data-tab="einstellungen" style="margin-left:auto;">Einstellungen</button>
+    </nav>
+
+    <main>
+
+      <!-- Tab: Trainer-Liste -->
+      <section class="tab-section active" id="tab-liste">
+
+        <!-- Listenansicht -->
+        <div id="admin-view-liste">
+          <div class="card">
+            <div class="detail-header">
+              <h2 style="margin-bottom:0;">Eingereichte Trainerdaten</h2>
+              <div class="btn-row" style="align-items:center; gap:10px;">
+                <button type="button" class="btn secondary small" id="btn-alle-pdf-zip">Alle als PDF-ZIP</button>
+                <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
+              </div>
+            </div>
+            <div class="btn-row" id="admin-liste-filterbar" style="display:none; gap:10px; margin-bottom:14px; flex-wrap:wrap; justify-content:flex-start;">
+              <div class="form-field" style="flex:1 1 220px; margin-bottom:0;">
+                <input type="text" id="liste-search" placeholder="Suche nach Name…" autocomplete="off" />
+              </div>
+              <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
+                <select id="liste-filter-status">
+                  <option value="">Alle Status</option>
+                  <option value="unvollstaendig">Unvollständig</option>
+                  <option value="ausstehend">Ausstehend</option>
+                  <option value="generiert">Vertrag erstellt</option>
+                </select>
+              </div>
+              <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
+                <select id="liste-filter-lizenz">
+                  <option value="">Alle Lizenzen</option>
+                </select>
+              </div>
+            </div>
+            <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
+            <div class="empty-state" id="admin-liste-no-match" style="display:none;">Keine Treffer für diese Filter.</div>
+            <div id="admin-liste-header" class="trainer-row-header" style="display:none;">
+              <span>Name</span>
+              <span>Eingereicht</span>
+              <span>Status</span>
+              <span></span>
+            </div>
+            <div id="admin-liste-rows"></div>
+          </div>
+        </div>
+
+        <!-- Detailansicht -->
+        <div id="admin-view-detail" style="display:none;">
+          <div class="card">
+            <div class="detail-header">
+              <h2 style="margin-bottom:0;" id="admin-detail-title">Trainer-Eintrag</h2>
+              <div class="btn-row">
+                <button type="button" class="btn success small" id="btn-pdf-generieren">Word-Vertrag generieren</button>
+                <button type="button" class="btn secondary small" id="btn-pdf-einzeln">PDF herunterladen</button>
+                <button type="button" class="btn danger small" id="btn-eintrag-loeschen">Löschen</button>
+                <button type="button" class="btn secondary small" id="btn-zurueck-liste">← Zurück</button>
+              </div>
+            </div>
+
+            <div class="error-banner" id="admin-detail-error"></div>
+            <p class="muted" id="d-stub-notice" style="display:none; font-size:13px; margin:0 0 16px; padding:10px 12px; background:var(--gray); border-radius:6px;">
+              Dieser Trainer hat sich noch nicht selbst über das Online-Formular angemeldet — die Daten stammen aus dem Personalkosten-Import. Fehlende Angaben (IBAN, Adresse, Unterschrift) können hier manuell ergänzt werden oder werden automatisch übernommen, sobald sich die Person selbst anmeldet.
+            </p>
+
+            <div class="section-divider">Persönliche Daten</div>
+            <div class="form-grid">
+              <div class="form-field"><label>Vorname</label><input type="text" id="d-vorname" /></div>
+              <div class="form-field"><label>Nachname</label><input type="text" id="d-nachname" /></div>
+              <div class="form-field"><label>Geburtsdatum</label><input type="date" id="d-geburtsdatum" /></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field" style="grid-column:1/-1;"><label>Straße</label><input type="text" id="d-strasse" /></div>
+              <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="d-plz" /></div>
+              <div class="form-field"><label>Ort</label><input type="text" id="d-ort" /></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field"><label>Telefon</label><input type="text" id="d-telefon" /></div>
+              <div class="form-field"><label>E-Mail</label><input type="email" id="d-email" /></div>
+            </div>
+
+            <div class="section-divider">Bankverbindung</div>
+            <div class="form-grid">
+              <div class="form-field" style="grid-column:1/-1;">
+                <label>IBAN</label><input type="text" id="d-iban" class="iban-field" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="form-field"><label>Bank</label><input type="text" id="d-bankname" /></div>
+              <div class="form-field"><label>BIC</label><input type="text" id="d-bic" /></div>
+            </div>
+
+            <div class="section-divider">Vertragsdaten</div>
+            <div class="form-grid">
+              <div class="form-field"><label>Pauschale (EUR/Monat)</label><input type="text" id="d-pauschale" placeholder="z.B. 125,00" /></div>
+              <div class="form-field"><label>Trainerlizenz</label><input type="text" id="d-lizenz" placeholder="z.B. C-Lizenz Fußball" /></div>
+            </div>
+
+            <div class="section-divider">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG) — Anlage 1</div>
+            <label class="radio-option">
+              <input type="radio" name="d-nebentaetigkeit" id="d-nebentaetigkeit-keine" value="keine" />
+              <span>Keine anderen Einnahmen aus nebenberuflicher Tätigkeit im Sinne des § 3 Nr. 26 EStG.</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="d-nebentaetigkeit" id="d-nebentaetigkeit-andere" value="andere" />
+              <span>
+                Andere Einnahmen aus nebenberuflicher Tätigkeit im Sinne des § 3 Nr. 26 EStG.
+                <span class="radio-amount" id="d-nebentaetigkeit-betrag-wrap" style="display:none;">
+                  in Höhe von <input type="text" id="d-nebentaetigkeit-betrag" placeholder="z.B. 150,00" /> EUR
+                </span>
+              </span>
+            </label>
+
+            <div class="section-divider">Unterschrift (vorschau)</div>
+            <div id="d-signature-preview" style="margin-bottom:6px;"></div>
+            <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
+
+            <div class="section-divider">Dokumente</div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Trainerlizenz</span>
+                <span class="muted" id="d-tl-status">—</span>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-d-tl-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-tl-camera">📷 Aufnehmen</button>
+                <button type="button" class="btn secondary small" id="btn-d-tl-upload">Hochladen…</button>
+                <input type="file" id="d-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
+              </div>
+              <div class="form-grid" style="flex-basis:100%; margin:6px 0 0 0;">
+                <div class="form-field">
+                  <label>Lizenzart</label>
+                  <select id="d-tl-art"></select>
+                </div>
+                <div class="form-field">
+                  <label>Lizenz gültig bis</label>
+                  <input type="date" id="d-tl-gueltig-bis" />
+                </div>
+              </div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px; color:var(--muted); cursor:pointer; flex-basis:100%;">
+                <input type="checkbox" id="d-tl-keine" /> Keine Trainerlizenz vorhanden
+              </label>
+            </div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Führerschein</span>
+                <span class="muted" id="d-fs-status">—</span>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-d-fs-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-fs-camera">📷 Aufnehmen</button>
+                <button type="button" class="btn secondary small" id="btn-d-fs-upload">Hochladen…</button>
+                <input type="file" id="d-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Führungszeugnis</span>
+                <span class="muted" id="d-fz-status">—</span>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-d-fz-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-fz-camera">📷 Aufnehmen</button>
+                <button type="button" class="btn secondary small" id="btn-d-fz-upload">Hochladen…</button>
+                <input type="file" id="d-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Trainerkodex</span>
+                <span class="muted" id="d-kodex-status">—</span>
+                <img id="d-kodex-signature" alt="Kodex-Unterschrift" class="receipt-signature" style="display:none; margin-top:6px;" />
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn danger small" id="btn-d-kodex-reset" disabled>Bestätigung zurücksetzen</button>
+              </div>
+            </div>
+            <div class="doc-row">
+              <div class="doc-row-main">
+                <span class="doc-row-label">Jugendschutzkonzept</span>
+                <span class="muted" id="d-jugendschutz-status">—</span>
+                <img id="d-jugendschutz-signature" alt="Jugendschutzkonzept-Unterschrift" class="receipt-signature" style="display:none; margin-top:6px;" />
+              </div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn danger small" id="btn-d-jugendschutz-reset" disabled>Bestätigung zurücksetzen</button>
+              </div>
+            </div>
+            <p class="muted" id="d-doc-error" style="display:none; color:#c0392b; margin-top:6px; font-size:12px;"></p>
+
+            <div class="section-divider">Status</div>
+            <div class="form-grid">
+              <div class="form-field" style="max-width:220px;">
+                <label>Status</label>
+                <select id="d-status">
+                  <option value="unvollstaendig">Unvollständig</option>
+                  <option value="ausstehend">Ausstehend</option>
+                  <option value="generiert">Vertrag erstellt</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:4px;">
+              <span class="muted" style="font-size:12px;">Eingereicht (unterschrieben) am: </span>
+              <span class="muted" style="font-size:12px;" id="d-eingereicht-am">—</span>
+            </div>
+            <div style="margin-top:4px;">
+              <span class="muted" style="font-size:12px;">TrainerCheckliste: </span>
+              <span class="muted" style="font-size:12px;" id="d-checkliste-status">—</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Tab: Import -->
+      <section class="tab-section" id="tab-import">
+        <div class="card">
+          <h2>Pauschalen &amp; Lizenzen aus Personalkosten</h2>
+          <p class="muted" style="margin-bottom:16px; line-height:1.5;">
+            Lädt Lizenz und monatliche Pauschale aus Personalkosten (Bereich „Trainer", aktuelle Saison) und ordnet sie per Namensabgleich den Trainern hier zu.
+            Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Stammdaten fehlen, bis sich die Person selbst über das Trainer-Formular anmeldet oder ein Admin sie ergänzt).
+          </p>
+
+          <div class="section-divider">Aktueller Stand</div>
+          <div id="import-current-wrap" style="margin-bottom:20px; overflow-x:auto;"></div>
+
+          <div class="error-banner" id="import-error"></div>
+
+          <!-- Schritt 1: Von Personalkosten laden -->
+          <div id="import-step-1">
+            <div class="btn-row" style="justify-content:flex-start; margin-top:10px;">
+              <button type="button" class="btn" id="btn-import-load-pk">Von Personalkosten laden</button>
+            </div>
+          </div>
+
+          <!-- Schritt 2: Vorschau + Import -->
+          <div id="import-step-2" style="display:none;">
+            <div id="import-preview-wrap" style="margin:16px 0; overflow-x:auto;"></div>
+            <div class="btn-row" style="justify-content:flex-start; gap:10px;">
+              <button type="button" class="btn success" id="btn-import-start">Alle importieren</button>
+              <button type="button" class="btn secondary" id="btn-import-reset">Zurück</button>
+            </div>
+          </div>
+
+          <!-- Schritt 3: Ergebnis -->
+          <div id="import-step-3" style="display:none;">
+            <div class="section-divider">Ergebnis</div>
+            <div id="import-result"></div>
+            <div class="btn-row" style="justify-content:flex-start; margin-top:14px;">
+              <button type="button" class="btn secondary" id="btn-import-nochmal">Weiteren Import</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Einstellungen -->
+      <section class="tab-section" id="tab-einstellungen">
+        <div class="card">
+          <h3>Verbindung</h3>
+          <p class="muted" style="margin-bottom:6px;">Verbunden mit: <strong id="settings-file-name">—</strong></p>
+          <p class="muted" style="margin-bottom:10px;" id="settings-save-status">Automatisches Speichern aktiv</p>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <button class="btn secondary small" id="btn-disconnect">Verbindung trennen</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Versionshistorie <span class="version-badge-dark" id="version-badge-2"></span></h3>
+          <div id="changelog-list"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="config.js?v=1.0"></script>
+<script src="kodex-text.js?v=1.0"></script>
+<script src="jugendschutz-text.js?v=1.0"></script>
+<script src="checkliste-schema.js?v=1.0"></script>
+<script src="db.js?v=1.0"></script>
+<script src="signature-pad.js?v=1.0"></script>
+<script src="pdf-utils.js?v=1.0"></script>
+<script src="app.js?v=1.0"></script>
+</body>
+</html>
