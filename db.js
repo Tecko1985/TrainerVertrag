@@ -362,13 +362,25 @@ async function davWriteFile(config, dataObj) {
 // ─── Binärdateien (Admin: Führerschein/Führungszeugnis ansehen/hochladen) ──────────
 // Läuft über denselben CORS-Proxy wie davReadFile/davWriteFile — der ist bereits
 // Content-Type-transparent, nur die JSON-(De-)Serialisierung wird hier übersprungen.
-async function davReadBinary(config) {
+// contentTypeOverride: die Dokument-Unterordner (fuehrerscheine/fuehrungszeugnisse/
+// trainerlizenzen) speichern Dateien ohne Endung unter der Trainer-id, Nextcloud kann
+// den Content-Type beim GET also nicht aus dem Dateinamen ableiten und liefert
+// stattdessen application/octet-stream -- der Browser bietet das dann zum Download an,
+// statt es anzuzeigen. submit-worker.js umgeht das bereits, indem es den bei Upload
+// gespeicherten *ContentType-Feldwert des Trainer-Datensatzes bevorzugt (siehe
+// mine.fuehrerscheinContentType || resp.headers.get("Content-Type") || ... dort) --
+// gleiches Prinzip hier für den Admin-WebDAV-Pfad.
+async function davReadBinary(config, contentTypeOverride) {
   const resp = await fetch(davRequestUrl(config), {
     method: "GET",
     headers: { Authorization: davAuthHeader(config) }
   });
   if (resp.status === 404) return null;
   if (!resp.ok) throw new Error(`WebDAV-Lesefehler (HTTP ${resp.status})`);
+  if (contentTypeOverride) {
+    const buf = await resp.arrayBuffer();
+    return new Blob([buf], { type: contentTypeOverride });
+  }
   return resp.blob();
 }
 

@@ -1625,11 +1625,19 @@ async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeFie
   _renderDocumentsSection(appData.trainer[idx]);
 }
 
+// Ordnername (Upload-Pfad) -> Trainer-Feld mit dem beim Upload gespeicherten
+// Content-Type, siehe Kommentar an davReadBinary() in db.js.
+const SUBDIR_CTYPE_FIELD = {
+  trainerlizenzen: "trainerlizenzContentType",
+  fuehrerscheine: "fuehrerscheinContentType",
+  fuehrungszeugnisse: "fuehrungszeugnisContentType"
+};
+
 async function _ansehenDocumentAdmin(subdir) {
   const t = appData.trainer.find(x => x.id === currentTrainerId);
   if (!t) return;
   try {
-    const blob = await davReadBinary(_trainerDocConfig(subdir, t.id));
+    const blob = await davReadBinary(_trainerDocConfig(subdir, t.id), t[SUBDIR_CTYPE_FIELD[subdir]]);
     if (!blob) { alert("Datei nicht gefunden."); return; }
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
