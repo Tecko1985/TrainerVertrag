@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.4" />
+<link rel="stylesheet" href="style.css?v=1.5" />
 </head>
 <body>
 
@@ -163,6 +163,16 @@
         <button type="button" class="btn small secondary" id="btn-tf-tl-upload">Datei / Galerie wählen…</button>
         <input type="file" id="tf-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
         <input type="file" id="tf-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
+      </div>
+      <div class="form-grid" style="margin-top:10px; margin-bottom:0;">
+        <div class="form-field">
+          <label>Lizenzart</label>
+          <select id="tf-tl-art"></select>
+        </div>
+        <div class="form-field">
+          <label>Lizenz gültig bis</label>
+          <input type="date" id="tf-tl-gueltig-bis" />
+        </div>
       </div>
       <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:13px; color:var(--muted); cursor:pointer;">
         <input type="checkbox" id="tf-tl-keine" /> Ich habe keine Trainerlizenz
@@ -390,6 +400,16 @@
                 <input type="file" id="d-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
                 <input type="file" id="d-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
               </div>
+              <div class="form-grid" style="flex-basis:100%; margin:6px 0 0 0;">
+                <div class="form-field">
+                  <label>Lizenzart</label>
+                  <select id="d-tl-art"></select>
+                </div>
+                <div class="form-field">
+                  <label>Lizenz gültig bis</label>
+                  <input type="date" id="d-tl-gueltig-bis" />
+                </div>
+              </div>
               <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px; color:var(--muted); cursor:pointer; flex-basis:100%;">
                 <input type="checkbox" id="d-tl-keine" /> Keine Trainerlizenz vorhanden
               </label>
@@ -506,10 +526,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.4"></script>
-<script src="db.js?v=1.4"></script>
-<script src="signature-pad.js?v=1.4"></script>
-<script src="pdf-utils.js?v=1.4"></script>
-<script src="app.js?v=1.4"></script>
+<script src="config.js?v=1.5"></script>
+<script src="db.js?v=1.5"></script>
+<script src="signature-pad.js?v=1.5"></script>
+<script src="pdf-utils.js?v=1.5"></script>
+<script src="app.js?v=1.5"></script>
 </body>
 </html>

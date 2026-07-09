@@ -26,6 +26,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("version-badge").textContent = "v" + APP_VERSION;
 
   _renderChangelog();
+  _populateLizenzArtSelect("tf-tl-art");
+  _populateLizenzArtSelect("d-tl-art");
   _initTrainerForm();
   _initTrainerDocuments();
   _initAdminToggle();
@@ -310,6 +312,24 @@ function _fmtDateOnly(iso) {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }
 
+// Liegt ein "yyyy-mm-dd"-Datum in der Vergangenheit? String-Vergleich (kein Date-
+// Objekt) — funktioniert korrekt, weil yyyy-mm-dd lexikografisch sortierbar ist,
+// vermeidet dieselbe Zeitzonen-Falle wie _fmtDateOnly.
+function _dateOnlyIsPast(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return false;
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return iso < today;
+}
+
+// Einzige Quelle für die Lizenzart-Optionen (TRAINERLIZENZ_ARTEN in config.js) —
+// befüllt beide <select>-Felder (Trainer-Selbstbedienung + Admin-Detail) identisch.
+function _populateLizenzArtSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = `<option value="">— bitte wählen —</option>` +
+    TRAINERLIZENZ_ARTEN.map(a => `<option value="${_esc(a)}">${_esc(a)}</option>`).join("");
+}
+
 // ─── Dokumente (Trainer-Modus: Trainerlizenz/Führerschein/Führungszeugnis) ─────
 // Panel ist unabhängig vom Haupt-Formular sichtbar/nutzbar (siehe resolveOwnTrainerRecord
 // in submit-worker.js) — ein Trainer kann ein Dokument hochladen, bevor er das
@@ -359,21 +379,36 @@ function _initTrainerDocuments() {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadTrainerDocument("trainerlizenz", f);
   });
-  document.getElementById("tf-tl-keine").addEventListener("change", _handleTrainerlizenzKeineChange);
+  document.getElementById("tf-tl-keine").addEventListener("change", _saveTrainerlizenzDetails);
+  document.getElementById("tf-tl-art").addEventListener("change", _saveTrainerlizenzDetails);
+  document.getElementById("tf-tl-gueltig-bis").addEventListener("change", _saveTrainerlizenzDetails);
 
   document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
 }
 
-async function _handleTrainerlizenzKeineChange(e) {
-  const checked = e.target.checked;
+// Speichert Checkbox + Lizenzart + Gültig-bis zusammen (immer alle drei aktuellen
+// DOM-Werte, kein Teil-Update) — reine Selbstauskunft ohne Datei-Upload.
+async function _saveTrainerlizenzDetails() {
   const errEl = document.getElementById("tf-tl-error");
   errEl.classList.remove("visible");
+  const payload = {
+    nichtVorhanden: document.getElementById("tf-tl-keine").checked,
+    art: document.getElementById("tf-tl-art").value,
+    gueltigBis: document.getElementById("tf-tl-gueltig-bis").value
+  };
+  const prevRecord = { ...(myTrainerRecord || {}) };
   try {
-    await setTrainerlizenzKeine(checked, currentVorname, currentNachname);
-    myTrainerRecord = { ...(myTrainerRecord || {}), trainerlizenzNichtVorhanden: checked };
+    await setTrainerlizenzDetails(payload, currentVorname, currentNachname);
+    myTrainerRecord = {
+      ...(myTrainerRecord || {}),
+      trainerlizenzNichtVorhanden: payload.nichtVorhanden,
+      trainerlizenzArt: payload.art,
+      trainerlizenzGueltigBis: payload.gueltigBis
+    };
     _renderTrainerDocumentsStatus();
   } catch (err) {
-    e.target.checked = !checked;
+    myTrainerRecord = prevRecord;
+    _renderTrainerDocumentsStatus();
     if (err instanceof NotLoggedInError) {
       _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
     } else {
@@ -423,8 +458,16 @@ function _renderTrainerDocumentsStatus() {
   const tlStatusEl   = document.getElementById("tf-tl-status");
   const tlAnsehenBtn = document.getElementById("btn-tf-tl-ansehen");
   const tlKeineCb    = document.getElementById("tf-tl-keine");
+  const tlArtSel     = document.getElementById("tf-tl-art");
+  const tlGueltigInp = document.getElementById("tf-tl-gueltig-bis");
   if (t.trainerlizenzHochgeladenAm) {
-    tlStatusEl.textContent = "✅ Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
+    let html = "✅ Hochgeladen am " + _esc(_fmtIso(t.trainerlizenzHochgeladenAm));
+    if (t.trainerlizenzGueltigBis) {
+      const abgelaufen = _dateOnlyIsPast(t.trainerlizenzGueltigBis);
+      html += ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
+        `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(_fmtDateOnly(t.trainerlizenzGueltigBis))}</span>`;
+    }
+    tlStatusEl.innerHTML = html;
     tlAnsehenBtn.disabled = false;
     document.getElementById("btn-tf-tl-upload").textContent = "Datei ersetzen…";
     document.getElementById("btn-tf-tl-camera").textContent = "📷 Neu aufnehmen";
@@ -440,6 +483,10 @@ function _renderTrainerDocumentsStatus() {
     document.getElementById("btn-tf-tl-camera").textContent = "📷 Foto aufnehmen";
   }
   tlKeineCb.checked = !!t.trainerlizenzNichtVorhanden;
+  tlArtSel.value = t.trainerlizenzArt || "";
+  tlGueltigInp.value = t.trainerlizenzGueltigBis || "";
+  tlArtSel.disabled = !!t.trainerlizenzNichtVorhanden;
+  tlGueltigInp.disabled = !!t.trainerlizenzNichtVorhanden;
 
   const fsStatusEl   = document.getElementById("tf-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
@@ -984,6 +1031,8 @@ function _openAdminDetail(id) {
   document.getElementById("d-nebentaetigkeit-keine").checked   = t.nebentaetigkeit === "keine";
   document.getElementById("d-nebentaetigkeit-andere").checked  = t.nebentaetigkeit === "andere";
   document.getElementById("d-tl-keine").checked = !!t.trainerlizenzNichtVorhanden;
+  document.getElementById("d-tl-art").value = t.trainerlizenzArt || "";
+  document.getElementById("d-tl-gueltig-bis").value = t.trainerlizenzGueltigBis || "";
   document.getElementById("d-status").value = _trainerStatus(t);
   document.getElementById("d-eingereicht-am").textContent =
     _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—";
@@ -1023,18 +1072,40 @@ function _openAdminDetail(id) {
   });
   _updateNebentaetigkeitBetragVisibility("d");
 
-  // Checkbox "Keine Trainerlizenz vorhanden" — gleiche cloneNode-Konvention wie die
-  // Nebentätigkeit-Radios (alte Listener vom vorherigen Trainer entfernen), Sofort-
-  // Update der Statuszeile ohne auf den Autosave-Debounce zu warten.
+  // Checkbox "Keine Trainerlizenz vorhanden" + Lizenzart/Gültig-bis — gleiche
+  // cloneNode-Konvention wie die Nebentätigkeit-Radios (alte Listener vom vorherigen
+  // Trainer entfernen), Sofort-Update der Statuszeile ohne auf den Autosave-Debounce
+  // zu warten. Alle drei lesen bei jeder Änderung die aktuellen DOM-Werte aller drei
+  // Felder neu (kein Teil-Update), gleiche Konvention wie _saveTrainerlizenzDetails().
+  const _tlLiveUpdate = () => {
+    _scheduleAutosave();
+    const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+    if (idx !== -1) {
+      _renderDocumentsSection({
+        ...appData.trainer[idx],
+        trainerlizenzNichtVorhanden: document.getElementById("d-tl-keine").checked,
+        trainerlizenzArt: document.getElementById("d-tl-art").value,
+        trainerlizenzGueltigBis: document.getElementById("d-tl-gueltig-bis").value
+      });
+    }
+  };
   {
     const input = document.getElementById("d-tl-keine");
     const fresh = input.cloneNode(true);
     input.parentNode.replaceChild(fresh, input);
-    fresh.addEventListener("change", () => {
-      _scheduleAutosave();
-      const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
-      if (idx !== -1) _renderDocumentsSection({ ...appData.trainer[idx], trainerlizenzNichtVorhanden: fresh.checked });
-    });
+    fresh.addEventListener("change", _tlLiveUpdate);
+  }
+  {
+    const input = document.getElementById("d-tl-art");
+    const fresh = input.cloneNode(true);
+    input.parentNode.replaceChild(fresh, input);
+    fresh.addEventListener("change", _tlLiveUpdate);
+  }
+  {
+    const input = document.getElementById("d-tl-gueltig-bis");
+    const fresh = input.cloneNode(true);
+    input.parentNode.replaceChild(fresh, input);
+    fresh.addEventListener("input", _tlLiveUpdate);
   }
 
   // Select feuert kein "input"-Event in allen Browsern zuverlässig -> "change".
@@ -1072,8 +1143,16 @@ function _renderDocumentsSection(t) {
   const tlAnsehenBtn = document.getElementById("btn-d-tl-ansehen");
   const tlUploadBtn  = document.getElementById("btn-d-tl-upload");
   const tlCameraBtn  = document.getElementById("btn-d-tl-camera");
+  const tlArtSel     = document.getElementById("d-tl-art");
+  const tlGueltigInp = document.getElementById("d-tl-gueltig-bis");
   if (t.trainerlizenzHochgeladenAm) {
-    tlStatusEl.textContent = "Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
+    let html = "Hochgeladen am " + _esc(_fmtIso(t.trainerlizenzHochgeladenAm));
+    if (t.trainerlizenzGueltigBis) {
+      const abgelaufen = _dateOnlyIsPast(t.trainerlizenzGueltigBis);
+      html += ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
+        `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(_fmtDateOnly(t.trainerlizenzGueltigBis))}</span>`;
+    }
+    tlStatusEl.innerHTML = html;
     tlAnsehenBtn.disabled = false;
     tlUploadBtn.textContent = "Ersetzen…";
     tlCameraBtn.textContent = "📷 Neu aufnehmen";
@@ -1088,6 +1167,8 @@ function _renderDocumentsSection(t) {
     tlUploadBtn.textContent = "Hochladen…";
     tlCameraBtn.textContent = "📷 Aufnehmen";
   }
+  tlArtSel.disabled = !!t.trainerlizenzNichtVorhanden;
+  tlGueltigInp.disabled = !!t.trainerlizenzNichtVorhanden;
 
   const fsStatusEl   = document.getElementById("d-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-d-fs-ansehen");
@@ -1220,7 +1301,9 @@ function _collectDetailData() {
     lizenz:       document.getElementById("d-lizenz").value.trim(),
     nebentaetigkeit: (document.querySelector('input[name="d-nebentaetigkeit"]:checked') || {}).value || "",
     nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim(),
-    trainerlizenzNichtVorhanden: document.getElementById("d-tl-keine").checked
+    trainerlizenzNichtVorhanden: document.getElementById("d-tl-keine").checked,
+    trainerlizenzArt: document.getElementById("d-tl-art").value,
+    trainerlizenzGueltigBis: document.getElementById("d-tl-gueltig-bis").value
   };
   // status nur übernehmen, wenn der Admin das Dropdown in dieser Detail-Sitzung
   // wirklich angefasst hat. Sonst würde jedes Autosave (z.B. Pauschale tippen) den

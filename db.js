@@ -174,18 +174,21 @@ async function submitDocument(docType, file, vorname, nachname) {
   return data;
 }
 
-// Trainer bestätigt/widerruft selbst "Ich habe keine Trainerlizenz" — reine
-// Selbstauskunft ohne Datei, analog zu submitDocument (gleiches Stub-Matching
+// Trainer setzt/aktualisiert seine Trainerlizenz-Metadaten (kein Datei-Upload): ob
+// keine Lizenz vorhanden ist, Lizenzart und Gültigkeitsdatum — immer alle drei
+// zusammen (kein Teil-Update), analog zu submitDocument (gleiches Stub-Matching
 // server-seitig über vorname/nachname).
-async function setTrainerlizenzKeine(nichtVorhanden, vorname, nachname) {
+async function setTrainerlizenzDetails(details, vorname, nachname) {
   const token = getSessionToken();
   if (!token) throw new NotLoggedInError();
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({
-      action: "set-trainerlizenz-keine",
-      nichtVorhanden: !!nichtVorhanden,
+      action: "set-trainerlizenz-details",
+      nichtVorhanden: !!details.nichtVorhanden,
+      art: details.art || "",
+      gueltigBis: details.gueltigBis || "",
       vorname: vorname || "",
       nachname: nachname || ""
     })

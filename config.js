@@ -1,4 +1,4 @@
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -34,6 +34,22 @@ const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
 // Worker-Cap DOC_MAX_FILE_BYTES in submit-worker.js passen.
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// Auswahlwerte für das Lizenzart-Dropdown im Trainerlizenz-Dokumentenbereich (nicht
+// zu verwechseln mit dem bestehenden Freitext-Feld "Lizenz" für den Vertrag/
+// {{LIZENZ}}-Platzhalter, siehe CLAUDE.md). Einzige Quelle für beide <select>-Felder
+// (Trainer-Selbstbedienung + Admin-Detail), von _populateLizenzArtSelect() in app.js
+// befüllt.
+const TRAINERLIZENZ_ARTEN = [
+  "C-Lizenz",
+  "B-Lizenz",
+  "A-Lizenz",
+  "DFB-Basis-Lizenz",
+  "DFB-Elite-Jugend-Lizenz",
+  "Fußball-Lehrer-Lizenz (Pro-Lizenz)",
+  "Torwarttrainer-Lizenz",
+  "Sonstige"
+];
+
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
 // angepasst werden. Bis dahin greift der Fallback-PDF-Pfad in pdf-utils.js.
@@ -54,6 +70,18 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.5",
+    groups: [
+      {
+        title: "Trainerlizenz: Art + Gültigkeit",
+        items: [
+          "Neues Dropdown „Lizenzart\" (C-/B-/A-Lizenz, DFB-Basis-/Elite-Jugend-/Fußball-Lehrer-Lizenz u.a.) bei der Trainerlizenz, sowohl bei dir selbst als auch im Admin-Detail.",
+          "Neues Datumsfeld „Lizenz gültig bis\" mit automatischer Gültig/Abgelaufen-Anzeige, sobald eine Datei hochgeladen ist."
+        ]
+      }
+    ]
+  },
   {
     version: "1.4",
     groups: [
