@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.1" />
+<link rel="stylesheet" href="style.css?v=1.2" />
 </head>
 <body>
 
@@ -382,9 +382,14 @@
               </div>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn secondary small" id="btn-d-tl-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-tl-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-tl-upload">Hochladen…</button>
+                <input type="file" id="d-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
                 <input type="file" id="d-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
               </div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px; color:var(--muted); cursor:pointer;">
+                <input type="checkbox" id="d-tl-keine" /> Keine Trainerlizenz vorhanden
+              </label>
             </div>
             <div class="doc-row">
               <div class="doc-row-main">
@@ -393,7 +398,9 @@
               </div>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn secondary small" id="btn-d-fs-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-fs-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-fs-upload">Hochladen…</button>
+                <input type="file" id="d-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
                 <input type="file" id="d-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
               </div>
             </div>
@@ -404,7 +411,9 @@
               </div>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn secondary small" id="btn-d-fz-ansehen" disabled>Ansehen</button>
+                <button type="button" class="btn small" id="btn-d-fz-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-fz-upload">Hochladen…</button>
+                <input type="file" id="d-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
                 <input type="file" id="d-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
               </div>
             </div>
@@ -494,10 +503,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.1"></script>
-<script src="db.js?v=1.1"></script>
-<script src="signature-pad.js?v=1.1"></script>
-<script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=1.1"></script>
+<script src="config.js?v=1.2"></script>
+<script src="db.js?v=1.2"></script>
+<script src="signature-pad.js?v=1.2"></script>
+<script src="pdf-utils.js?v=1.2"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

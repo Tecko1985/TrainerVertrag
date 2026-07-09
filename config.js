@@ -1,4 +1,4 @@
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -54,6 +54,18 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.2",
+    groups: [
+      {
+        title: "Dokumente: Admin-Detail nachgebessert",
+        items: [
+          "Admin kann Trainerlizenz, Führerschein und Führungszeugnis jetzt auch im Detailbereich direkt per Kamera fotografieren, nicht nur per Datei-/Galerie-Auswahl.",
+          "Neue Checkbox „Keine Trainerlizenz vorhanden\" bei Trainerlizenz, damit der Status nicht dauerhaft als ausstehend erscheint, wenn jemand schlicht keine besitzt."
+        ]
+      }
+    ]
+  },
   {
     version: "1.1",
     groups: [

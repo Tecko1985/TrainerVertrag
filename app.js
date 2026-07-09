@@ -784,6 +784,11 @@ function _initAdminPanel() {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadDocumentAdmin("trainerlizenzen", f, "trainerlizenzHochgeladenAm", "trainerlizenzDateiName", "trainerlizenzContentType");
   });
+  document.getElementById("btn-d-tl-camera").addEventListener("click", () => document.getElementById("d-tl-camera-input").click());
+  document.getElementById("d-tl-camera-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("trainerlizenzen", f, "trainerlizenzHochgeladenAm", "trainerlizenzDateiName", "trainerlizenzContentType");
+  });
   document.getElementById("btn-d-tl-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("trainerlizenzen"));
 
   document.getElementById("btn-d-fs-upload").addEventListener("click", () => document.getElementById("d-fs-file-input").click());
@@ -791,10 +796,20 @@ function _initAdminPanel() {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadDocumentAdmin("fuehrerscheine", f, "fuehrerscheinHochgeladenAm", "fuehrerscheinDateiName", "fuehrerscheinContentType");
   });
+  document.getElementById("btn-d-fs-camera").addEventListener("click", () => document.getElementById("d-fs-camera-input").click());
+  document.getElementById("d-fs-camera-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("fuehrerscheine", f, "fuehrerscheinHochgeladenAm", "fuehrerscheinDateiName", "fuehrerscheinContentType");
+  });
   document.getElementById("btn-d-fs-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrerscheine"));
 
   document.getElementById("btn-d-fz-upload").addEventListener("click", () => document.getElementById("d-fz-file-input").click());
   document.getElementById("d-fz-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
+  });
+  document.getElementById("btn-d-fz-camera").addEventListener("click", () => document.getElementById("d-fz-camera-input").click());
+  document.getElementById("d-fz-camera-input").addEventListener("change", (e) => {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
   });
@@ -938,6 +953,7 @@ function _openAdminDetail(id) {
   document.getElementById("d-nebentaetigkeit-betrag").value    = t.nebentaetigkeitBetrag || "";
   document.getElementById("d-nebentaetigkeit-keine").checked   = t.nebentaetigkeit === "keine";
   document.getElementById("d-nebentaetigkeit-andere").checked  = t.nebentaetigkeit === "andere";
+  document.getElementById("d-tl-keine").checked = !!t.trainerlizenzNichtVorhanden;
   document.getElementById("d-status").value = _trainerStatus(t);
   document.getElementById("d-eingereicht-am").textContent =
     _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—";
@@ -977,6 +993,20 @@ function _openAdminDetail(id) {
   });
   _updateNebentaetigkeitBetragVisibility("d");
 
+  // Checkbox "Keine Trainerlizenz vorhanden" — gleiche cloneNode-Konvention wie die
+  // Nebentätigkeit-Radios (alte Listener vom vorherigen Trainer entfernen), Sofort-
+  // Update der Statuszeile ohne auf den Autosave-Debounce zu warten.
+  {
+    const input = document.getElementById("d-tl-keine");
+    const fresh = input.cloneNode(true);
+    input.parentNode.replaceChild(fresh, input);
+    fresh.addEventListener("change", () => {
+      _scheduleAutosave();
+      const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+      if (idx !== -1) _renderDocumentsSection({ ...appData.trainer[idx], trainerlizenzNichtVorhanden: fresh.checked });
+    });
+  }
+
   // Select feuert kein "input"-Event in allen Browsern zuverlässig -> "change".
   // _statusTouched: erst eine echte Nutzer-Änderung am Dropdown macht den Status
   // zum gespeicherten Override (siehe _collectDetailData).
@@ -1011,19 +1041,28 @@ function _renderDocumentsSection(t) {
   const tlStatusEl   = document.getElementById("d-tl-status");
   const tlAnsehenBtn = document.getElementById("btn-d-tl-ansehen");
   const tlUploadBtn  = document.getElementById("btn-d-tl-upload");
+  const tlCameraBtn  = document.getElementById("btn-d-tl-camera");
   if (t.trainerlizenzHochgeladenAm) {
     tlStatusEl.textContent = "Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
     tlAnsehenBtn.disabled = false;
     tlUploadBtn.textContent = "Ersetzen…";
+    tlCameraBtn.textContent = "📷 Neu aufnehmen";
+  } else if (t.trainerlizenzNichtVorhanden) {
+    tlStatusEl.textContent = "Keine Trainerlizenz vorhanden (bestätigt).";
+    tlAnsehenBtn.disabled = true;
+    tlUploadBtn.textContent = "Hochladen…";
+    tlCameraBtn.textContent = "📷 Aufnehmen";
   } else {
     tlStatusEl.textContent = "Noch nicht hochgeladen.";
     tlAnsehenBtn.disabled = true;
     tlUploadBtn.textContent = "Hochladen…";
+    tlCameraBtn.textContent = "📷 Aufnehmen";
   }
 
   const fsStatusEl   = document.getElementById("d-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-d-fs-ansehen");
   const fsUploadBtn  = document.getElementById("btn-d-fs-upload");
+  const fsCameraBtn  = document.getElementById("btn-d-fs-camera");
   if (t.fuehrerscheinHochgeladenAm) {
     const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
     const gueltig = faelligAm.getTime() > Date.now();
@@ -1031,23 +1070,28 @@ function _renderDocumentsSection(t) {
       `<span class="badge ${gueltig ? "generiert" : "abgelaufen"}">${gueltig ? "Gültig bis " + _esc(faelligAm.toLocaleDateString("de-DE")) : "Abgelaufen seit " + _esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
     fsAnsehenBtn.disabled = false;
     fsUploadBtn.textContent = "Ersetzen…";
+    fsCameraBtn.textContent = "📷 Neu aufnehmen";
   } else {
     fsStatusEl.textContent = "Noch nicht hochgeladen.";
     fsAnsehenBtn.disabled = true;
     fsUploadBtn.textContent = "Hochladen…";
+    fsCameraBtn.textContent = "📷 Aufnehmen";
   }
 
   const fzStatusEl   = document.getElementById("d-fz-status");
   const fzAnsehenBtn = document.getElementById("btn-d-fz-ansehen");
   const fzUploadBtn  = document.getElementById("btn-d-fz-upload");
+  const fzCameraBtn  = document.getElementById("btn-d-fz-camera");
   if (t.fuehrungszeugnisEingereichtAm) {
     fzStatusEl.textContent = "Eingereicht am " + _fmtIso(t.fuehrungszeugnisEingereichtAm);
     fzAnsehenBtn.disabled = false;
     fzUploadBtn.textContent = "Ersetzen…";
+    fzCameraBtn.textContent = "📷 Neu aufnehmen";
   } else {
     fzStatusEl.textContent = "Noch nicht eingereicht.";
     fzAnsehenBtn.disabled = true;
     fzUploadBtn.textContent = "Hochladen…";
+    fzCameraBtn.textContent = "📷 Aufnehmen";
   }
 }
 
@@ -1072,6 +1116,13 @@ async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeFie
     [nameField]: file.name,
     [ctypeField]: file.type || "application/octet-stream"
   };
+  // Ein tatsächlich hochgeladenes Dokument widerlegt ein zuvor gesetztes "Keine
+  // Trainerlizenz vorhanden" — sonst blieben beide Zustände widersprüchlich gespeichert.
+  if (dateField === "trainerlizenzHochgeladenAm" && appData.trainer[idx].trainerlizenzNichtVorhanden) {
+    appData.trainer[idx].trainerlizenzNichtVorhanden = false;
+    const cb = document.getElementById("d-tl-keine");
+    if (cb) cb.checked = false;
+  }
   try {
     await _saveMerged();
   } catch (err) {
@@ -1138,7 +1189,8 @@ function _collectDetailData() {
     pauschale:    document.getElementById("d-pauschale").value.trim(),
     lizenz:       document.getElementById("d-lizenz").value.trim(),
     nebentaetigkeit: (document.querySelector('input[name="d-nebentaetigkeit"]:checked') || {}).value || "",
-    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim()
+    nebentaetigkeitBetrag: document.getElementById("d-nebentaetigkeit-betrag").value.trim(),
+    trainerlizenzNichtVorhanden: document.getElementById("d-tl-keine").checked
   };
   // status nur übernehmen, wenn der Admin das Dropdown in dieser Detail-Sitzung
   // wirklich angefasst hat. Sonst würde jedes Autosave (z.B. Pauschale tippen) den
