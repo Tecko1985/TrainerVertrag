@@ -1,0 +1,15 @@
+# Word-Sperrdateien
+~$*
+
+# Kalibrierungs-/Testdateien
+kalibrierung*.pdf
+vertrag-template.pdf
+
+# Generierte Trainer-PDFs (enthalten IBANs — niemals committen)
+PDFs/
+generate-pdfs.log
+CLAUDE.md
+
+# Lokale Sicherungskopien von trainerdaten.json aus generate-pdfs.ps1 -Zuweisen
+# (enthalten IBANs + Unterschriften — niemals committen)
+trainerdaten.backup.*.json
