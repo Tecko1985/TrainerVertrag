@@ -1,4 +1,4 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -54,6 +54,18 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.1",
+    groups: [
+      {
+        title: "Dokumente: Trainerlizenz",
+        items: [
+          "Kopie der Trainerlizenz direkt hochladen (Kamera oder Datei/PDF), an derselben Stelle wie Führerschein und Führungszeugnis — die eigene Datei ist jederzeit selbst einsehbar.",
+          "Admin kann die Trainerlizenz im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen und direkt aus der Personalakte öffnen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.0",
     groups: [

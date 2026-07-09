@@ -147,7 +147,7 @@ function _blobToBase64(blob) {
   });
 }
 
-// docType: "fuehrerschein" | "fuehrungszeugnis". vorname/nachname optional, dienen
+// docType: "fuehrerschein" | "fuehrungszeugnis" | "trainerlizenz". vorname/nachname optional, dienen
 // nur dem serverseitigen Stub-Matching, falls das Hauptformular noch nie ausgefüllt wurde.
 async function submitDocument(docType, file, vorname, nachname) {
   if (file.size > MAX_FILE_BYTES) {
@@ -197,6 +197,21 @@ async function fetchMyFuehrungszeugnisBlob() {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-fuehrungszeugnis-file" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
+// Eigene Trainerlizenz-Datei als Blob holen (für "Ansehen"), analog zu
+// fetchMyFuehrerscheinBlob.
+async function fetchMyTrainerlizenzBlob() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: "my-trainerlizenz-file" })
   });
   if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);

@@ -46,6 +46,12 @@
 //   { action: "fuehrungszeugnis-file-for-owner", trainerId }  (NUR Admin, siehe Datei-Kopf)
 //     -> rohe Datei-Bytes | 404 -- von Personalakte genutzt (direkter "Führungszeugnis öffnen"-Button)
 //
+// SEIT 1.1 (Trainerlizenz-Dokument, gleiches Muster wie Führerschein/Führungszeugnis):
+//   { action: "upload-trainerlizenz", contentType, dataBase64, dateiName?, vorname?, nachname? }
+//   { action: "my-trainerlizenz-file" }             -> rohe Datei-Bytes | 404
+//   { action: "trainerlizenz-file-for-owner", trainerId }  (NUR Admin, wie Führungszeugnis --
+//     keine eigene Sichtgruppe angefragt) -> rohe Datei-Bytes | 404 -- von Personalakte genutzt
+//
 // SEIT 1.6 (Import): Der Admin-Text-Import kann für Namen ohne Konto-Treffer einen
 // unvollständigen Stub-Datensatz anlegen (nur vorname/nachname/lizenz/pauschale,
 // KEIN username-Feld). Meldet sich diese Person später selbst an, findet
@@ -76,6 +82,12 @@ const DOCUMENT_TYPES = {
     uploadedAtField: "fuehrungszeugnisEingereichtAm",
     nameField: "fuehrungszeugnisDateiName",
     ctypeField: "fuehrungszeugnisContentType"
+  },
+  trainerlizenz: {
+    subdir: "trainerlizenzen",
+    uploadedAtField: "trainerlizenzHochgeladenAm",
+    nameField: "trainerlizenzDateiName",
+    ctypeField: "trainerlizenzContentType"
   }
 };
 // Muss zum Client-Cap MAX_FILE_BYTES in config.js passen (gleiche Duplizierungs-
@@ -161,6 +173,15 @@ export default {
     }
     if (body.action === "fuehrungszeugnis-file-for-owner") {
       return handleFuehrungszeugnisFileForOwner(body, session, env, corsHeaders);
+    }
+    if (body.action === "upload-trainerlizenz") {
+      return handleUploadDocument(body, session, env, corsHeaders, DOCUMENT_TYPES.trainerlizenz);
+    }
+    if (body.action === "my-trainerlizenz-file") {
+      return handleMyTrainerlizenzFile(session, env, corsHeaders);
+    }
+    if (body.action === "trainerlizenz-file-for-owner") {
+      return handleTrainerlizenzFileForOwner(body, session, env, corsHeaders);
     }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
@@ -524,6 +545,38 @@ async function handleMyFuehrungszeugnisFile(session, env, corsHeaders) {
   });
 }
 
+// Eigene Trainerlizenz-Datei abrufen (Trainer sieht immer nur seine eigene), analog
+// zu handleMyFuehrerscheinFile.
+async function handleMyTrainerlizenzFile(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const mine = appData.trainer.find(t => t.username === session.username);
+  if (!mine || !mine.trainerlizenzHochgeladenAm) return json({ error: "Keine Datei hinterlegt" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/trainerlizenzen/" + mine.id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  const ctype = mine.trainerlizenzContentType || resp.headers.get("Content-Type") || "application/octet-stream";
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+  });
+}
+
 // Delegierte Sichtgruppe (natives Äquivalent zur früheren Fahrtenbuch-Gruppe): Admin
 // ODER Mitglied von FS_VIEW_GROUP_ID dürfen alle Führerschein-Kopien einsehen — NICHT
 // für Führungszeugnis (siehe Datei-Kopf, bewusste Sicherheitsentscheidung).
@@ -615,6 +668,40 @@ async function handleFuehrungszeugnisFileForOwner(body, session, env, corsHeader
   if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
   if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
   const ctype = t.fuehrungszeugnisContentType || resp.headers.get("Content-Type") || "application/octet-stream";
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+  });
+}
+
+// Trainerlizenz fuer einen beliebigen Trainer -- bewusst NUR Admin (analog zu
+// Führungszeugnis, keine eigene Sichtgruppe angefragt).
+async function handleTrainerlizenzFileForOwner(body, session, env, corsHeaders) {
+  if (!session.isAdmin) return json({ error: "Nicht berechtigt" }, 403, corsHeaders);
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const trainerId = String(body.trainerId || "");
+  const t = appData.trainer.find(x => x.id === trainerId);
+  if (!t || !t.trainerlizenzHochgeladenAm) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/trainerlizenzen/" + t.id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  const ctype = t.trainerlizenzContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }

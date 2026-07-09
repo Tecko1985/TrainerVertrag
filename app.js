@@ -310,10 +310,18 @@ function _fmtDateOnly(iso) {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }
 
-// ─── Dokumente (Trainer-Modus: Führerschein/Führungszeugnis) ───────────────────
+// ─── Dokumente (Trainer-Modus: Trainerlizenz/Führerschein/Führungszeugnis) ─────
 // Panel ist unabhängig vom Haupt-Formular sichtbar/nutzbar (siehe resolveOwnTrainerRecord
 // in submit-worker.js) — ein Trainer kann ein Dokument hochladen, bevor er das
 // Hauptformular je ausgefüllt hat.
+
+// Element-Id-Präfix + Datensatzfelder je Dokumenttyp -- Client-Gegenstück zu
+// DOCUMENT_TYPES in submit-worker.js, hier zusätzlich um den DOM-Präfix ergänzt.
+const TRAINER_DOC_TYPES = {
+  fuehrerschein:    { prefix: "fs", atField: "fuehrerscheinHochgeladenAm",    nameField: "fuehrerscheinDateiName",    ctypeField: "fuehrerscheinContentType" },
+  fuehrungszeugnis: { prefix: "fz", atField: "fuehrungszeugnisEingereichtAm", nameField: "fuehrungszeugnisDateiName", ctypeField: "fuehrungszeugnisContentType" },
+  trainerlizenz:    { prefix: "tl", atField: "trainerlizenzHochgeladenAm",    nameField: "trainerlizenzDateiName",    ctypeField: "trainerlizenzContentType" }
+};
 
 function _initTrainerDocuments() {
   document.getElementById("btn-tf-fs-camera").addEventListener("click", () => document.getElementById("tf-fs-camera-input").click());
@@ -328,6 +336,7 @@ function _initTrainerDocuments() {
   });
   document.getElementById("btn-tf-fs-ansehen").addEventListener("click", _viewMyFuehrerschein);
   document.getElementById("btn-tf-fz-ansehen").addEventListener("click", _viewMyFuehrungszeugnis);
+  document.getElementById("btn-tf-tl-ansehen").addEventListener("click", _viewMyTrainerlizenz);
 
   document.getElementById("btn-tf-fz-camera").addEventListener("click", () => document.getElementById("tf-fz-camera-input").click());
   document.getElementById("tf-fz-camera-input").addEventListener("change", (e) => {
@@ -340,6 +349,17 @@ function _initTrainerDocuments() {
     if (f) _uploadTrainerDocument("fuehrungszeugnis", f);
   });
 
+  document.getElementById("btn-tf-tl-camera").addEventListener("click", () => document.getElementById("tf-tl-camera-input").click());
+  document.getElementById("tf-tl-camera-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("trainerlizenz", f);
+  });
+  document.getElementById("btn-tf-tl-upload").addEventListener("click", () => document.getElementById("tf-tl-file-input").click());
+  document.getElementById("tf-tl-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadTrainerDocument("trainerlizenz", f);
+  });
+
   document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
 }
 
@@ -348,19 +368,18 @@ async function _uploadTrainerDocument(docType, file) {
     alert(`Datei ist zu groß (max. ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB).`);
     return;
   }
-  const errEl = document.getElementById(docType === "fuehrerschein" ? "tf-fs-error" : "tf-fz-error");
+  const ui = TRAINER_DOC_TYPES[docType];
+  const errEl = document.getElementById(`tf-${ui.prefix}-error`);
   errEl.classList.remove("visible");
-  const camBtn  = document.getElementById(docType === "fuehrerschein" ? "btn-tf-fs-camera" : "btn-tf-fz-camera");
-  const fileBtn = document.getElementById(docType === "fuehrerschein" ? "btn-tf-fs-upload" : "btn-tf-fz-upload");
+  const camBtn  = document.getElementById(`btn-tf-${ui.prefix}-camera`);
+  const fileBtn = document.getElementById(`btn-tf-${ui.prefix}-upload`);
   camBtn.disabled = true; fileBtn.disabled = true;
   const prevLabel = fileBtn.textContent;
   fileBtn.textContent = "Lädt hoch…";
   try {
     await submitDocument(docType, file, currentVorname, currentNachname);
     const nowIso = new Date().toISOString();
-    myTrainerRecord = docType === "fuehrerschein"
-      ? { ...(myTrainerRecord || {}), fuehrerscheinHochgeladenAm: nowIso, fuehrerscheinDateiName: file.name, fuehrerscheinContentType: file.type || "" }
-      : { ...(myTrainerRecord || {}), fuehrungszeugnisEingereichtAm: nowIso, fuehrungszeugnisDateiName: file.name, fuehrungszeugnisContentType: file.type || "" };
+    myTrainerRecord = { ...(myTrainerRecord || {}), [ui.atField]: nowIso, [ui.nameField]: file.name, [ui.ctypeField]: file.type || "" };
     _renderTrainerDocumentsStatus();
   } catch (err) {
     if (err instanceof NotLoggedInError) {
@@ -377,6 +396,20 @@ async function _uploadTrainerDocument(docType, file) {
 
 function _renderTrainerDocumentsStatus() {
   const t = myTrainerRecord || {};
+
+  const tlStatusEl   = document.getElementById("tf-tl-status");
+  const tlAnsehenBtn = document.getElementById("btn-tf-tl-ansehen");
+  if (t.trainerlizenzHochgeladenAm) {
+    tlStatusEl.textContent = "✅ Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
+    tlAnsehenBtn.disabled = false;
+    document.getElementById("btn-tf-tl-upload").textContent = "Datei ersetzen…";
+    document.getElementById("btn-tf-tl-camera").textContent = "📷 Neu aufnehmen";
+  } else {
+    tlStatusEl.textContent = "⚠️ Noch keine Trainerlizenz hochgeladen.";
+    tlAnsehenBtn.disabled = true;
+    document.getElementById("btn-tf-tl-upload").textContent = "Datei / Galerie wählen…";
+    document.getElementById("btn-tf-tl-camera").textContent = "📷 Foto aufnehmen";
+  }
 
   const fsStatusEl   = document.getElementById("tf-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
@@ -429,6 +462,21 @@ async function _viewMyFuehrerschein() {
 async function _viewMyFuehrungszeugnis() {
   try {
     const blob = await fetchMyFuehrungszeugnisBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
+    } else {
+      alert("Datei nicht abrufbar: " + err.message);
+    }
+  }
+}
+
+async function _viewMyTrainerlizenz() {
+  try {
+    const blob = await fetchMyTrainerlizenzBlob();
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
     setTimeout(() => URL.revokeObjectURL(url), 10000);
@@ -731,6 +779,13 @@ function _initAdminPanel() {
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
   // (die Buttons werden anders als die Autosave-Felder nicht per cloneNode ersetzt).
+  document.getElementById("btn-d-tl-upload").addEventListener("click", () => document.getElementById("d-tl-file-input").click());
+  document.getElementById("d-tl-file-input").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) _uploadDocumentAdmin("trainerlizenzen", f, "trainerlizenzHochgeladenAm", "trainerlizenzDateiName", "trainerlizenzContentType");
+  });
+  document.getElementById("btn-d-tl-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("trainerlizenzen"));
+
   document.getElementById("btn-d-fs-upload").addEventListener("click", () => document.getElementById("d-fs-file-input").click());
   document.getElementById("d-fs-file-input").addEventListener("change", (e) => {
     const f = e.target.files[0]; e.target.value = "";
@@ -953,6 +1008,19 @@ function _trainerDocConfig(subdir, trainerId) {
 }
 
 function _renderDocumentsSection(t) {
+  const tlStatusEl   = document.getElementById("d-tl-status");
+  const tlAnsehenBtn = document.getElementById("btn-d-tl-ansehen");
+  const tlUploadBtn  = document.getElementById("btn-d-tl-upload");
+  if (t.trainerlizenzHochgeladenAm) {
+    tlStatusEl.textContent = "Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
+    tlAnsehenBtn.disabled = false;
+    tlUploadBtn.textContent = "Ersetzen…";
+  } else {
+    tlStatusEl.textContent = "Noch nicht hochgeladen.";
+    tlAnsehenBtn.disabled = true;
+    tlUploadBtn.textContent = "Hochladen…";
+  }
+
   const fsStatusEl   = document.getElementById("d-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-d-fs-ansehen");
   const fsUploadBtn  = document.getElementById("btn-d-fs-upload");
