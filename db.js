@@ -96,6 +96,14 @@ async function fetchTrainerProfiles() {
   return Array.isArray(body.profiles) ? body.profiles : [];
 }
 
+// Trainer-Selbstbedienungs-Pendant zum Admin-only TrainerCheckliste-Status
+// (dort per WebDAV, siehe _loadTrainerCheckliste in app.js) -- hier per Gateway,
+// da der Trainer keine WebDAV-Credentials hat. Der Worker verengt serverseitig
+// auf den eigenen Eintrag (Minimal-Disclosure), siehe admin-worker.js.
+async function fetchMyChecklisteStatus() {
+  return gatewayRequest({ action: "my-trainercheckliste-status" });
+}
+
 // Fragt beim submit-worker die eigene, bereits eingereichte Erfassung ab (falls
 // vorhanden) — der Worker verifiziert den Token serverseitig selbst (Service
 // Binding zum landingpage-Worker), das hier mitgeschickte Token ist nur der

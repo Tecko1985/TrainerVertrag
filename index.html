@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.7" />
+<link rel="stylesheet" href="style.css?v=1.8" />
 </head>
 <body>
 
@@ -151,6 +151,23 @@
 
   <!-- Dokumente: Trainerlizenz + Führerschein + Führungszeugnis (unabhängig vom Haupt-Formular sichtbar) -->
   <div id="trainer-documents-panel" class="trainer-form-screen" style="display:none;">
+    <!-- TrainerCheckliste-Status (seit 1.8): read-only Spiegel der Checkliste
+         Trainerzu-/-abgang, die die Geschäftsstelle in der eigenständigen App
+         TrainerCheckliste führt. Rein informativ, keine Bestätigung/Signatur hier
+         (die Unterschriften stammen aus TrainerCheckliste selbst und werden nur
+         angezeigt) -- siehe CLAUDE.md. -->
+    <div class="card">
+      <h2>Checkliste Trainerzu-/-abgang</h2>
+      <p class="muted" style="margin-bottom:14px; line-height:1.5;">
+        Status deiner Onboarding-/Offboarding-Checkliste, geführt von der Geschäftsstelle (App TrainerCheckliste). Rein informativ.
+      </p>
+      <p class="muted" id="tf-checkliste-status" style="margin-bottom:10px;">—</p>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button type="button" class="btn secondary small" id="btn-checkliste-oeffnen" disabled>Öffnen</button>
+      </div>
+      <div id="checkliste-detail" style="display:none; margin-top:16px;"></div>
+    </div>
+
     <div class="card">
       <h2>Trainerlizenz</h2>
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
@@ -608,12 +625,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.7"></script>
-<script src="kodex-text.js?v=1.7"></script>
-<script src="jugendschutz-text.js?v=1.7"></script>
-<script src="db.js?v=1.7"></script>
-<script src="signature-pad.js?v=1.7"></script>
-<script src="pdf-utils.js?v=1.7"></script>
-<script src="app.js?v=1.7"></script>
+<script src="config.js?v=1.8"></script>
+<script src="kodex-text.js?v=1.8"></script>
+<script src="jugendschutz-text.js?v=1.8"></script>
+<script src="checkliste-schema.js?v=1.8"></script>
+<script src="db.js?v=1.8"></script>
+<script src="signature-pad.js?v=1.8"></script>
+<script src="pdf-utils.js?v=1.8"></script>
+<script src="app.js?v=1.8"></script>
 </body>
 </html>

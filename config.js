@@ -1,4 +1,4 @@
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -87,6 +87,19 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.8",
+    groups: [
+      {
+        title: "TrainerCheckliste-Status im Trainerbereich",
+        items: [
+          "Neue Karte „Checkliste Trainerzu-/-abgang\" direkt hier im Trainerdaten-Tab, zwischen der Unterschrift des Hauptformulars und der Trainerlizenz.",
+          "Zeigt an, ob der eigene Zugang (Onboarding) laut Geschäftsstelle abgeschlossen ist.",
+          "„Öffnen\" zeigt die komplette Checkliste zum Nachlesen: alle abgehakten Punkte, Bemerkungen sowie die Unterschriften von Trainer/Betreuer und Geschäftsstelle — rein informativ, keine eigene Bestätigung nötig."
+        ]
+      }
+    ]
+  },
   {
     version: "1.7",
     groups: [

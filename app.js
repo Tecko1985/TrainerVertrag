@@ -21,6 +21,8 @@ let currentGroupIds  = [];
 let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
 let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only Cross-Read), lazy geladen (siehe _renderChecklisteStatus)
+let myChecklisteStatus = null; // eigener TrainerCheckliste-Eintrag (Trainer-Selbstbedienung, seit 1.8), einmalig geladen in _initTrainerGateway (siehe _renderMyChecklisteStatus)
+let _checklisteDetailOpen = false; // Aufklapp-Zustand der "Öffnen"-Detailansicht, überlebt Re-Render (siehe _showTrainerFormScreen)
 let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -56,7 +58,11 @@ async function _initTrainerGateway() {
     // fetchMe() und fetchMySubmission() sind unabhängige Worker-Aufrufe (beide
     // ermitteln den Nutzer serverseitig aus dem Bearer-Token) — parallel statt
     // seriell spart einen kompletten Roundtrip vorm ersten sichtbaren Inhalt.
-    const [me, saved] = await Promise.all([fetchMe(), fetchMySubmission()]);
+    // _loadMyChecklisteStatus() schluckt eigene Fehler (siehe dort) und darf daher
+    // gefahrlos mit im selben Promise.all hängen -- ein Fehlschlag dort (z.B. Worker-
+    // Aktion noch nicht deployed) soll nie den ganzen Trainer-Login blockieren.
+    const [me, saved, checkliste] = await Promise.all([fetchMe(), fetchMySubmission(), _loadMyChecklisteStatus()]);
+    myChecklisteStatus = checkliste;
     currentUsername = me.username;
     currentVorname   = me.vorname || null;
     currentNachname  = me.nachname || null;
@@ -114,6 +120,7 @@ function _showTrainerFormScreen() {
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
   _renderTrainerDocumentsStatus();
+  _renderMyChecklisteStatus();
   _renderTrainerKodexStatus();
   _renderTrainerJugendschutzStatus();
 }
@@ -254,6 +261,7 @@ function _showReceiptScreen(opts) {
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
   _renderTrainerDocumentsStatus();
+  _renderMyChecklisteStatus();
   _renderTrainerKodexStatus();
   _renderTrainerJugendschutzStatus();
 }
@@ -403,6 +411,108 @@ function _initTrainerDocuments() {
   document.getElementById("tf-tl-gueltig-bis").addEventListener("change", _saveTrainerlizenzDetails);
 
   document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
+
+  document.getElementById("btn-checkliste-oeffnen").addEventListener("click", _toggleChecklisteDetail);
+}
+
+// TrainerCheckliste-Status in der Trainer-Selbstbedienung (seit 1.8) -- anders als
+// der Admin-only Status weiter unten (_renderChecklisteStatus, WebDAV-Cross-Read,
+// nur ✓/–-Badge) läuft dieser Weg über die Gateway-Aktion "my-trainercheckliste-
+// status" (Bearer-Token, kein WebDAV-Zugriff nötig) und liefert bereits serverseitig
+// nur den eigenen Eintrag samt Detailfeldern (Minimal-Disclosure, siehe admin-
+// worker.js). Rein informativ: fließt an keiner Stelle in eine Ampel-Bewertung ein.
+async function _loadMyChecklisteStatus() {
+  try {
+    return await fetchMyChecklisteStatus();
+  } catch (_) {
+    return null; // z.B. Worker-Aktion noch nicht deployed oder Netzwerkfehler -- Karte zeigt dann "nicht abrufbar"
+  }
+}
+
+function _renderMyChecklisteStatus() {
+  const statusEl = document.getElementById("tf-checkliste-status");
+  const btn = document.getElementById("btn-checkliste-oeffnen");
+  const detailEl = document.getElementById("checkliste-detail");
+  if (!statusEl || !btn || !detailEl) return;
+
+  // myChecklisteStatus ist zu diesem Zeitpunkt immer schon final (die Ladung wird
+  // in _initTrainerGateway VOR dem ersten Aufruf dieser Funktion abgewartet) --
+  // null heißt hier also "Abruf fehlgeschlagen", nicht "lädt noch".
+  if (!myChecklisteStatus) {
+    statusEl.textContent = "Status derzeit nicht abrufbar.";
+    btn.disabled = true;
+    return;
+  }
+  if (!myChecklisteStatus.vorhanden) {
+    statusEl.textContent = "Kein Eintrag in der TrainerCheckliste gefunden.";
+    btn.disabled = true;
+    detailEl.style.display = "none";
+    detailEl.innerHTML = "";
+    _checklisteDetailOpen = false;
+    btn.textContent = "Öffnen";
+    return;
+  }
+
+  const z = myChecklisteStatus.zugang;
+  statusEl.innerHTML = z.abgeschlossen
+    ? `✅ Zugang abgeschlossen${z.datum ? " am " + _esc(_fmtDateOnly(z.datum)) : ""}`
+    : "⏳ Zugang noch nicht abgeschlossen";
+  btn.disabled = false;
+
+  if (_checklisteDetailOpen) {
+    detailEl.innerHTML =
+      _renderChecklisteSectionHtml("Zugang", ZUGANG_SCHEMA, myChecklisteStatus.zugang) +
+      _renderChecklisteSectionHtml("Abgang", ABGANG_SCHEMA, myChecklisteStatus.abgang);
+    detailEl.style.display = "";
+    btn.textContent = "Schließen";
+  } else {
+    detailEl.style.display = "none";
+    detailEl.innerHTML = "";
+    btn.textContent = "Öffnen";
+  }
+}
+
+function _toggleChecklisteDetail() {
+  _checklisteDetailOpen = !_checklisteDetailOpen;
+  _renderMyChecklisteStatus();
+}
+
+// Baut die Detailansicht einer Section (Zugang/Abgang) aus den Rohdaten + den
+// statischen Labels aus checkliste-schema.js. Items ohne eigenes label (nur
+// Sub-Items, siehe Schema-Kommentar) werden übersprungen; textInput-Items zeigen
+// den erfassten Wert (z.B. Schlüsselnummer) aus itemTexts an. bemerkungen/ort/
+// nichtAbgeschlossenGrund/itemTexts sind Freitext der Geschäftsstelle -> escapen.
+function _renderChecklisteSectionHtml(label, schema, s) {
+  if (!s) return "";
+  const statusLine = s.abgeschlossen
+    ? "✅ Abgeschlossen" + (s.datum ? " am " + _esc(_fmtDateOnly(s.datum)) : "")
+    : (s.nichtAbgeschlossen
+        ? "⚠️ Nicht abgeschlossen" + (s.nichtAbgeschlossenGrund ? ": " + _esc(s.nichtAbgeschlossenGrund) : "")
+        : "— Offen");
+
+  const itemLine = (item, indentPx) => {
+    if (!item.label) return "";
+    const checked = !!(s.items && s.items[item.id]);
+    const textVal = item.textInput && s.itemTexts && s.itemTexts[item.id];
+    return `<div style="padding-left:${indentPx}px; padding-bottom:3px;">${checked ? "✅" : "⬜"} ${_esc(item.label)}${textVal ? " (" + _esc(textVal) + ")" : ""}</div>`;
+  };
+  const itemsHtml = schema.map((item) => itemLine(item, 0) + (Array.isArray(item.subItems) ? item.subItems.map((si) => itemLine(si, 20)).join("") : "")).join("");
+
+  // signature-pad.js härtet loadDataURL() bereits gegen Nicht-Bild-URLs (siehe
+  // TrainerCheckliste-CLAUDE.md) -- gleiche Prüfung hier, da diese Werte direkt aus
+  // der Nextcloud-JSON kommen und via innerHTML/<img src> gerendert werden.
+  const sigHtml = (sigLabel, dataUrl) => (dataUrl && dataUrl.startsWith("data:image/"))
+    ? `<div style="margin-top:8px;"><span class="muted" style="font-size:12px;">${sigLabel}</span><br><img src="${dataUrl}" alt="${sigLabel}" class="receipt-signature" /></div>`
+    : "";
+
+  return `
+    <div class="section-divider">${label}</div>
+    <p class="muted" style="margin-bottom:8px;">${statusLine}${s.ort ? " · Ort: " + _esc(s.ort) : ""}</p>
+    ${s.bemerkungen ? `<p class="muted" style="margin-bottom:8px;"><em>Bemerkung: ${_esc(s.bemerkungen)}</em></p>` : ""}
+    <div style="margin-bottom:6px;">${itemsHtml}</div>
+    ${sigHtml("Unterschrift Trainer/Betreuer", s.unterschriftTrainer)}
+    ${sigHtml("Unterschrift Geschäftsstelle", s.unterschriftFunktionaer)}
+  `;
 }
 
 // Trainerkodex (migriert aus der eigenständigen App trainerkodex, siehe CLAUDE.md) --
