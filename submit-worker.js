@@ -52,6 +52,13 @@
 //   { action: "trainerlizenz-file-for-owner", trainerId }  (NUR Admin, wie Führungszeugnis --
 //     keine eigene Sichtgruppe angefragt) -> rohe Datei-Bytes | 404 -- von Personalakte genutzt
 //
+// SEIT 1.4 (Trainer-Selbstauskunft "keine Trainerlizenz vorhanden"):
+//   { action: "set-trainerlizenz-keine", nichtVorhanden, vorname?, nachname? }
+//     -> setzt/löscht trainerlizenzNichtVorhanden auf dem EIGENEN Datensatz (gleiches
+//     Stub-Matching wie bei den Uploads) -> { success:true, trainerlizenzNichtVorhanden }
+//     Ein tatsächlicher upload-trainerlizenz setzt das Flag serverseitig automatisch
+//     wieder zurück (widersprüchlicher Zustand sonst möglich).
+//
 // SEIT 1.6 (Import): Der Admin-Text-Import kann für Namen ohne Konto-Treffer einen
 // unvollständigen Stub-Datensatz anlegen (nur vorname/nachname/lizenz/pauschale,
 // KEIN username-Feld). Meldet sich diese Person später selbst an, findet
@@ -182,6 +189,9 @@ export default {
     }
     if (body.action === "trainerlizenz-file-for-owner") {
       return handleTrainerlizenzFileForOwner(body, session, env, corsHeaders);
+    }
+    if (body.action === "set-trainerlizenz-keine") {
+      return handleSetTrainerlizenzKeine(body, session, env, corsHeaders);
     }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
@@ -467,6 +477,12 @@ async function handleUploadDocument(body, session, env, corsHeaders, docType) {
     [docType.nameField]: String(body.dateiName || "").trim().slice(0, 200),
     [docType.ctypeField]: ctype
   };
+  // Ein tatsächlich hochgeladenes Dokument widerlegt ein zuvor gesetztes "Keine
+  // Trainerlizenz vorhanden" — sonst blieben beide Zustände widersprüchlich gespeichert
+  // (gleiche Logik wie im Admin-Detail, siehe [[project-trainerdaten]]).
+  if (docType.uploadedAtField === "trainerlizenzHochgeladenAm") {
+    appData.trainer[idx].trainerlizenzNichtVorhanden = false;
+  }
 
   try {
     const putResp = await fetch(env.NEXTCLOUD_URL, {
@@ -480,6 +496,41 @@ async function handleUploadDocument(body, session, env, corsHeaders, docType) {
   }
 
   return json({ success: true, id: trainerId, [docType.uploadedAtField]: nowIso }, 200, corsHeaders);
+}
+
+// Trainer bestätigt/widerruft selbst "ich habe keine Trainerlizenz" — reine
+// Selbstauskunft, kein Datei-Upload. Gleiches Stub-Matching wie handleUploadDocument
+// (resolveOwnTrainerRecord), damit auch jemand ohne je ausgefülltes Hauptformular
+// diese Checkbox setzen kann.
+async function handleSetTrainerlizenzKeine(body, session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
+  const nichtVorhanden = !!body.nichtVorhanden;
+  appData.trainer[idx].trainerlizenzNichtVorhanden = nichtVorhanden;
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, trainerlizenzNichtVorhanden: nichtVorhanden }, 200, corsHeaders);
 }
 
 // Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).

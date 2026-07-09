@@ -1,4 +1,4 @@
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -54,6 +54,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.4",
+    groups: [
+      {
+        title: "Trainerlizenz: Selbstauskunft für alle",
+        items: [
+          "Neue Checkbox „Ich habe keine Trainerlizenz\" jetzt auch in der Trainer-Selbstbedienung, nicht nur im Admin-Detail — jeder kann selbst bestätigen, dass keine Lizenz vorhanden ist."
+        ]
+      }
+    ]
+  },
   {
     version: "1.3",
     groups: [

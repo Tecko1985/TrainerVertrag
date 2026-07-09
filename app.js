@@ -359,8 +359,28 @@ function _initTrainerDocuments() {
     const f = e.target.files[0]; e.target.value = "";
     if (f) _uploadTrainerDocument("trainerlizenz", f);
   });
+  document.getElementById("tf-tl-keine").addEventListener("change", _handleTrainerlizenzKeineChange);
 
   document.getElementById("btn-tf-fs-export").addEventListener("click", _exportFuehrerscheinePdf);
+}
+
+async function _handleTrainerlizenzKeineChange(e) {
+  const checked = e.target.checked;
+  const errEl = document.getElementById("tf-tl-error");
+  errEl.classList.remove("visible");
+  try {
+    await setTrainerlizenzKeine(checked, currentVorname, currentNachname);
+    myTrainerRecord = { ...(myTrainerRecord || {}), trainerlizenzNichtVorhanden: checked };
+    _renderTrainerDocumentsStatus();
+  } catch (err) {
+    e.target.checked = !checked;
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
+    } else {
+      errEl.textContent = "Speichern fehlgeschlagen: " + err.message;
+      errEl.classList.add("visible");
+    }
+  }
 }
 
 async function _uploadTrainerDocument(docType, file) {
@@ -380,6 +400,9 @@ async function _uploadTrainerDocument(docType, file) {
     await submitDocument(docType, file, currentVorname, currentNachname);
     const nowIso = new Date().toISOString();
     myTrainerRecord = { ...(myTrainerRecord || {}), [ui.atField]: nowIso, [ui.nameField]: file.name, [ui.ctypeField]: file.type || "" };
+    // Server setzt trainerlizenzNichtVorhanden beim Upload automatisch zurück
+    // (widersprüchlicher Zustand sonst möglich) — lokalen Cache nachziehen.
+    if (docType === "trainerlizenz") myTrainerRecord.trainerlizenzNichtVorhanden = false;
     _renderTrainerDocumentsStatus();
   } catch (err) {
     if (err instanceof NotLoggedInError) {
@@ -399,17 +422,24 @@ function _renderTrainerDocumentsStatus() {
 
   const tlStatusEl   = document.getElementById("tf-tl-status");
   const tlAnsehenBtn = document.getElementById("btn-tf-tl-ansehen");
+  const tlKeineCb    = document.getElementById("tf-tl-keine");
   if (t.trainerlizenzHochgeladenAm) {
     tlStatusEl.textContent = "✅ Hochgeladen am " + _fmtIso(t.trainerlizenzHochgeladenAm);
     tlAnsehenBtn.disabled = false;
     document.getElementById("btn-tf-tl-upload").textContent = "Datei ersetzen…";
     document.getElementById("btn-tf-tl-camera").textContent = "📷 Neu aufnehmen";
+  } else if (t.trainerlizenzNichtVorhanden) {
+    tlStatusEl.textContent = "Keine Trainerlizenz vorhanden (bestätigt).";
+    tlAnsehenBtn.disabled = true;
+    document.getElementById("btn-tf-tl-upload").textContent = "Datei / Galerie wählen…";
+    document.getElementById("btn-tf-tl-camera").textContent = "📷 Foto aufnehmen";
   } else {
     tlStatusEl.textContent = "⚠️ Noch keine Trainerlizenz hochgeladen.";
     tlAnsehenBtn.disabled = true;
     document.getElementById("btn-tf-tl-upload").textContent = "Datei / Galerie wählen…";
     document.getElementById("btn-tf-tl-camera").textContent = "📷 Foto aufnehmen";
   }
+  tlKeineCb.checked = !!t.trainerlizenzNichtVorhanden;
 
   const fsStatusEl   = document.getElementById("tf-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
