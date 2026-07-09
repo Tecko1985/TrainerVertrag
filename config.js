@@ -1,4 +1,4 @@
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -54,6 +54,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.3",
+    groups: [
+      {
+        title: "Layout-Fix",
+        items: [
+          "Checkbox „Keine Trainerlizenz vorhanden\" stand fälschlich in derselben Zeile wie die Buttons ganz am rechten Rand — steht jetzt sichtbar auf einer eigenen Zeile darunter."
+        ]
+      }
+    ]
+  },
   {
     version: "1.2",
     groups: [
