@@ -106,6 +106,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.16",
+    groups: [
+      {
+        title: "Admin-Detail: Speichern-Button",
+        items: [
+          "Neuer Button „Speichern“ in der Trainer-Detailansicht – speichert sofort und sichtbar, statt auf das automatische Speichern (1,2 Sekunden nach der letzten Eingabe) zu warten.",
+          "Randfall behoben: Ein Wechsel zurück zur Liste oder zu einem anderen Trainer kurz nach einer Eingabe konnte die zuletzt eingegebene Änderung stillschweigend verwerfen, bevor das automatische Speichern ausgelöst wurde."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.15",
     groups: [
       {

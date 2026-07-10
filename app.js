@@ -1235,6 +1235,7 @@ function _initAdminPanel() {
   });
 
   document.getElementById("btn-zurueck-liste").addEventListener("click", _showAdminListe);
+  document.getElementById("btn-d-speichern").addEventListener("click", _saveDetailNow);
   document.getElementById("btn-eintrag-loeschen").addEventListener("click", _deleteCurrentTrainer);
   document.getElementById("btn-pdf-generieren").addEventListener("click", _generatePdf);
   document.getElementById("btn-pdf-einzeln").addEventListener("click", _generatePdfEinzeln);
@@ -1292,7 +1293,8 @@ function _initAdminPanel() {
 
 // ─── Admin-Liste ──────────────────────────────────────────────────────────────
 
-function _showAdminListe() {
+async function _showAdminListe() {
+  await _flushPendingSave();
   document.getElementById("admin-view-detail").style.display = "none";
   document.getElementById("admin-view-liste").style.display = "";
   currentTrainerId = null;
@@ -1401,7 +1403,8 @@ function _renderAdminListe() {
 
 // ─── Admin-Detail ─────────────────────────────────────────────────────────────
 
-function _openAdminDetail(id) {
+async function _openAdminDetail(id) {
+  await _flushPendingSave();
   const t = appData.trainer.find(x => x.id === id);
   if (!t) return;
   currentTrainerId = id;
@@ -1963,10 +1966,11 @@ function _scheduleAutosave() {
   saveTid = setTimeout(_doSave, 1200);
 }
 
+// Rückgabe: null bei Erfolg (oder wenn nichts zu tun war), sonst die Fehlermeldung.
 async function _doSave() {
-  if (!davConfig || !currentTrainerId) return;
+  if (!davConfig || !currentTrainerId) return null;
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
-  if (idx === -1) return;
+  if (idx === -1) return null;
 
   const updated = { ...appData.trainer[idx], ..._collectDetailData() };
   appData.trainer[idx] = updated;
@@ -1977,8 +1981,44 @@ async function _doSave() {
     await _saveMerged();
     statusEl.textContent = "Gespeichert ✓";
     setTimeout(() => { statusEl.textContent = "Automatisches Speichern aktiv"; }, 2500);
+    return null;
   } catch (err) {
     statusEl.textContent = "Speicherfehler: " + err.message;
+    return err.message;
+  }
+}
+
+// Wird vor jedem Verlassen der Detailansicht aufgerufen (Zurück-Button oder
+// Öffnen eines anderen Trainers): eine noch laufende Debounce-Verzögerung
+// (1,2s nach der letzten Eingabe) würde sonst beim Umschalten von
+// currentTrainerId verwaisen und _doSave() bräche wegen des Guards oben
+// stillschweigend ab — die zuletzt eingegebene Änderung wäre verloren.
+async function _flushPendingSave() {
+  if (saveTid === null) return;
+  clearTimeout(saveTid);
+  saveTid = null;
+  await _doSave();
+}
+
+// Expliziter "Speichern"-Button in der Detailansicht: sofort speichern statt
+// auf den Debounce zu warten, mit direkt sichtbarem Ergebnis (Autosave-Status
+// lebt nur im Einstellungen-Tab und ist von hier aus nicht sichtbar).
+async function _saveDetailNow() {
+  const btn = document.getElementById("btn-d-speichern");
+  clearTimeout(saveTid);
+  saveTid = null;
+  btn.disabled = true;
+  btn.textContent = "Speichere …";
+  const error = await _doSave();
+  btn.disabled = false;
+  if (error) {
+    btn.textContent = "Speichern";
+    const errEl = document.getElementById("admin-detail-error");
+    errEl.textContent = "Speichern fehlgeschlagen: " + error;
+    errEl.classList.add("visible");
+  } else {
+    btn.textContent = "Gespeichert ✓";
+    setTimeout(() => { btn.textContent = "Speichern"; }, 2000);
   }
 }
 
