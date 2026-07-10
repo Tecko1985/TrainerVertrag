@@ -9,3 +9,7 @@ vertrag-template.pdf
 PDFs/
 generate-pdfs.log
 CLAUDE.md
+
+# Lokale Sicherungskopien von trainerdaten.json aus generate-pdfs.ps1 -Zuweisen
+# (enthalten IBANs + Unterschriften — niemals committen)
+trainerdaten.backup.*.json
