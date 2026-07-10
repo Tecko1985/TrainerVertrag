@@ -13,12 +13,20 @@
 #                                          (Upload nach Nextcloud vertraege/<id> + Vermerk
 #                                          im Datensatz). Ohne -Zuweisen bleibt das Skript
 #                                          rein lesend (PDFs liegen nur lokal in PDFs/).
+#                                          Standardmaessig nur Trainer OHNE bereits
+#                                          ausgestellten Vertrag -- bestehende (evtl.
+#                                          unterschriebene) Vertraege bleiben unangetastet,
+#                                          der Lauf ist damit gefahrlos wiederholbar.
+#   .\generate-pdfs.ps1 -Zuweisen -Alle -> Neuausstellung fuer ALLE angemeldeten Trainer
+#                                          (bewusster Jahres-Neuauslauf: ersetzt vorhandene
+#                                          Vertraege und setzt deren Unterschrift zurueck).
 
 param(
   [string]$JsonPath,
   [string]$OutDir = (Join-Path $PSScriptRoot 'PDFs'),
   [switch]$Test,
-  [switch]$Zuweisen
+  [switch]$Zuweisen,
+  [switch]$Alle
 )
 
 $ErrorActionPreference = 'Stop'
@@ -215,20 +223,26 @@ else {
 if (-not $trainer -or $trainer.Count -eq 0) { throw 'Keine Trainerdaten gefunden.' }
 Write-Host ("{0} Trainer geladen." -f $trainer.Count) -ForegroundColor Green
 
-# ── Nur Status "Ausstehend" verarbeiten ──────────────────────────────────────
-# Gleiche Logik wie _trainerStatus() in app.js: username gesetzt (Person hat sich
-# selbst übers Trainer-Formular angemeldet, Stammdaten vollständig) UND Vertrag noch
-# nicht erzeugt. "Unvollstaendig" (Stub ohne username, fehlende IBAN/Adresse/Unterschrift)
-# und bereits "generiert" werden übersprungen.
+# ── Zu bearbeitende Trainer auswaehlen ───────────────────────────────────────
+# Standard: Person hat sich selbst ueber das Trainer-Formular angemeldet (username
+# gesetzt) UND hat noch keinen zugewiesenen Vertrag (vertragPdfBereitgestelltAm leer).
+# Ein bereits ausgestellter Vertrag gilt fuers Jahr und wird NICHT angeruehrt --
+# geaenderte Stammdaten aendern daran nichts. -Alle erzwingt die Neuausstellung fuer
+# ALLE angemeldeten Trainer (bewusster Jahres-Neuauslauf: ersetzt vorhandene Vertraege
+# und setzt deren Unterschrift zurueck). Stubs ohne username werden immer uebersprungen.
 if (-not $Test) {
   $gesamt = $trainer.Count
-  $trainer = @($trainer | Where-Object { $_.username -and -not $_.vertragsGeneriert })
+  if ($Alle) {
+    $trainer = @($trainer | Where-Object { $_.username })
+  } else {
+    $trainer = @($trainer | Where-Object { $_.username -and -not $_.vertragPdfBereitgestelltAm })
+  }
   $uebersprungen = $gesamt - $trainer.Count
   if ($uebersprungen -gt 0) {
-    Write-Host ("{0} von {1} übersprungen (unvollständig oder bereits generiert)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
+    Write-Host ("{0} von {1} uebersprungen (kein Login oder Vertrag bereits ausgestellt; -Alle erzwingt Neuausstellung)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
   }
-  if ($trainer.Count -eq 0) { throw 'Kein Trainer mit Status "Ausstehend" gefunden.' }
-  Write-Host ("{0} Trainer mit Status Ausstehend." -f $trainer.Count) -ForegroundColor Green
+  if ($trainer.Count -eq 0) { throw 'Kein passender Trainer gefunden (alle haben schon einen Vertrag?). Fuer eine Neuausstellung -Alle verwenden.' }
+  Write-Host ("{0} Trainer werden bearbeitet." -f $trainer.Count) -ForegroundColor Green
 }
 
 # ── Schritt 1: Für jeden Trainer das DOCX befüllen (reine Datei-Operation) ───

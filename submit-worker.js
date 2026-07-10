@@ -420,14 +420,11 @@ async function handleSubmit(body, session, env, corsHeaders) {
       // bliebe z.B. "generiert" stehen und der veraltete Vertrag fiele nie auf —
       // leer = automatische Ableitung greift wieder (Badge "Ausstehend").
       status: "",
-      // Geänderte Stammdaten machen auch einen bereits zugewiesenen/unterschriebenen
-      // Trainervertrag veraltet (seit 1.10) -- Zuweisung + Unterschrift zurücksetzen,
-      // konsistent zu vertragsGeneriert oben. Ein erneuter generate-pdfs.ps1 -Zuweisen-
-      // Lauf stellt den aktualisierten Vertrag danach neu bereit. So wird nie eine
-      // Unterschrift zu inzwischen veralteten Vertragsdaten angezeigt.
-      vertragPdfBereitgestelltAm: "",
-      vertragUnterschriebenAm: "",
-      vertragSignatureDataUrl: "",
+      // Der zugewiesene/unterschriebene Trainervertrag (vertragPdfBereitgestelltAm/
+      // vertragUnterschriebenAm/vertragSignatureDataUrl) wird hier BEWUSST NICHT
+      // angetastet: ein Vertrag gilt fuers Jahr, geaenderte Stammdaten machen ihn nicht
+      // ungueltig. Geaenderte Daten sind erst fuer einen spaeter bewusst neu
+      // ausgestellten Vertrag relevant (generate-pdfs.ps1 -Zuweisen -Alle).
       ...unterschriftPatch
     };
     resultId = appData.trainer[existingIdx].id;
