@@ -88,6 +88,17 @@ const PDF_FIELDS = {
 
 const APP_CHANGELOG = [
   {
+    version: "1.13",
+    groups: [
+      {
+        title: "Trainervertrag: Statusanzeige repariert",
+        items: [
+          "Der Bereich „Trainervertrag“ zeigte bei bereits registrierten Trainern (Bestätigungs-Screen „Bereits eingereicht“) immer den leeren Ausgangszustand, auch wenn längst ein Vertrag bereitgestellt oder unterschrieben wurde – betraf praktisch jeden Trainer nach der ersten Einreichung. Behoben: Status und Ansehen-Button aktualisieren sich jetzt auch auf diesem Screen korrekt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.12",
     groups: [
       {

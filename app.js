@@ -264,10 +264,12 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-jugendschutz-panel").style.display = "";
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
+  vertragSigPad.resize();
   _renderTrainerDocumentsStatus();
   _renderMyChecklisteStatus();
   _renderTrainerKodexStatus();
   _renderTrainerJugendschutzStatus();
+  _renderTrainerVertragStatus();
 }
 
 // Öffnet das Formular vorausgefüllt mit der eigenen, serverseitig geladenen Einreichung.
