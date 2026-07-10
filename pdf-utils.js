@@ -70,21 +70,41 @@ async function generiereAlleVertraegeZip(trainerList, onProgress) {
 }
 
 // Fertig unterschriebenes Vertrags-PDF bauen (seit 1.10): lädt das vom Skript
-// generate-pdfs.ps1 bereitgestellte Original-Vertrags-PDF (Bytes) und hängt EINE
-// Unterschriftenseite an (Name, Datum, Signaturbild, Bestätigungstext). Bewusst kein
-// Stempeln in den bestehenden Fließtext -- das flache Vertragstemplate hat keine
-// kalibrierten Signaturkoordinaten (siehe PDF_FIELDS-Hinweis in config.js); eine
-// angehängte, klar beschriftete Seite ist eindeutig und dokumentiert Wer/Was/Wann.
+// generate-pdfs.ps1 bereitgestellte Original-Vertrags-PDF (Bytes), stempelt die
+// Signatur zusätzlich direkt auf die beiden echten Unterschriftslinien des Vertrags
+// (VERTRAG_SIGNATURE_STELLEN in config.js, seit 1.14) und hängt danach weiterhin EINE
+// Unterschriftenseite an (Name, Datum, Signaturbild, Bestätigungstext) -- die dient
+// als eindeutiger Audit-Nachweis (Wer/Was/Wann), unabhängig von den beiden Stellen im
+// Fließtext, die selbst kein Datum tragen.
 // Gibt ein Uint8Array zurück (Aufrufer verpackt es in einen application/pdf-Blob).
 async function buildSignedVertragPdf(originalBytes, opts) {
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const doc = await PDFDocument.load(originalBytes);
   const font     = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const [pw, ph] = [595.28, 841.89]; // A4, wie das Vertragstemplate
-  const page = doc.addPage([pw, ph]);
   const dark  = rgb(0.12, 0.14, 0.19);
   const muted = rgb(0.42, 0.45, 0.5);
+
+  // Signaturbild einmal einbetten -- wird fuer die kalibrierten Stellen im Original
+  // UND fuer die angehaengte Bestaetigungsseite weiterverwendet.
+  let signaturePng = null;
+  try {
+    signaturePng = await doc.embedPng(_dataUrlToUint8(opts.signaturePngDataUrl));
+  } catch (_) {}
+
+  if (signaturePng) {
+    const pages = doc.getPages();
+    for (const stelle of VERTRAG_SIGNATURE_STELLEN) {
+      const zielSeite = pages[stelle.seite];
+      if (!zielSeite) continue; // Vertrag hat unerwartet weniger Seiten -> Stelle ueberspringen statt Fehler
+      const scale = Math.min(stelle.maxBreite / signaturePng.width, stelle.maxHoehe / signaturePng.height, 1);
+      const w = signaturePng.width * scale, h = signaturePng.height * scale;
+      zielSeite.drawImage(signaturePng, { x: stelle.xMitte - w / 2, y: stelle.yUnten, width: w, height: h });
+    }
+  }
+
+  const [pw, ph] = [595.28, 841.89]; // A4, wie das Vertragstemplate
+  const page = doc.addPage([pw, ph]);
   const marginX = 60;
   let y = ph - 90;
 
@@ -107,17 +127,16 @@ async function buildSignedVertragPdf(originalBytes, opts) {
   page.drawText("Unterschrift:", { x: marginX, y, size: 11, font: fontBold, color: muted });
   y -= 12;
 
-  // Signaturbild (PNG-DataURL) einbetten: feste Maximalhöhe, Breite proportional.
+  // Signaturbild: feste Maximalhöhe, Breite proportional.
   let lineWidth = 200;
-  try {
-    const png = await doc.embedPng(_dataUrlToUint8(opts.signaturePngDataUrl));
+  if (signaturePng) {
     const maxW = 260, maxH = 90;
-    const scale = Math.min(maxW / png.width, maxH / png.height, 1);
-    const w = png.width * scale, h = png.height * scale;
-    page.drawImage(png, { x: marginX, y: y - h, width: w, height: h });
+    const scale = Math.min(maxW / signaturePng.width, maxH / signaturePng.height, 1);
+    const w = signaturePng.width * scale, h = signaturePng.height * scale;
+    page.drawImage(signaturePng, { x: marginX, y: y - h, width: w, height: h });
     y -= h;
     lineWidth = Math.max(w, 200);
-  } catch (_) {
+  } else {
     y -= 60; // ohne gültiges Bild trotzdem Platz für die Linie lassen
   }
   page.drawLine({ start: { x: marginX, y: y - 6 }, end: { x: marginX + lineWidth, y: y - 6 }, thickness: 0.75, color: muted });

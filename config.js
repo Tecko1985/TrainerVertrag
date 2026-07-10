@@ -86,7 +86,36 @@ const PDF_FIELDS = {
   signature:    { x: 60,  y: 90,  width: 200, height: 60 }
 };
 
+// Kalibrierte Unterschrift-Stellen im WORD-generierten Vertrags-PDF (generate-pdfs.ps1
+// -> vertrag-template.docx -> Word-Export, NICHT der obige PDF_FIELDS-Fallback-Pfad).
+// buildSignedVertragPdf() in pdf-utils.js stempelt die Signatur hier zusätzlich zur
+// angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien des
+// Vertrags: Seite 2 (Hauptvertrag, rechte Linie "Übungsleiter") und Seite 4
+// (Anlage 1, einzelne Linie "Übungsleiter"). seite ist 0-basiert (pdf-lib), xMitte/
+// yUnten in Punkten, Ursprung unten-links. Kalibriert am 2026-07-10 per pdfplumber
+// gegen ein mit `generate-pdfs.ps1 -Test` erzeugtes Muster-PDF (A4, 595.5x842pt).
+// Die Stellen liegen in großzügigem Leerraum oberhalb der jeweiligen Linie -- kleine
+// Textlängen-Unterschiede (Name/Lizenz/Betrag) verschieben nichts nennenswert. Bei
+// einer größeren Template-Änderung (neue Absätze, viel längere Felder) ggf. neu
+// kalibrieren: `generate-pdfs.ps1 -Test` laufen lassen und die Linien-Koordinaten in
+// PDFs/Mustermann_Max_Vertrag.pdf neu vermessen.
+const VERTRAG_SIGNATURE_STELLEN = [
+  { seite: 1, xMitte: 413, yUnten: 120, maxBreite: 125, maxHoehe: 30 }, // Hauptvertrag, Linie "Übungsleiter"
+  { seite: 3, xMitte: 129, yUnten: 396, maxBreite: 135, maxHoehe: 30 }  // Anlage 1, Linie "Übungsleiter"
+];
+
 const APP_CHANGELOG = [
+  {
+    version: "1.14",
+    groups: [
+      {
+        title: "Trainervertrag: Unterschrift direkt im Dokument",
+        items: [
+          "Die digitale Unterschrift wird jetzt zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gestempelt (Hauptvertrag Seite 2 und Anlage 1 Seite 4) – der Vertrag sieht damit auch an den gewohnten Stellen unterschrieben aus."
+        ]
+      }
+    ]
+  },
   {
     version: "1.13",
     groups: [
