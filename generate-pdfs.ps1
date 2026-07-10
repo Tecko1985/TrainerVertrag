@@ -9,11 +9,16 @@
 #   .\generate-pdfs.ps1                 -> holt die Trainerdaten per WebDAV (App-Passwort wird abgefragt)
 #   .\generate-pdfs.ps1 -JsonPath x.json-> nutzt eine lokal heruntergeladene trainerdaten.json
 #   .\generate-pdfs.ps1 -Test           -> erzeugt EIN Muster-PDF mit Dummy-Daten (zum Prüfen)
+#   .\generate-pdfs.ps1 -Zuweisen       -> erzeugt die PDFs UND laedt sie den Trainern zu
+#                                          (Upload nach Nextcloud vertraege/<id> + Vermerk
+#                                          im Datensatz). Ohne -Zuweisen bleibt das Skript
+#                                          rein lesend (PDFs liegen nur lokal in PDFs/).
 
 param(
   [string]$JsonPath,
   [string]$OutDir = (Join-Path $PSScriptRoot 'PDFs'),
-  [switch]$Test
+  [switch]$Test,
+  [switch]$Zuweisen
 )
 
 $ErrorActionPreference = 'Stop'
@@ -99,6 +104,87 @@ function Build-Replacements($t) {
   return $repl
 }
 
+# ── WebDAV-Helfer fuer -Zuweisen (Upload der PDFs + Vermerk im Datensatz) ─────
+
+# Basic-Auth-Header aus der PSCredential (explizit, damit kein 401-Challenge-Roundtrip
+# noetig ist -- Nextcloud akzeptiert praeemptive Basic-Auth).
+function Get-BasicAuthHeader([System.Management.Automation.PSCredential]$cred) {
+  $pair = $cred.UserName + ':' + $cred.GetNetworkCredential().Password
+  return 'Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pair))
+}
+
+# WebDAV-Collection (Ordner) anlegen. Invoke-WebRequest -Method akzeptiert in PS 5.1
+# nur die Standard-Verben, MKCOL braucht daher ein rohes HttpWebRequest. Idempotent:
+# 201 = neu angelegt; 405/301/409 = existiert bereits -> ok.
+function Ensure-WebdavCollection([string]$url, [System.Management.Automation.PSCredential]$cred) {
+  $req = [System.Net.HttpWebRequest]::Create($url)
+  $req.Method = 'MKCOL'
+  $req.Headers.Add('Authorization', (Get-BasicAuthHeader $cred))
+  $req.Headers.Add('OCS-APIRequest', 'true')
+  try {
+    $resp = $req.GetResponse(); $resp.Close()
+  } catch [System.Net.WebException] {
+    $r = $_.Exception.Response
+    if ($r) {
+      $code = [int]$r.StatusCode; $r.Close()
+      if ($code -eq 405 -or $code -eq 301 -or $code -eq 409) { return }  # existiert schon
+    }
+    throw
+  }
+}
+
+# Setzt eine Eigenschaft auf einem PSCustomObject; legt sie an, falls noch nicht vorhanden
+# (ConvertFrom-Json-Objekte haben neue Felder anfangs nicht).
+function Set-Prop($obj, [string]$name, $value) {
+  if ($obj.PSObject.Properties.Name -contains $name) { $obj.$name = $value }
+  else { $obj | Add-Member -NotePropertyName $name -NotePropertyValue $value }
+}
+
+# Vermerkt die zugewiesenen Vertraege in trainerdaten.json. Liest die Datei FRISCH
+# (kleines Race-Fenster gegen gleichzeitige Trainer-Einreichungen), setzt pro id die
+# vertragPdf*-Felder + status/vertragsGeneriert und nullt eine evtl. veraltete
+# Unterschrift (neuer Original-Vertrag), schreibt dann VALIDIERT zurueck. Vor dem
+# Ueberschreiben wird eine lokale Sicherungskopie abgelegt.
+function Patch-TrainerdatenJson([string]$url, [System.Management.Automation.PSCredential]$cred, [hashtable]$patchIds) {
+  $resp = Invoke-WebRequest -Uri $url -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing
+  $data = $resp.Content | ConvertFrom-Json
+  if (-not $data.trainer) { throw 'trainerdaten.json enthaelt kein trainer-Array -- Zuweisung abgebrochen.' }
+  $vorher = @($data.trainer).Count
+
+  $nowIso = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+  $treffer = 0
+  foreach ($tr in @($data.trainer)) {
+    if ($tr.id -and $patchIds.ContainsKey([string]$tr.id)) {
+      Set-Prop $tr 'vertragPdfBereitgestelltAm' $nowIso
+      Set-Prop $tr 'vertragPdfDateiName' $patchIds[[string]$tr.id]
+      Set-Prop $tr 'vertragPdfContentType' 'application/pdf'
+      # Neuer Original-Vertrag -> eine evtl. vorhandene (alte) Unterschrift ist veraltet.
+      Set-Prop $tr 'vertragUnterschriebenAm' ''
+      Set-Prop $tr 'vertragSignatureDataUrl' ''
+      # Status wie der App-Button "Word-Vertrag generieren".
+      Set-Prop $tr 'vertragsGeneriert' $true
+      Set-Prop $tr 'status' 'generiert'
+      $treffer++
+    }
+  }
+
+  $json = $data | ConvertTo-Json -Depth 40
+  # Validierung: Rund-Trip + Trainer-Anzahl unveraendert, sonst NICHT schreiben.
+  $check = $json | ConvertFrom-Json
+  if (@($check.trainer).Count -ne $vorher) {
+    throw ("Validierung fehlgeschlagen (Trainer-Anzahl {0} != {1}) -- NICHT gespeichert." -f @($check.trainer).Count, $vorher)
+  }
+
+  # Lokale Sicherungskopie des UNveraenderten Stands vor dem Ueberschreiben.
+  $backup = Join-Path $PSScriptRoot ("trainerdaten.backup.{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  [System.IO.File]::WriteAllText($backup, $resp.Content, (New-Object System.Text.UTF8Encoding($false)))
+  Write-Host ("  Sicherung angelegt: {0}" -f $backup) -ForegroundColor DarkGray
+
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+  Invoke-WebRequest -Uri $url -Method Put -Body $bytes -ContentType 'application/json; charset=utf-8' -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing | Out-Null
+  Write-Host ("  {0} Datensatz/Datensaetze aktualisiert." -f $treffer) -ForegroundColor Green
+}
+
 # ── Trainerdaten beschaffen ──────────────────────────────────────────────────
 
 $trainer = $null
@@ -153,6 +239,7 @@ $tmpDir = Join-Path $env:TEMP ('tv_pdf_' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 
 $ok = 0; $fail = 0
+$exportedOk = New-Object 'System.Collections.Generic.HashSet[string]'  # Dateinamen der frisch exportierten PDFs (fuer -Zuweisen)
 $tasks = @()
 foreach ($t in $trainer) {
   $voll = ("{0} {1}" -f $t.vorname, $t.nachname).Trim()
@@ -164,7 +251,7 @@ foreach ($t in $trainer) {
     Fill-Docx $tmpDocx (Build-Replacements $t)
     Unblock-File $tmpDocx -ErrorAction SilentlyContinue  # Zone-Markierung entfernen → kein Protected View
     Write-Host " OK" -ForegroundColor Green
-    $tasks += @{ name = $voll; docx = $tmpDocx; pdf = $pdfPath; file = ($base + '.pdf') }
+    $tasks += @{ name = $voll; docx = $tmpDocx; pdf = $pdfPath; file = ($base + '.pdf'); id = $t.id }
   } catch {
     Write-Host (" FEHLER: {0}" -f $_.Exception.Message) -ForegroundColor Red
     $fail++
@@ -227,7 +314,7 @@ try {
   } else {
     Receive-Job $exportJob | ForEach-Object {
       $p = $_ -split '\|'
-      if ($p[0] -eq 'OK')     { Write-Host ("  OK  {0}" -f $p[2]) -ForegroundColor Green; $ok++ }
+      if ($p[0] -eq 'OK')     { Write-Host ("  OK  {0}" -f $p[2]) -ForegroundColor Green; $ok++; [void]$exportedOk.Add($p[2]) }
       elseif ($p[0] -eq 'FEHLER') { Write-Host ("  FEHLER bei {0}: {1}" -f $p[1], $p[2]) -ForegroundColor Red; $fail++ }
     }
   }
@@ -238,6 +325,54 @@ try {
   if ($null -ne $pdfMakerSaved) {
     Set-ItemProperty $pdfMakerKey -Name LoadBehavior -Value $pdfMakerSaved -ErrorAction SilentlyContinue
     Write-Host ("Acrobat PDFMaker wiederhergestellt (LoadBehavior {0})." -f $pdfMakerSaved) -ForegroundColor DarkGray
+  }
+}
+
+# ── Schritt 4: Vertraege zuweisen (nur mit -Zuweisen) ────────────────────────
+# Laedt die erzeugten PDFs nach Nextcloud (vertraege/<trainerId>) hoch und vermerkt
+# sie im jeweiligen Trainer-Datensatz. Braucht Schreibzugriff -- im -JsonPath-Modus
+# wird das App-Passwort hier nachgefragt (die WebDAV-Ladung oben entfaellt dort).
+if ($Zuweisen -and -not $Test) {
+  Write-Host ''
+  if ($exportedOk.Count -eq 0) {
+    Write-Host "Zuweisung uebersprungen: kein frisch erzeugtes PDF vorhanden." -ForegroundColor DarkYellow
+  } else {
+    if ($null -eq $cred) {
+      Write-Host "Fuer die Zuweisung wird das Nextcloud-App-Passwort benoetigt ($WebdavUser)." -ForegroundColor Cyan
+      $sec = Read-Host 'App-Passwort' -AsSecureString
+      $cred = New-Object System.Management.Automation.PSCredential($WebdavUser, $sec)
+    }
+    $baseDir = $WebdavUrl.Substring(0, $WebdavUrl.LastIndexOf('/'))
+    $vertraegeDir = "$baseDir/vertraege"
+    Write-Host "Lege Ordner 'vertraege' an (falls noetig) ..." -ForegroundColor DarkGray
+    Ensure-WebdavCollection $vertraegeDir $cred
+
+    $zugewiesen = 0; $zufehler = 0
+    $patchIds = @{}
+    foreach ($t in $tasks) {
+      if (-not $exportedOk.Contains($t.file)) { continue }
+      if (-not $t.id) { Write-Host ("  uebersprungen (keine id): {0}" -f $t.name) -ForegroundColor DarkYellow; continue }
+      $target = "$vertraegeDir/$($t.id)"
+      try {
+        Invoke-WebRequest -Uri $target -Method Put -InFile $t.pdf -ContentType 'application/pdf' -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing | Out-Null
+        $patchIds[[string]$t.id] = $t.file
+        $zugewiesen++
+        Write-Host ("  hochgeladen: {0}" -f $t.file) -ForegroundColor Green
+      } catch {
+        $zufehler++
+        Write-Host ("  FEHLER Upload {0}: {1}" -f $t.file, $_.Exception.Message) -ForegroundColor Red
+      }
+    }
+
+    if ($patchIds.Count -gt 0) {
+      try {
+        Patch-TrainerdatenJson $WebdavUrl $cred $patchIds
+      } catch {
+        Write-Host ("  FEHLER beim Aktualisieren von trainerdaten.json: {0}" -f $_.Exception.Message) -ForegroundColor Red
+        Write-Host "  Die PDFs wurden hochgeladen, aber der Vermerk im Datensatz fehlt -- bitte erneut mit -Zuweisen laufen lassen." -ForegroundColor Red
+      }
+    }
+    Write-Host ("Zuweisung: {0} hochgeladen, {1} Fehler." -f $zugewiesen, $zufehler) -ForegroundColor Cyan
   }
 }
 

@@ -81,6 +81,20 @@
 // exaktem Namensabgleich unter den username-losen Stubs und ergänzt den
 // gefundenen Datensatz (Lizenz/Pauschale bleiben erhalten) statt einen zweiten
 // anzulegen. Kein Treffer -> normales Neuanlegen wie zuvor.
+//
+// SEIT 1.10 (Trainervertrag ansehen + unterschreiben): Das vom lokalen Skript
+// generate-pdfs.ps1 erzeugte Vertrags-PDF wird pro Trainer nach vertraege/<id>
+// hochgeladen (durch das Skript selbst, nicht diesen Worker) und im Datensatz mit
+// vertragPdfBereitgestelltAm/DateiName/ContentType vermerkt.
+//   { action: "my-vertrag-file" }            -> eigenes Original-Vertrags-PDF | 404
+//   { action: "my-vertrag-signiert-file" }   -> eigenes unterschriebenes PDF | 404
+//   { action: "submit-vertrag-unterschrift", dataBase64, signatureDataUrl? }
+//     -> legt das fertig unterschriebene PDF (Original + im Browser angehängte
+//        Unterschriftenseite) nach vertraege-signiert/<id> ab und setzt
+//        vertragUnterschriebenAm (+ kleine Signatur-Vorschau fürs Admin-Detail).
+//        Setzt einen bereits zugewiesenen Vertrag voraus (sonst 400), legt nie
+//        selbst einen (Stub-)Datensatz an. -> { success:true, vertragUnterschriebenAm }
+//   Fremde Verträge sieht der Admin direkt per WebDAV (kein "-for-owner"-Endpunkt).
 
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
@@ -115,6 +129,14 @@ const DOCUMENT_TYPES = {
 // Muss zum Client-Cap MAX_FILE_BYTES in config.js passen (gleiche Duplizierungs-
 // Konvention wie im migrierten Fahrtenbuch-Feature).
 const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Trainervertrag-PDFs (seit 1.10): Das UNSIGNIERTE Original wird vom lokalen Skript
+// generate-pdfs.ps1 direkt per WebDAV nach vertraege/<trainerId> hochgeladen (NICHT
+// über diesen Worker — das Skript hat eigene Nextcloud-Credentials). Der Trainer
+// unterschreibt im Browser (pdf-lib hängt eine Unterschriftenseite an) und lädt das
+// fertige PDF über "submit-vertrag-unterschrift" nach vertraege-signiert/<trainerId>.
+const VERTRAG_SUBDIR = "vertraege";
+const VERTRAG_SIGNIERT_SUBDIR = "vertraege-signiert";
 
 // Muss manuell synchron zu KODEX_VERSION in kodex-text.js gehalten werden (kein
 // gemeinsames Modul zwischen Worker und Frontend, gleiche Duplizierungs-Konvention
@@ -223,6 +245,15 @@ export default {
     }
     if (body.action === "submit-jugendschutzkonzept") {
       return handleSubmitJugendschutzkonzept(body, session, env, corsHeaders);
+    }
+    if (body.action === "my-vertrag-file") {
+      return handleMyVertragFile(session, env, corsHeaders, false);
+    }
+    if (body.action === "my-vertrag-signiert-file") {
+      return handleMyVertragFile(session, env, corsHeaders, true);
+    }
+    if (body.action === "submit-vertrag-unterschrift") {
+      return handleSubmitVertragUnterschrift(body, session, env, corsHeaders);
     }
     return json({ error: "Unbekannte Aktion" }, 400, corsHeaders);
   }
@@ -389,6 +420,14 @@ async function handleSubmit(body, session, env, corsHeaders) {
       // bliebe z.B. "generiert" stehen und der veraltete Vertrag fiele nie auf —
       // leer = automatische Ableitung greift wieder (Badge "Ausstehend").
       status: "",
+      // Geänderte Stammdaten machen auch einen bereits zugewiesenen/unterschriebenen
+      // Trainervertrag veraltet (seit 1.10) -- Zuweisung + Unterschrift zurücksetzen,
+      // konsistent zu vertragsGeneriert oben. Ein erneuter generate-pdfs.ps1 -Zuweisen-
+      // Lauf stellt den aktualisierten Vertrag danach neu bereit. So wird nie eine
+      // Unterschrift zu inzwischen veralteten Vertragsdaten angezeigt.
+      vertragPdfBereitgestelltAm: "",
+      vertragUnterschriebenAm: "",
+      vertragSignatureDataUrl: "",
       ...unterschriftPatch
     };
     resultId = appData.trainer[existingIdx].id;
@@ -880,6 +919,118 @@ async function handleTrainerlizenzFileForOwner(body, session, env, corsHeaders) 
     status: 200,
     headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
   });
+}
+
+// Generischer Datei-Ausliefer-Helfer (Trainervertrag): streamt die Bytes aus dem
+// Nextcloud-Unterordner mit erzwungenem Content-Type. Die Dateien liegen ohne Endung
+// unter der Trainer-id, Nextcloud liefert sonst application/octet-stream -> der Browser
+// bietet Download an statt anzuzeigen (gleiches Prinzip wie bei den Dokument-Handlern).
+async function serveTrainerFile(env, authHeader, corsHeaders, subdir, id, ctype) {
+  const fileUrl = trainerdatenDir(env) + "/" + subdir + "/" + id;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+  return new Response(resp.body, {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": ctype || "application/pdf", "Cache-Control": "private, no-store" }
+  });
+}
+
+// Eigenes Trainervertrags-PDF ansehen -- Original (signed=false, vom Skript bereit-
+// gestellt) oder das selbst unterschriebene (signed=true). Trainer sieht immer nur
+// den eigenen Vertrag (Suche per verifiziertem username).
+async function handleMyVertragFile(session, env, corsHeaders, signed) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const mine = appData.trainer.find(t => t.username === session.username);
+  const gate = signed ? (mine && mine.vertragUnterschriebenAm) : (mine && mine.vertragPdfBereitgestelltAm);
+  if (!gate) return json({ error: "Kein Vertrag hinterlegt" }, 404, corsHeaders);
+  const subdir = signed ? VERTRAG_SIGNIERT_SUBDIR : VERTRAG_SUBDIR;
+  const ctype = signed ? "application/pdf" : (mine.vertragPdfContentType || "application/pdf");
+  return serveTrainerFile(env, authHeader, corsHeaders, subdir, mine.id, ctype);
+}
+
+// Trainer lädt sein fertig unterschriebenes Vertrags-PDF hoch (Original + im Browser
+// per pdf-lib angehängte Unterschriftenseite). Anders als die Dokument-Uploads legt
+// das bewusst KEINEN neuen/Stub-Datensatz an (kein resolveOwnTrainerRecord):
+// Unterschreiben setzt zwingend voraus, dass dem eigenen Konto bereits ein Vertrag
+// zugewiesen wurde (vertragPdfBereitgestelltAm) -- sonst 400.
+async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  let bytes;
+  try {
+    bytes = base64ToBytes(String(body.dataBase64 || ""));
+  } catch (_) {
+    return json({ error: "Datei-Inhalt ist kein gültiges base64" }, 400, corsHeaders);
+  }
+  if (bytes.length === 0) return json({ error: "Leeres PDF" }, 400, corsHeaders);
+  if (bytes.length > DOC_MAX_FILE_BYTES) return json({ error: "Datei zu groß" }, 413, corsHeaders);
+  // Signatur-Vorschau (klein, inline im Datensatz -- nur fürs Admin-Detail, wie kodex).
+  const signatureDataUrl = (typeof body.signatureDataUrl === "string" &&
+                             /^data:image\/png;base64,/.test(body.signatureDataUrl))
+    ? body.signatureDataUrl : "";
+
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+  const idx = appData.trainer.findIndex(t => t.username === session.username);
+  if (idx === -1 || !appData.trainer[idx].vertragPdfBereitgestelltAm) {
+    return json({ error: "Kein Vertrag zum Unterschreiben hinterlegt" }, 400, corsHeaders);
+  }
+  const trainerId = appData.trainer[idx].id;
+
+  const dir = trainerdatenDir(env) + "/" + VERTRAG_SIGNIERT_SUBDIR;
+  const fileUrl = dir + "/" + trainerId;
+  const headers = { Authorization: authHeader, "Content-Type": "application/pdf" };
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+    // 404/409 = Unterordner vertraege-signiert fehlt noch -> anlegen und EINMAL wiederholen.
+    if (resp.status === 404 || resp.status === 409) {
+      await fetch(dir, { method: "MKCOL", headers: { Authorization: authHeader } });
+      resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+    }
+  } catch (e) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (!resp.ok) return json({ error: `Nextcloud PUT ${resp.status}` }, 502, corsHeaders);
+
+  const nowIso = new Date().toISOString();
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    vertragUnterschriebenAm: nowIso,
+    vertragSignatureDataUrl: signatureDataUrl
+  };
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "PDF gespeichert, aber Metadaten-Update fehlgeschlagen: " + e.message }, 502, corsHeaders);
+  }
+  return json({ success: true, vertragUnterschriebenAm: nowIso }, 200, corsHeaders);
 }
 
 function json(obj, status, corsHeaders) {

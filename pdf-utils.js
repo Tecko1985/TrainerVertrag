@@ -69,6 +69,73 @@ async function generiereAlleVertraegeZip(trainerList, onProgress) {
   setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
+// Fertig unterschriebenes Vertrags-PDF bauen (seit 1.10): lädt das vom Skript
+// generate-pdfs.ps1 bereitgestellte Original-Vertrags-PDF (Bytes) und hängt EINE
+// Unterschriftenseite an (Name, Datum, Signaturbild, Bestätigungstext). Bewusst kein
+// Stempeln in den bestehenden Fließtext -- das flache Vertragstemplate hat keine
+// kalibrierten Signaturkoordinaten (siehe PDF_FIELDS-Hinweis in config.js); eine
+// angehängte, klar beschriftete Seite ist eindeutig und dokumentiert Wer/Was/Wann.
+// Gibt ein Uint8Array zurück (Aufrufer verpackt es in einen application/pdf-Blob).
+async function buildSignedVertragPdf(originalBytes, opts) {
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.load(originalBytes);
+  const font     = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const [pw, ph] = [595.28, 841.89]; // A4, wie das Vertragstemplate
+  const page = doc.addPage([pw, ph]);
+  const dark  = rgb(0.12, 0.14, 0.19);
+  const muted = rgb(0.42, 0.45, 0.5);
+  const marginX = 60;
+  let y = ph - 90;
+
+  page.drawText("Unterschrift zum Trainervertrag", { x: marginX, y, size: 18, font: fontBold, color: dark });
+  y -= 40;
+
+  const line = (label, value) => {
+    page.drawText(label, { x: marginX, y, size: 11, font: fontBold, color: muted });
+    page.drawText(String(value || ""), { x: marginX + 140, y, size: 11, font, color: dark });
+    y -= 22;
+  };
+  line("Name:", opts.name || "");
+  line("Unterschrieben am:", opts.dateStr || "");
+  y -= 16;
+
+  page.drawText("Mit meiner Unterschrift bestaetige ich den vorstehenden Trainervertrag.",
+    { x: marginX, y, size: 11, font, color: dark });
+  y -= 48;
+
+  page.drawText("Unterschrift:", { x: marginX, y, size: 11, font: fontBold, color: muted });
+  y -= 12;
+
+  // Signaturbild (PNG-DataURL) einbetten: feste Maximalhöhe, Breite proportional.
+  let lineWidth = 200;
+  try {
+    const png = await doc.embedPng(_dataUrlToUint8(opts.signaturePngDataUrl));
+    const maxW = 260, maxH = 90;
+    const scale = Math.min(maxW / png.width, maxH / png.height, 1);
+    const w = png.width * scale, h = png.height * scale;
+    page.drawImage(png, { x: marginX, y: y - h, width: w, height: h });
+    y -= h;
+    lineWidth = Math.max(w, 200);
+  } catch (_) {
+    y -= 60; // ohne gültiges Bild trotzdem Platz für die Linie lassen
+  }
+  page.drawLine({ start: { x: marginX, y: y - 6 }, end: { x: marginX + lineWidth, y: y - 6 }, thickness: 0.75, color: muted });
+
+  return doc.save();
+}
+
+// PNG-DataURL -> Uint8Array für pdf-lib embedPng (akzeptiert Wert mit/ohne data:-Präfix).
+function _dataUrlToUint8(dataUrl) {
+  const s = String(dataUrl || "");
+  const comma = s.indexOf(",");
+  const b64 = comma >= 0 ? s.slice(comma + 1) : s;
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 async function _fillTemplate(pdfDoc, trainer, font, fontBold, rgb) {
   const pages = pdfDoc.getPages();
   const page  = pages[0];

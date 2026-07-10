@@ -11,6 +11,7 @@ let currentTrainerId = null;
 
 let trainerSigPad = null;
 let kodexSigPad = null; // Signatur-Pad für die Trainerkodex-Bestätigung (seit 1.6, migriert aus trainerkodex)
+let vertragSigPad = null; // Signatur-Pad für die Trainervertrags-Unterschrift (seit 1.10)
 let jugendschutzSigPad = null; // Signatur-Pad für die Jugendschutzkonzept-Bestätigung (seit 1.7, gleiches Muster wie Kodex)
 let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto geladen
 let currentUsername = null;
@@ -37,6 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerDocuments();
   _initTrainerKodex();
   _initTrainerJugendschutz();
+  _initTrainerVertrag();
   _initAdminToggle();
   _initAdminConnect();
   _initAdminPanel();
@@ -119,10 +121,12 @@ function _showTrainerFormScreen() {
   trainerSigPad.resize();
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
+  vertragSigPad.resize();
   _renderTrainerDocumentsStatus();
   _renderMyChecklisteStatus();
   _renderTrainerKodexStatus();
   _renderTrainerJugendschutzStatus();
+  _renderTrainerVertragStatus();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -800,6 +804,111 @@ function _renderTrainerJugendschutzStatus() {
   }
 }
 
+// ─── Trainervertrag (seit 1.10) ────────────────────────────────────────────────
+// Das vom Skript generate-pdfs.ps1 bereitgestellte Vertrags-PDF ansehen, digital
+// unterschreiben (Original + im Browser per pdf-lib angehängte Unterschriftenseite)
+// und danach jederzeit als fertig unterschriebenes PDF wieder ansehen. Fließt bewusst
+// NICHT in den Ampel-Gesamtstatus ein (wie der Checkliste-Status, siehe CLAUDE.md).
+function _initTrainerVertrag() {
+  const canvas = document.getElementById("tf-vertrag-sig-canvas");
+  vertragSigPad = createSignaturePad(canvas, () => {});
+  document.getElementById("btn-tf-vertrag-sig-clear").addEventListener("click", () => vertragSigPad.clear());
+  document.getElementById("btn-tf-vertrag-submit").addEventListener("click", _handleVertragSubmit);
+  document.getElementById("btn-tf-vertrag-ansehen").addEventListener("click", () => _viewMyVertrag(false));
+  document.getElementById("btn-tf-vertrag-signiert-ansehen").addEventListener("click", () => _viewMyVertrag(true));
+}
+
+function _renderTrainerVertragStatus() {
+  const t = myTrainerRecord || {};
+  const statusEl   = document.getElementById("tf-vertrag-status");
+  const ansehenBtn = document.getElementById("btn-tf-vertrag-ansehen");
+  const signWrap   = document.getElementById("tf-vertrag-sign-wrap");
+  const signiertBtn = document.getElementById("btn-tf-vertrag-signiert-ansehen");
+  const hinweis    = document.getElementById("tf-vertrag-hinweis");
+  if (!statusEl) return;
+
+  if (!t.vertragPdfBereitgestelltAm) {
+    statusEl.textContent = "Sobald dein Trainervertrag bereitsteht, kannst du ihn hier ansehen und unterschreiben.";
+    ansehenBtn.disabled = true;
+    signWrap.style.display = "none";
+    signiertBtn.style.display = "none";
+    hinweis.style.display = "none";
+    return;
+  }
+  ansehenBtn.disabled = false;
+  if (t.vertragUnterschriebenAm) {
+    statusEl.innerHTML = "✅ Unterschrieben am " + _esc(_fmtIso(t.vertragUnterschriebenAm));
+    signWrap.style.display = "none";
+    signiertBtn.style.display = "";
+    hinweis.style.display = "";
+  } else {
+    statusEl.innerHTML = "📄 Vertrag liegt zur Unterschrift bereit (bereitgestellt am " + _esc(_fmtIso(t.vertragPdfBereitgestelltAm)) + ").";
+    signWrap.style.display = "";
+    signiertBtn.style.display = "none";
+    hinweis.style.display = "none";
+    // Canvas wird erst mit diesem Umschalten sichtbar -> resize() nachziehen.
+    vertragSigPad.resize();
+  }
+}
+
+async function _viewMyVertrag(signed) {
+  try {
+    const blob = await fetchMyVertragBlob(signed);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
+    } else {
+      alert("Vertrag nicht abrufbar: " + err.message);
+    }
+  }
+}
+
+async function _handleVertragSubmit() {
+  const errEl = document.getElementById("tf-vertrag-error");
+  errEl.classList.remove("visible");
+  if (vertragSigPad.isEmpty()) {
+    errEl.textContent = "Bitte unterschreibe, um den Vertrag zu bestätigen.";
+    errEl.classList.add("visible");
+    return;
+  }
+  const btn = document.getElementById("btn-tf-vertrag-submit");
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = "Wird gespeichert …";
+  try {
+    const signatureDataUrl = vertragSigPad.toDataURL();
+    // Original-Vertrag holen und im Browser die Unterschriftenseite anhängen, dann
+    // das fertige PDF hochladen (der Worker legt es in vertraege-signiert/<id> ab).
+    const origBlob  = await fetchMyVertragBlob(false);
+    const origBytes = new Uint8Array(await origBlob.arrayBuffer());
+    const name = [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername || "";
+    const dateStr = new Date().toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const signedBytes = await buildSignedVertragPdf(origBytes, { name, dateStr, signaturePngDataUrl: signatureDataUrl });
+    const signedBlob = new Blob([signedBytes], { type: "application/pdf" });
+    const data = await submitVertragUnterschrift(signedBlob, signatureDataUrl);
+    myTrainerRecord = {
+      ...(myTrainerRecord || {}),
+      vertragUnterschriebenAm: data.vertragUnterschriebenAm,
+      vertragSignatureDataUrl: signatureDataUrl
+    };
+    vertragSigPad.clear();
+    _renderTrainerVertragStatus();
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du erneut unterschreiben.");
+    } else {
+      errEl.textContent = "Speichern fehlgeschlagen: " + err.message;
+      errEl.classList.add("visible");
+    }
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === "Wird gespeichert …") btn.textContent = prevLabel;
+  }
+}
+
 async function _viewMyFuehrerschein() {
   try {
     const blob = await fetchMyFuehrerscheinBlob();
@@ -1173,6 +1282,9 @@ function _initAdminPanel() {
     if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
   });
   document.getElementById("btn-d-fz-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrungszeugnisse"));
+
+  document.getElementById("btn-d-vertrag-ansehen").addEventListener("click", () => _ansehenVertragAdmin(false));
+  document.getElementById("btn-d-vertrag-signiert-ansehen").addEventListener("click", () => _ansehenVertragAdmin(true));
 }
 
 // ─── Admin-Liste ──────────────────────────────────────────────────────────────
@@ -1489,6 +1601,23 @@ function _renderDocumentsSection(t) {
     fzUploadBtn.textContent = "Hochladen…";
     fzCameraBtn.textContent = "📷 Aufnehmen";
   }
+
+  const vStatusEl = document.getElementById("d-vertrag-status");
+  const vOrigBtn  = document.getElementById("btn-d-vertrag-ansehen");
+  const vSignBtn  = document.getElementById("btn-d-vertrag-signiert-ansehen");
+  if (t.vertragPdfBereitgestelltAm) {
+    let html = "Bereitgestellt am " + _esc(_fmtIso(t.vertragPdfBereitgestelltAm));
+    html += t.vertragUnterschriebenAm
+      ? ` · <span class="badge generiert">Unterschrieben am ${_esc(_fmtIso(t.vertragUnterschriebenAm))}</span>`
+      : ` · <span class="muted">noch nicht unterschrieben</span>`;
+    vStatusEl.innerHTML = html;
+    vOrigBtn.disabled = false;
+    vSignBtn.disabled = !t.vertragUnterschriebenAm;
+  } else {
+    vStatusEl.textContent = "Noch kein Vertrag zugewiesen (per generate-pdfs.ps1 -Zuweisen).";
+    vOrigBtn.disabled = true;
+    vSignBtn.disabled = true;
+  }
 }
 
 // Trainerkodex im Admin-Detail: reine Anzeige (Datum + Signatur-Vorschau, Signatur
@@ -1644,6 +1773,24 @@ async function _ansehenDocumentAdmin(subdir) {
     // Verzögert freigeben: sofortiges revoke direkt nach dem Öffnen bricht die Anzeige
     // auf manchen (v.a. mobilen) Browsern ab — gleiche Konvention wie im migrierten
     // Fahrtenbuch-Export.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    alert("Datei nicht abrufbar: " + err.message);
+  }
+}
+
+// Trainervertrag im Admin-Detail ansehen (Original oder unterschrieben) — läuft wie
+// die anderen Admin-Dokument-Ansichten direkt per WebDAV (davReadBinary über den
+// CORS-Proxy), nicht über submit-worker.js. Content-Type ist immer application/pdf.
+async function _ansehenVertragAdmin(signed) {
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  const subdir = signed ? "vertraege-signiert" : "vertraege";
+  try {
+    const blob = await davReadBinary(_trainerDocConfig(subdir, t.id), "application/pdf");
+    if (!blob) { alert("Datei nicht gefunden."); return; }
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch (err) {
     alert("Datei nicht abrufbar: " + err.message);

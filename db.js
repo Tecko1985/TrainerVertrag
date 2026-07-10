@@ -294,6 +294,47 @@ async function fetchMyTrainerlizenzBlob() {
   return resp.blob();
 }
 
+// Eigenes Trainervertrags-PDF als Blob holen (für "Ansehen"): signed=false liefert das
+// vom Skript bereitgestellte Original, signed=true das selbst unterschriebene PDF.
+async function fetchMyVertragBlob(signed) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action: signed ? "my-vertrag-signiert-file" : "my-vertrag-file" })
+  });
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(`Vertrag nicht abrufbar (HTTP ${resp.status})`);
+  return resp.blob();
+}
+
+// Fertig unterschriebenes Vertrags-PDF hochladen (Original + im Browser angehängte
+// Unterschriftenseite, gebaut in buildSignedVertragPdf/pdf-utils.js). Der Nutzer wird
+// serverseitig aus dem Token ermittelt; signatureDataUrl ist nur die kleine Vorschau
+// fürs Admin-Detail (die eigentliche Unterschrift steckt bereits im PDF).
+async function submitVertragUnterschrift(signedPdfBlob, signatureDataUrl) {
+  if (signedPdfBlob.size > MAX_FILE_BYTES) {
+    throw new Error("PDF ist zu groß (max. " + Math.round(MAX_FILE_BYTES / 1024 / 1024) + " MB).");
+  }
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const dataBase64 = await _blobToBase64(signedPdfBlob);
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({
+      action: "submit-vertrag-unterschrift",
+      dataBase64,
+      signatureDataUrl: signatureDataUrl || ""
+    })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 // Führerschein-Register für Admin/Gruppe "fuehrerschein-einsicht" — der Worker prüft
 // die Berechtigung serverseitig erneut, hier nur UI-seitiges Ein-/Ausblenden.
 async function fetchFuehrerscheinRegister() {

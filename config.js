@@ -1,4 +1,4 @@
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.10";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -87,6 +87,21 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.10",
+    groups: [
+      {
+        title: "Trainervertrag ansehen & unterschreiben",
+        items: [
+          "Neuer Bereich „Trainervertrag\" im Trainerbereich: sobald dein Vertrag bereitgestellt wurde, kannst du ihn direkt ansehen und digital unterschreiben.",
+          "Beim Unterschreiben wird ein fertiges PDF erzeugt (dein Vertrag plus eine Unterschriftenseite mit Name, Datum und Signatur) und sicher auf dem Vereinsserver gespeichert.",
+          "Dein unterschriebener Vertrag ist jederzeit wieder einsehbar — du hast damit selbst im Blick, was du wann unterschrieben hast.",
+          "Admin-Detail: Original- und unterschriebenen Vertrag ansehen sowie den Unterschrift-Status je Trainer.",
+          "Die Verträge werden mit generate-pdfs.ps1 -Zuweisen erzeugt und den Trainern zugewiesen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.9",
     groups: [
