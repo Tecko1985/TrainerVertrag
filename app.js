@@ -1785,9 +1785,13 @@ async function _ansehenDocumentAdmin(subdir) {
 async function _ansehenVertragAdmin(signed) {
   const t = appData.trainer.find(x => x.id === currentTrainerId);
   if (!t) return;
-  const subdir = signed ? "vertraege-signiert" : "vertraege";
+  // Pfad-basiert (seit 1.11): das Skript legt vertraege/<Jahr>/<Name>/ an und speichert
+  // den relativen Pfad im Datensatz (vertragPdfPfad/vertragSigniertPfad).
+  const relPath = signed ? t.vertragSigniertPfad : t.vertragPdfPfad;
+  if (!relPath) { alert("Datei nicht gefunden."); return; }
+  const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
   try {
-    const blob = await davReadBinary(_trainerDocConfig(subdir, t.id), "application/pdf");
+    const blob = await davReadBinary({ ...davConfig, url: dir + "/" + relPath }, "application/pdf");
     if (!blob) { alert("Datei nicht gefunden."); return; }
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");

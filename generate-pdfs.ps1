@@ -148,12 +148,23 @@ function Set-Prop($obj, [string]$name, $value) {
   else { $obj | Add-Member -NotePropertyName $name -NotePropertyValue $value }
 }
 
+# Normalisiert Vor-/Nachnamen zu reinem ASCII fuer Nextcloud-Ordnernamen (deutsche
+# Umlaute -> ae/oe/ue/ss, Leerzeichen -> _, restliche Nicht-ASCII-Zeichen entfernt).
+# Reine ASCII-Pfade vermeiden jeden URL-Encoding-Fallstrick bei WebDAV/Worker/Proxy.
+function To-AsciiName([string]$s) {
+  if ($null -eq $s) { return '' }
+  $s = $s -replace 'ä','ae' -replace 'ö','oe' -replace 'ü','ue' -replace 'Ä','Ae' -replace 'Ö','Oe' -replace 'Ü','Ue' -replace 'ß','ss'
+  $s = $s -replace '\s+','_'
+  $s = $s -replace '[^A-Za-z0-9_\-]',''
+  return $s
+}
+
 # Vermerkt die zugewiesenen Vertraege in trainerdaten.json. Liest die Datei FRISCH
 # (kleines Race-Fenster gegen gleichzeitige Trainer-Einreichungen), setzt pro id die
 # vertragPdf*-Felder + status/vertragsGeneriert und nullt eine evtl. veraltete
 # Unterschrift (neuer Original-Vertrag), schreibt dann VALIDIERT zurueck. Vor dem
 # Ueberschreiben wird eine lokale Sicherungskopie abgelegt.
-function Patch-TrainerdatenJson([string]$url, [System.Management.Automation.PSCredential]$cred, [hashtable]$patchIds) {
+function Patch-TrainerdatenJson([string]$url, [System.Management.Automation.PSCredential]$cred, [hashtable]$patchPaths) {
   $resp = Invoke-WebRequest -Uri $url -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing
   $data = $resp.Content | ConvertFrom-Json
   if (-not $data.trainer) { throw 'trainerdaten.json enthaelt kein trainer-Array -- Zuweisung abgebrochen.' }
@@ -162,11 +173,11 @@ function Patch-TrainerdatenJson([string]$url, [System.Management.Automation.PSCr
   $nowIso = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   $treffer = 0
   foreach ($tr in @($data.trainer)) {
-    if ($tr.id -and $patchIds.ContainsKey([string]$tr.id)) {
+    if ($tr.id -and $patchPaths.ContainsKey([string]$tr.id)) {
+      Set-Prop $tr 'vertragPdfPfad' $patchPaths[[string]$tr.id]
       Set-Prop $tr 'vertragPdfBereitgestelltAm' $nowIso
-      Set-Prop $tr 'vertragPdfDateiName' $patchIds[[string]$tr.id]
-      Set-Prop $tr 'vertragPdfContentType' 'application/pdf'
-      # Neuer Original-Vertrag -> eine evtl. vorhandene (alte) Unterschrift ist veraltet.
+      # Neu ausgestellter Original-Vertrag -> evtl. alte Unterschrift/Signaturpfad verwerfen.
+      Set-Prop $tr 'vertragSigniertPfad' ''
       Set-Prop $tr 'vertragUnterschriebenAm' ''
       Set-Prop $tr 'vertragSignatureDataUrl' ''
       # Status wie der App-Button "Word-Vertrag generieren".
@@ -265,7 +276,7 @@ foreach ($t in $trainer) {
     Fill-Docx $tmpDocx (Build-Replacements $t)
     Unblock-File $tmpDocx -ErrorAction SilentlyContinue  # Zone-Markierung entfernen → kein Protected View
     Write-Host " OK" -ForegroundColor Green
-    $tasks += @{ name = $voll; docx = $tmpDocx; pdf = $pdfPath; file = ($base + '.pdf'); id = $t.id }
+    $tasks += @{ name = $voll; docx = $tmpDocx; pdf = $pdfPath; file = ($base + '.pdf'); id = $t.id; vorname = $t.vorname; nachname = $t.nachname }
   } catch {
     Write-Host (" FEHLER: {0}" -f $_.Exception.Message) -ForegroundColor Red
     $fail++
@@ -343,9 +354,10 @@ try {
 }
 
 # ── Schritt 4: Vertraege zuweisen (nur mit -Zuweisen) ────────────────────────
-# Laedt die erzeugten PDFs nach Nextcloud (vertraege/<trainerId>) hoch und vermerkt
-# sie im jeweiligen Trainer-Datensatz. Braucht Schreibzugriff -- im -JsonPath-Modus
-# wird das App-Passwort hier nachgefragt (die WebDAV-Ladung oben entfaellt dort).
+# Laedt die erzeugten PDFs nach Nextcloud vertraege/<Jahr>/<Vorname>_<Nachname>/
+# Trainervertrag.pdf hoch und vermerkt den Pfad im jeweiligen Trainer-Datensatz.
+# Braucht Schreibzugriff -- im -JsonPath-Modus wird das App-Passwort hier nachgefragt
+# (die WebDAV-Ladung oben entfaellt dort).
 if ($Zuweisen -and -not $Test) {
   Write-Host ''
   if ($exportedOk.Count -eq 0) {
@@ -357,30 +369,56 @@ if ($Zuweisen -and -not $Test) {
       $cred = New-Object System.Management.Automation.PSCredential($WebdavUser, $sec)
     }
     $baseDir = $WebdavUrl.Substring(0, $WebdavUrl.LastIndexOf('/'))
-    $vertraegeDir = "$baseDir/vertraege"
-    Write-Host "Lege Ordner 'vertraege' an (falls noetig) ..." -ForegroundColor DarkGray
-    Ensure-WebdavCollection $vertraegeDir $cred
+    $jahr = (Get-Date).Year
 
-    $zugewiesen = 0; $zufehler = 0
-    $patchIds = @{}
-    foreach ($t in $tasks) {
-      if (-not $exportedOk.Contains($t.file)) { continue }
-      if (-not $t.id) { Write-Host ("  uebersprungen (keine id): {0}" -f $t.name) -ForegroundColor DarkYellow; continue }
-      $target = "$vertraegeDir/$($t.id)"
-      try {
-        Invoke-WebRequest -Uri $target -Method Put -InFile $t.pdf -ContentType 'application/pdf' -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing | Out-Null
-        $patchIds[[string]$t.id] = $t.file
-        $zugewiesen++
-        Write-Host ("  hochgeladen: {0}" -f $t.file) -ForegroundColor Green
-      } catch {
-        $zufehler++
-        Write-Host ("  FEHLER Upload {0}: {1}" -f $t.file, $_.Exception.Message) -ForegroundColor Red
+    # Ordner-Belegung vorbereiten: relativer Ordnerpfad -> id, aus BESTEHENDEN Zuweisungen
+    # (damit ein neuer, namensgleicher Trainer nicht den Ordner eines anderen ueberschreibt).
+    $folderOwner = @{}
+    foreach ($tr in @($data.trainer)) {
+      if ($tr.vertragPdfPfad -and $tr.id) {
+        $segs = @($tr.vertragPdfPfad -split '/')
+        if ($segs.Count -ge 2) { $folderOwner[($segs[0..($segs.Count-2)] -join '/')] = [string]$tr.id }
       }
     }
 
-    if ($patchIds.Count -gt 0) {
+    Write-Host "Lege Ordner 'vertraege' und Jahresordner '$jahr' an (falls noetig) ..." -ForegroundColor DarkGray
+    Ensure-WebdavCollection "$baseDir/vertraege" $cred
+    Ensure-WebdavCollection "$baseDir/vertraege/$jahr" $cred
+
+    $zugewiesen = 0; $zufehler = 0
+    $patchPaths = @{}
+    foreach ($t in $tasks) {
+      if (-not $exportedOk.Contains($t.file)) { continue }
+      if (-not $t.id) { Write-Host ("  uebersprungen (keine id): {0}" -f $t.name) -ForegroundColor DarkYellow; continue }
+
+      # Menschenlesbarer Ordner vertraege/<Jahr>/<Vorname>_<Nachname> (ASCII); bei
+      # Namensgleichheit mit _2/_3 entschaerft. Der eigene bestehende Ordner zaehlt NICHT
+      # als Kollision (eine Neuausstellung ueberschreibt den eigenen Ordner bewusst).
+      $nameTeil = (To-AsciiName $t.vorname) + '_' + (To-AsciiName $t.nachname)
+      if (-not $nameTeil -or $nameTeil -eq '_') { $nameTeil = 'Trainer_' + ([string]$t.id).Substring(0, 8) }
+      $folderRel = "vertraege/$jahr/$nameTeil"
+      $n = 2
+      while ($folderOwner.ContainsKey($folderRel) -and $folderOwner[$folderRel] -ne [string]$t.id) {
+        $folderRel = "vertraege/$jahr/${nameTeil}_$n"; $n++
+      }
+      $folderOwner[$folderRel] = [string]$t.id
+      $pdfRel = "$folderRel/Trainervertrag.pdf"
+
       try {
-        Patch-TrainerdatenJson $WebdavUrl $cred $patchIds
+        Ensure-WebdavCollection "$baseDir/$folderRel" $cred
+        Invoke-WebRequest -Uri "$baseDir/$pdfRel" -Method Put -InFile $t.pdf -ContentType 'application/pdf' -Credential $cred -Headers @{ 'OCS-APIRequest'='true' } -UseBasicParsing | Out-Null
+        $patchPaths[[string]$t.id] = $pdfRel
+        $zugewiesen++
+        Write-Host ("  hochgeladen: {0}" -f $pdfRel) -ForegroundColor Green
+      } catch {
+        $zufehler++
+        Write-Host ("  FEHLER Upload {0}: {1}" -f $t.name, $_.Exception.Message) -ForegroundColor Red
+      }
+    }
+
+    if ($patchPaths.Count -gt 0) {
+      try {
+        Patch-TrainerdatenJson $WebdavUrl $cred $patchPaths
       } catch {
         Write-Host ("  FEHLER beim Aktualisieren von trainerdaten.json: {0}" -f $_.Exception.Message) -ForegroundColor Red
         Write-Host "  Die PDFs wurden hochgeladen, aber der Vermerk im Datensatz fehlt -- bitte erneut mit -Zuweisen laufen lassen." -ForegroundColor Red

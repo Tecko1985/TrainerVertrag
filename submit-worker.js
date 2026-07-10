@@ -83,17 +83,19 @@
 // anzulegen. Kein Treffer -> normales Neuanlegen wie zuvor.
 //
 // SEIT 1.10 (Trainervertrag ansehen + unterschreiben): Das vom lokalen Skript
-// generate-pdfs.ps1 erzeugte Vertrags-PDF wird pro Trainer nach vertraege/<id>
-// hochgeladen (durch das Skript selbst, nicht diesen Worker) und im Datensatz mit
-// vertragPdfBereitgestelltAm/DateiName/ContentType vermerkt.
+// generate-pdfs.ps1 erzeugte Vertrags-PDF wird pro Trainer nach vertraege/<Jahr>/
+// <Vorname>_<Nachname>/Trainervertrag.pdf hochgeladen (durch das Skript selbst, nicht
+// diesen Worker); der relative Pfad steht im Datensatz als vertragPdfPfad, dazu
+// vertragPdfBereitgestelltAm.
 //   { action: "my-vertrag-file" }            -> eigenes Original-Vertrags-PDF | 404
 //   { action: "my-vertrag-signiert-file" }   -> eigenes unterschriebenes PDF | 404
 //   { action: "submit-vertrag-unterschrift", dataBase64, signatureDataUrl? }
 //     -> legt das fertig unterschriebene PDF (Original + im Browser angehängte
-//        Unterschriftenseite) nach vertraege-signiert/<id> ab und setzt
-//        vertragUnterschriebenAm (+ kleine Signatur-Vorschau fürs Admin-Detail).
-//        Setzt einen bereits zugewiesenen Vertrag voraus (sonst 400), legt nie
-//        selbst einen (Stub-)Datensatz an. -> { success:true, vertragUnterschriebenAm }
+//        Unterschriftenseite) als Trainervertrag_unterschrieben.pdf in DENSELBEN Ordner
+//        wie das Original (Pfad -> vertragSigniertPfad) und setzt vertragUnterschriebenAm
+//        (+ kleine Signatur-Vorschau fürs Admin-Detail). Setzt einen bereits zugewiesenen
+//        Vertrag voraus (sonst 400), legt nie selbst einen (Stub-)Datensatz an.
+//        -> { success:true, vertragUnterschriebenAm }
 //   Fremde Verträge sieht der Admin direkt per WebDAV (kein "-for-owner"-Endpunkt).
 
 const ALLOWED_ORIGINS = [
@@ -130,13 +132,13 @@ const DOCUMENT_TYPES = {
 // Konvention wie im migrierten Fahrtenbuch-Feature).
 const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
 
-// Trainervertrag-PDFs (seit 1.10): Das UNSIGNIERTE Original wird vom lokalen Skript
-// generate-pdfs.ps1 direkt per WebDAV nach vertraege/<trainerId> hochgeladen (NICHT
-// über diesen Worker — das Skript hat eigene Nextcloud-Credentials). Der Trainer
-// unterschreibt im Browser (pdf-lib hängt eine Unterschriftenseite an) und lädt das
-// fertige PDF über "submit-vertrag-unterschrift" nach vertraege-signiert/<trainerId>.
-const VERTRAG_SUBDIR = "vertraege";
-const VERTRAG_SIGNIERT_SUBDIR = "vertraege-signiert";
+// Trainervertrag-PDFs (seit 1.10): Das lokale Skript generate-pdfs.ps1 legt pro Vertrag
+// einen menschenlesbaren Ordner vertraege/<Jahr>/<Vorname>_<Nachname>/ in Nextcloud an
+// (Namen ASCII-normalisiert) und speichert den relativen Pfad im Datensatz als
+// vertragPdfPfad. Der Trainer unterschreibt im Browser (pdf-lib haengt eine
+// Unterschriftenseite an); das fertige PDF landet als Trainervertrag_unterschrieben.pdf
+// im SELBEN Ordner (Pfad in vertragSigniertPfad). Gespeicherte Pfade statt fester Ordner
+// -> robust bei Namensgleichheit, und der Worker muss den Pfad nie selbst raten.
 
 // Muss manuell synchron zu KODEX_VERSION in kodex-text.js gehalten werden (kein
 // gemeinsames Modul zwischen Worker und Frontend, gleiche Duplizierungs-Konvention
@@ -922,8 +924,19 @@ async function handleTrainerlizenzFileForOwner(body, session, env, corsHeaders) 
 // Nextcloud-Unterordner mit erzwungenem Content-Type. Die Dateien liegen ohne Endung
 // unter der Trainer-id, Nextcloud liefert sonst application/octet-stream -> der Browser
 // bietet Download an statt anzuzeigen (gleiches Prinzip wie bei den Dokument-Handlern).
-async function serveTrainerFile(env, authHeader, corsHeaders, subdir, id, ctype) {
-  const fileUrl = trainerdatenDir(env) + "/" + subdir + "/" + id;
+// Legt eine WebDAV-Ordnerkette relativ zu baseUrl an (MKCOL ist nicht rekursiv).
+// Idempotent (405/301/409 = existiert schon werden von Nextcloud toleriert, Fehler
+// werden hier ohnehin geschluckt -- der anschliessende PUT ist der eigentliche Test).
+async function mkcolRecursive(baseUrl, relDir, authHeader) {
+  let url = baseUrl;
+  for (const seg of relDir.split("/").filter(Boolean)) {
+    url += "/" + seg;
+    try { await fetch(url, { method: "MKCOL", headers: { Authorization: authHeader } }); } catch (_) {}
+  }
+}
+
+async function serveTrainerFile(env, authHeader, corsHeaders, relPath, ctype) {
+  const fileUrl = trainerdatenDir(env) + "/" + relPath;
   let resp;
   try {
     resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
@@ -953,11 +966,10 @@ async function handleMyVertragFile(session, env, corsHeaders, signed) {
     return json({ error: e.message }, 502, corsHeaders);
   }
   const mine = appData.trainer.find(t => t.username === session.username);
+  const relPath = signed ? (mine && mine.vertragSigniertPfad) : (mine && mine.vertragPdfPfad);
   const gate = signed ? (mine && mine.vertragUnterschriebenAm) : (mine && mine.vertragPdfBereitgestelltAm);
-  if (!gate) return json({ error: "Kein Vertrag hinterlegt" }, 404, corsHeaders);
-  const subdir = signed ? VERTRAG_SIGNIERT_SUBDIR : VERTRAG_SUBDIR;
-  const ctype = signed ? "application/pdf" : (mine.vertragPdfContentType || "application/pdf");
-  return serveTrainerFile(env, authHeader, corsHeaders, subdir, mine.id, ctype);
+  if (!gate || !relPath) return json({ error: "Kein Vertrag hinterlegt" }, 404, corsHeaders);
+  return serveTrainerFile(env, authHeader, corsHeaders, relPath, "application/pdf");
 }
 
 // Trainer lädt sein fertig unterschriebenes Vertrags-PDF hoch (Original + im Browser
@@ -990,20 +1002,21 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
     return json({ error: e.message }, 502, corsHeaders);
   }
   const idx = appData.trainer.findIndex(t => t.username === session.username);
-  if (idx === -1 || !appData.trainer[idx].vertragPdfBereitgestelltAm) {
+  const origPath = idx !== -1 ? (appData.trainer[idx].vertragPdfPfad || "") : "";
+  if (idx === -1 || !appData.trainer[idx].vertragPdfBereitgestelltAm || !origPath) {
     return json({ error: "Kein Vertrag zum Unterschreiben hinterlegt" }, 400, corsHeaders);
   }
-  const trainerId = appData.trainer[idx].id;
-
-  const dir = trainerdatenDir(env) + "/" + VERTRAG_SIGNIERT_SUBDIR;
-  const fileUrl = dir + "/" + trainerId;
+  // Signiertes PDF in DENSELBEN Ordner wie das Original legen (der Ordner existiert
+  // schon, das Skript hat ihn angelegt) -- nur der Dateiname wird ersetzt.
+  const signedPath = origPath.slice(0, origPath.lastIndexOf("/")) + "/Trainervertrag_unterschrieben.pdf";
+  const fileUrl = trainerdatenDir(env) + "/" + signedPath;
   const headers = { Authorization: authHeader, "Content-Type": "application/pdf" };
   let resp;
   try {
     resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
-    // 404/409 = Unterordner vertraege-signiert fehlt noch -> anlegen und EINMAL wiederholen.
+    // 404/409 = Ordner fehlt wider Erwarten -> Ordnerkette anlegen und EINMAL wiederholen.
     if (resp.status === 404 || resp.status === 409) {
-      await fetch(dir, { method: "MKCOL", headers: { Authorization: authHeader } });
+      await mkcolRecursive(trainerdatenDir(env), signedPath.slice(0, signedPath.lastIndexOf("/")), authHeader);
       resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
     }
   } catch (e) {
@@ -1015,6 +1028,7 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
   appData.trainer[idx] = {
     ...appData.trainer[idx],
     vertragUnterschriebenAm: nowIso,
+    vertragSigniertPfad: signedPath,
     vertragSignatureDataUrl: signatureDataUrl
   };
   try {

@@ -1,4 +1,4 @@
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 
 // WebDAV-Pfad für Admin-Zugriff (vorausgefüllt, App-Passwort wird nicht gespeichert)
 const WEBDAV_DEFAULT_URL =
@@ -87,6 +87,17 @@ const PDF_FIELDS = {
 };
 
 const APP_CHANGELOG = [
+  {
+    version: "1.11",
+    groups: [
+      {
+        title: "Trainervertrag: übersichtliche Ablage",
+        items: [
+          "Unterschriebene und bereitgestellte Trainerverträge werden in der Cloud jetzt nach Jahr und Trainername abgelegt (z. B. vertraege/2026/Vorname_Nachname/) statt unter technischen IDs — dadurch im Nextcloud leicht wiederzufinden und automatisch nach Jahren archiviert."
+        ]
+      }
+    ]
+  },
   {
     version: "1.10",
     groups: [
