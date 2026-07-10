@@ -1374,6 +1374,7 @@ function _renderAdminListe() {
     <div class="trainer-row" data-id="${_esc(t.id)}">
       <span class="trainer-name">${_esc(t.nachname)}, ${_esc(t.vorname)}${t.lizenz ? ` <span class="muted" style="font-weight:400;">· ${_esc(t.lizenz)}</span>` : ""}</span>
       <span class="muted">${_eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—"}</span>
+      <span class="muted">${(t.pauschale || "").trim() ? _esc(t.pauschale) + " €" : "—"}</span>
       <span>
         <span class="badge ${status === "generiert" ? "generiert" : "offen"}">
           ${statusLabel[status]}

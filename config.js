@@ -88,6 +88,17 @@ const PDF_FIELDS = {
 
 const APP_CHANGELOG = [
   {
+    version: "1.12",
+    groups: [
+      {
+        title: "Admin-Übersicht",
+        items: [
+          "Die Liste „Eingereichte Trainerdaten“ zeigt jetzt zusätzlich die hinterlegte Pauschale je Trainer an – zum schnellen Abgleich, ohne jeden Eintrag einzeln zu öffnen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.11",
     groups: [
       {
