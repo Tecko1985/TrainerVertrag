@@ -106,6 +106,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.15",
+    groups: [
+      {
+        title: "Admin-Detail: Vertragsunterschrift zurücksetzen",
+        items: [
+          "Neuer Button „Unterschrift zurücksetzen“ beim Trainervertrag im Admin-Detail – ermöglicht dem Trainer ein erneutes Unterschreiben (z. B. bei einem Versehen), ohne den zugewiesenen Original-Vertrag anzutasten."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.14",
     groups: [
       {

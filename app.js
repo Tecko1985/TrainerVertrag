@@ -1277,6 +1277,7 @@ function _initAdminPanel() {
   });
   document.getElementById("btn-d-kodex-reset").addEventListener("click", _resetKodexAdmin);
   document.getElementById("btn-d-jugendschutz-reset").addEventListener("click", _resetJugendschutzAdmin);
+  document.getElementById("btn-d-vertrag-reset").addEventListener("click", _resetVertragUnterschriftAdmin);
 
   document.getElementById("btn-d-fz-camera").addEventListener("click", () => document.getElementById("d-fz-camera-input").click());
   document.getElementById("d-fz-camera-input").addEventListener("change", (e) => {
@@ -1608,6 +1609,7 @@ function _renderDocumentsSection(t) {
   const vStatusEl = document.getElementById("d-vertrag-status");
   const vOrigBtn  = document.getElementById("btn-d-vertrag-ansehen");
   const vSignBtn  = document.getElementById("btn-d-vertrag-signiert-ansehen");
+  const vResetBtn = document.getElementById("btn-d-vertrag-reset");
   if (t.vertragPdfBereitgestelltAm) {
     let html = "Bereitgestellt am " + _esc(_fmtIso(t.vertragPdfBereitgestelltAm));
     html += t.vertragUnterschriebenAm
@@ -1616,10 +1618,12 @@ function _renderDocumentsSection(t) {
     vStatusEl.innerHTML = html;
     vOrigBtn.disabled = false;
     vSignBtn.disabled = !t.vertragUnterschriebenAm;
+    vResetBtn.disabled = !t.vertragUnterschriebenAm;
   } else {
     vStatusEl.textContent = "Noch kein Vertrag zugewiesen (per generate-pdfs.ps1 -Zuweisen).";
     vOrigBtn.disabled = true;
     vSignBtn.disabled = true;
+    vResetBtn.disabled = true;
   }
 }
 
@@ -1718,6 +1722,31 @@ async function _resetJugendschutzAdmin() {
     errEl.style.display = "block";
   }
   _renderJugendschutzSection(appData.trainer[idx]);
+}
+
+// Setzt nur die Unterschrift zurueck (vertragPdfPfad/-BereitgestelltAm bleiben
+// unangetastet -- der zugewiesene Original-Vertrag bleibt derselbe, siehe
+// [[feedback-issued-artifact-no-reset]]). Ermoeglicht erneutes Unterschreiben,
+// z.B. zum Testen oder falls sich der Trainer beim Signieren vertan hat.
+async function _resetVertragUnterschriftAdmin() {
+  if (!currentTrainerId) return;
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  if (!confirm(`Unterschrift des Trainervertrags von ${t.vorname} ${t.nachname} wirklich zurücksetzen? Der Trainer kann danach erneut unterschreiben.`)) return;
+
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+
+  appData.trainer[idx] = { ...appData.trainer[idx], vertragUnterschriebenAm: "", vertragSigniertPfad: "", vertragSignatureDataUrl: "" };
+  try {
+    await _saveMerged();
+  } catch (err) {
+    errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  _renderDocumentsSection(appData.trainer[idx]);
 }
 
 async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeField) {
