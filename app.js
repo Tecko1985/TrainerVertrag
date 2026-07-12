@@ -21,6 +21,7 @@ let currentIsAdmin   = false;
 let currentGroupIds  = [];
 let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
+let trainerGroupMembers = null; // Nutzernamen der ToolsUebersicht-Gruppe "Trainer", frisch geladen bei jedem Personalkosten-Import (siehe _loadFromPersonalkosten)
 let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only Cross-Read), lazy geladen (siehe _renderChecklisteStatus)
 let myChecklisteStatus = null; // eigener TrainerCheckliste-Eintrag (Trainer-Selbstbedienung, seit 1.8), einmalig geladen in _initTrainerGateway (siehe _renderMyChecklisteStatus)
 let _checklisteDetailOpen = false; // Aufklapp-Zustand der "Öffnen"-Detailansicht, überlebt Re-Render (siehe _showTrainerFormScreen)
@@ -2338,6 +2339,16 @@ async function _loadFromPersonalkosten() {
       throw new Error("Keine Trainer in Personalkosten gefunden.");
     }
 
+    // Frisch laden (nicht über mehrere Ladevorgänge hinweg cachen), damit eine
+    // zwischenzeitliche Gruppenänderung nicht übersehen wird. Schlägt das fehl,
+    // bricht der Import komplett ab statt Namen ungeprüft durchzulassen.
+    try {
+      trainerGroupMembers = await _fetchTrainerGroupMembers();
+    } catch (err) {
+      throw new Error(`Gruppe „Trainer“ (ToolsUebersicht) konnte nicht geladen werden: ${err.message} — erfordert ein ToolsUebersicht-Admin-Login in diesem Browser.`);
+    }
+    if (trainerProfiles === null) trainerProfiles = await fetchTrainerProfiles().catch(() => []);
+
     _renderTextImportPreview();
     document.getElementById("import-step-1").style.display = "none";
     document.getElementById("import-step-2").style.display = "";
@@ -2384,6 +2395,27 @@ function _splitNameForStub(fullName) {
   const words = fullName.trim().split(/\s+/);
   if (words.length === 1) return { vorname: "", nachname: words[0] };
   return { vorname: words.slice(0, -1).join(" "), nachname: words[words.length - 1] };
+}
+
+// Nutzername des zentralen Trainerprofils (ToolsUebersicht) zu einem
+// Personalkosten-Namen, per gleicher order-toleranter Übereinstimmung wie
+// _sameNamePair — null, wenn kein eindeutiger Treffer.
+function _usernameForFullName(fullName) {
+  const { vorname, nachname } = _splitNameForStub(fullName);
+  const matches = (trainerProfiles || []).filter((p) => _sameNamePair(p.vorname, p.nachname, vorname, nachname));
+  return matches.length === 1 ? matches[0].username : null;
+}
+
+// Gruppe "Trainer" (ToolsUebersicht) für den Personalkosten-Import: neue Stub-
+// Trainer werden seit 1.19 nur noch für Namen angelegt, die sich einer
+// Gruppe-Trainer-Mitgliedschaft zuordnen lassen (siehe [[project-toolsuebersicht]] —
+// Personalkosten-Stub-Leichen für Nicht-Trainer sollen nicht mehr entstehen).
+// Bestehende Treffer (auch alte Stubs) sind davon unberührt, nur die Neuanlage
+// ist eingeschränkt.
+async function _fetchTrainerGroupMembers() {
+  const data = await gatewayRequest({ action: "list-groups" });
+  const gruppe = (data.groups || []).find((g) => g.name === "Trainer");
+  return new Set(gruppe ? (gruppe.memberUsernames || []) : []);
 }
 
 // Minimaler Trainer-Datensatz für Namen aus dem Import, die keinen bestehenden
@@ -2447,10 +2479,15 @@ function _renderTextImportPreview() {
     const lizenz    = (cols[1] || "").trim();
     const pauschale = (cols[2] || "").trim();
     const match     = _matchTrainer(name);
+    const blocked   = !match && !(trainerGroupMembers && trainerGroupMembers.has(_usernameForFullName(name)));
     const status    = match
       ? `<span class="badge generiert">→ ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
-      : `<span class="badge offen">Neuer Trainer</span>`;
-    const action    = `<button type="button" class="btn success small" data-import-row="${i}">${match ? "Importieren" : "Neu anlegen"}</button>`;
+      : blocked
+        ? `<span class="badge offen">Nicht in Gruppe „Trainer“</span>`
+        : `<span class="badge generiert">Neuer Trainer</span>`;
+    const action    = blocked
+      ? `<button type="button" class="btn small" disabled title="Person ist nicht Mitglied der Gruppe „Trainer“ in ToolsUebersicht">Übersprungen</button>`
+      : `<button type="button" class="btn success small" data-import-row="${i}">${match ? "Importieren" : "Neu anlegen"}</button>`;
     return `<tr>
       <td style="padding:6px 10px;">${_esc(name)}</td>
       <td style="padding:6px 10px;">${_esc(lizenz)}</td>
@@ -2527,6 +2564,7 @@ async function _doImportRow(idx, btn) {
 async function _doImport() {
   const updatedList = [];
   const createdList = [];
+  const skippedList = []; // Namen ohne Gruppe-Trainer-Mitgliedschaft, siehe _fetchTrainerGroupMembers
   const newStubs = []; // zum Rollback, falls _saveMerged() fehlschlägt
 
   for (const cols of _importRows) {
@@ -2539,6 +2577,10 @@ async function _doImport() {
     let trainer = _matchTrainer(name);
     let isNew   = false;
     if (!trainer) {
+      if (!(trainerGroupMembers && trainerGroupMembers.has(_usernameForFullName(name)))) {
+        skippedList.push(name);
+        continue;
+      }
       trainer = _createStubTrainer(name);
       appData.trainer.push(trainer);
       newStubs.push(trainer);
@@ -2604,6 +2646,7 @@ async function _doImport() {
     ${asTable(updatedList)}
     ${createdList.length ? `<p class="muted"><strong>${createdList.length}</strong> neue, unvollständige Trainer angelegt — Stammdaten (IBAN, Adresse, Unterschrift) fehlen noch, bis sich die Person selbst über das Trainer-Formular anmeldet oder ein Admin sie manuell ergänzt:</p>` : ""}
     ${asTable(createdList)}
+    ${skippedList.length ? `<p class="muted"><strong>${skippedList.length}</strong> übersprungen (nicht Mitglied der Gruppe „Trainer“ in ToolsUebersicht): ${skippedList.map(_esc).join(", ")}</p>` : ""}
   `;
   _renderImportCurrentStatus();
   _renderAdminListe();

@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.19",
+    groups: [
+      {
+        title: "Personalkosten-Import: Gruppe „Trainer“",
+        items: [
+          "Der Personalkosten-Import legt für neue Namen nur noch dann einen Trainer-Eintrag an, wenn die Person Mitglied der ToolsUebersicht-Gruppe „Trainer“ ist — verhindert Stub-Leichen für Personen, die zwar in Personalkosten stehen, aber keine Trainer sind. Bestehende Einträge (auch ältere Stubs) bleiben unangetastet."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.18",
     groups: [
       {
