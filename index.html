@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.17" />
+<link rel="stylesheet" href="style.css?v=1.18" />
 </head>
 <body>
 
@@ -395,6 +395,7 @@
             <div class="detail-header">
               <h2 style="margin-bottom:0;">Eingereichte Trainerdaten</h2>
               <div class="btn-row" style="align-items:center; gap:10px;">
+                <button type="button" class="btn secondary small" id="btn-export-toggle">CSV-Export…</button>
                 <button type="button" class="btn secondary small" id="btn-alle-pdf-zip">Alle als PDF-ZIP</button>
                 <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
               </div>
@@ -422,6 +423,20 @@
                   <option value="unterschrieben">Vertrag unterschrieben</option>
                   <option value="offen">Vertrag nicht unterschrieben</option>
                 </select>
+              </div>
+            </div>
+            <div id="export-panel" style="display:none; background:var(--gray); border-radius:8px; padding:16px 18px; margin-bottom:16px;">
+              <div class="detail-header" style="margin-bottom:0;">
+                <h3 style="margin-bottom:0;">CSV-Export – Felder auswählen</h3>
+                <div class="btn-row" style="gap:8px;">
+                  <button type="button" class="btn secondary small" id="btn-export-felder-alle">Alle</button>
+                  <button type="button" class="btn secondary small" id="btn-export-felder-keine">Keine</button>
+                </div>
+              </div>
+              <div id="export-field-groups"></div>
+              <p class="muted" id="export-info-line" style="margin:10px 0 14px;"></p>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn success small" id="btn-export-csv">CSV exportieren</button>
               </div>
             </div>
             <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
@@ -682,13 +697,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.17"></script>
-<script src="kodex-text.js?v=1.17"></script>
-<script src="jugendschutz-text.js?v=1.17"></script>
-<script src="checkliste-schema.js?v=1.17"></script>
-<script src="db.js?v=1.17"></script>
-<script src="signature-pad.js?v=1.17"></script>
-<script src="pdf-utils.js?v=1.17"></script>
-<script src="app.js?v=1.17"></script>
+<script src="config.js?v=1.18"></script>
+<script src="kodex-text.js?v=1.18"></script>
+<script src="jugendschutz-text.js?v=1.18"></script>
+<script src="checkliste-schema.js?v=1.18"></script>
+<script src="db.js?v=1.18"></script>
+<script src="signature-pad.js?v=1.18"></script>
+<script src="pdf-utils.js?v=1.18"></script>
+<script src="app.js?v=1.18"></script>
 </body>
 </html>

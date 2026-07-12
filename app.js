@@ -1245,6 +1245,7 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
+  _initExportPanel();
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
   // (die Buttons werden anders als die Autosave-Felder nicht per cloneNode ersetzt).
@@ -1334,6 +1335,26 @@ function _populateLizenzFilterOptions() {
   if (distinct.includes(current)) sel.value = current;
 }
 
+// Liest die aktuellen Filter/Suchfeld-Werte aus dem DOM und wendet sie auf
+// appData.trainer an — einzige Quelle für "was ist gerade sichtbar", genutzt
+// sowohl von _renderAdminListe() (Bildschirmliste) als auch vom CSV-Export
+// (_handleExportCsv), damit beide garantiert dieselbe Menge zeigen/exportieren.
+function _filteredTrainerList() {
+  const searchTerm    = document.getElementById("liste-search").value.trim().toLowerCase();
+  const statusFilter  = document.getElementById("liste-filter-status").value;
+  const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
+  const vertragFilter = document.getElementById("liste-filter-vertrag").value;
+
+  return appData.trainer.filter(t => {
+    if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
+    if (statusFilter && _trainerStatus(t) !== statusFilter) return false;
+    if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
+    if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
+    if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
+    return true;
+  });
+}
+
 function _renderAdminListe() {
   const rows      = document.getElementById("admin-liste-rows");
   const empty     = document.getElementById("admin-liste-empty");
@@ -1347,6 +1368,7 @@ function _renderAdminListe() {
     noMatch.style.display = "none";
     header.style.display = "none";
     filterbar.style.display = "none";
+    _updateExportInfoLine();
     return;
   }
   empty.style.display = "none";
@@ -1354,19 +1376,8 @@ function _renderAdminListe() {
   filterbar.style.display = "";
   _populateLizenzFilterOptions();
 
-  const searchTerm    = document.getElementById("liste-search").value.trim().toLowerCase();
-  const statusFilter  = document.getElementById("liste-filter-status").value;
-  const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
-  const vertragFilter = document.getElementById("liste-filter-vertrag").value;
-
-  const filtered = appData.trainer.filter(t => {
-    if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
-    if (statusFilter && _trainerStatus(t) !== statusFilter) return false;
-    if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
-    if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
-    if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
-    return true;
-  });
+  const filtered = _filteredTrainerList();
+  _updateExportInfoLine();
 
   if (!filtered.length) {
     rows.innerHTML = "";
@@ -1403,6 +1414,110 @@ function _renderAdminListe() {
   rows.querySelectorAll(".trainer-row").forEach(row => {
     row.addEventListener("click", () => _openAdminDetail(row.dataset.id));
   });
+}
+
+// ─── CSV-Export (konfigurierbar, seit 1.18) ────────────────────────────────────
+// Jedes Feld einzeln per Checkbox wählbar (EXPORT_FIELD_GROUPS in config.js).
+// Exportiert immer genau die aktuell gefilterte/gesuchte Liste (_filteredTrainerList()) —
+// anders als "Alle als PDF-ZIP", das bewusst immer den kompletten Bestand nimmt.
+// Rein clientseitig, kein Worker-Redeploy: CSV wird im Browser aus appData gebaut.
+
+function _initExportPanel() {
+  _renderExportFieldCheckboxes();
+
+  document.getElementById("btn-export-toggle").addEventListener("click", () => {
+    const panel = document.getElementById("export-panel");
+    const willOpen = panel.style.display === "none";
+    panel.style.display = willOpen ? "" : "none";
+    if (willOpen) _updateExportInfoLine();
+  });
+  document.getElementById("btn-export-felder-alle").addEventListener("click", () => _setAllExportCheckboxes(true));
+  document.getElementById("btn-export-felder-keine").addEventListener("click", () => _setAllExportCheckboxes(false));
+  document.getElementById("btn-export-csv").addEventListener("click", _handleExportCsv);
+}
+
+function _renderExportFieldCheckboxes() {
+  const wrap = document.getElementById("export-field-groups");
+  wrap.innerHTML = EXPORT_FIELD_GROUPS.map(group => `
+    <div class="section-divider" style="margin:14px 0 8px;">${_esc(group.title)}</div>
+    <div class="form-grid" style="margin-bottom:0;">
+      ${group.fields.map(f => `
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
+          <input type="checkbox" class="export-field-cb" data-field="${_esc(f.key)}" checked /> ${_esc(f.label)}
+        </label>
+      `).join("")}
+    </div>
+  `).join("");
+  wrap.querySelectorAll(".export-field-cb").forEach(cb => cb.addEventListener("change", _updateExportInfoLine));
+}
+
+function _setAllExportCheckboxes(checked) {
+  document.querySelectorAll(".export-field-cb").forEach(cb => { cb.checked = checked; });
+  _updateExportInfoLine();
+}
+
+// Läuft nach jedem _renderAdminListe() (auch bei geschlossenem Panel, dann nur
+// unsichtbar aktualisiert) UND bei jeder Checkbox-Änderung mit -- so zeigt die
+// Zeile auch dann den korrekten Stand, wenn der Admin Filter/Suche ändert,
+// während das Export-Panel bereits offen ist.
+function _updateExportInfoLine() {
+  const el = document.getElementById("export-info-line");
+  if (!el) return;
+  const total   = document.querySelectorAll(".export-field-cb").length;
+  const checked = document.querySelectorAll(".export-field-cb:checked").length;
+  const rowCount = appData.trainer.length ? _filteredTrainerList().length : 0;
+  el.textContent = `${checked} von ${total} Feldern ausgewählt · exportiert ${rowCount} Trainer (aktuelle Filterung/Suche).`;
+}
+
+function _handleExportCsv() {
+  const selectedKeys = Array.from(document.querySelectorAll(".export-field-cb:checked")).map(cb => cb.dataset.field);
+  if (!selectedKeys.length) { alert("Bitte mindestens ein Feld für den Export auswählen."); return; }
+
+  const rows = _filteredTrainerList().slice().sort((a, b) =>
+    ((a.nachname || "") + (a.vorname || "")).localeCompare((b.nachname || "") + (b.vorname || ""), "de")
+  );
+  if (!rows.length) { alert("Die aktuelle Filterung/Suche ergibt keine Treffer zum Exportieren."); return; }
+
+  const fieldLookup = new Map(EXPORT_FIELD_GROUPS.flatMap(g => g.fields).map(f => [f.key, f]));
+  const cols = selectedKeys.map(key => fieldLookup.get(key)).filter(Boolean);
+
+  const lines = [cols.map(f => f.label), ...rows.map(t => cols.map(f => _exportFieldValue(t, f)))];
+  // Semikolon statt Komma + UTF-8-BOM: deutsches Excel erkennt das Trennzeichen
+  // damit automatisch beim Doppelklick und zeigt Umlaute korrekt (ohne BOM
+  // interpretiert Excel die Datei sonst als ANSI und zerlegt ä/ö/ü/ß).
+  const csv = String.fromCharCode(0xFEFF) + lines.map(line => line.map(_csvCell).join(";")).join("\r\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "Trainerdaten_Export_" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+function _csvCell(value) {
+  const s = value == null ? "" : String(value);
+  return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function _exportFieldValue(t, f) {
+  switch (f.type) {
+    case "date":     return t[f.key] ? _fmtIso(t[f.key]) : "";
+    case "dateonly": return t[f.key] ? _fmtDateOnly(t[f.key]) : "";
+    case "bool":     return t[f.key] ? "Ja" : "Nein";
+    case "iban":     return t.iban ? t.iban.replace(/(.{4})/g, "$1 ").trim() : "";
+    case "nebentaetigkeit":
+      return t.nebentaetigkeit === "andere" ? "Andere" : t.nebentaetigkeit === "keine" ? "Keine" : "";
+    case "status": {
+      const labels = { generiert: "Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig" };
+      return labels[_trainerStatus(t)] || "";
+    }
+    case "derived-eingereicht":
+      return _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "";
+    default:
+      return t[f.key] || "";
+  }
 }
 
 // ─── Admin-Detail ─────────────────────────────────────────────────────────────

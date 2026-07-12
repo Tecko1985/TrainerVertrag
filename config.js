@@ -67,6 +67,60 @@ const TRAINERLIZENZ_ARTEN = [
   "Sonstige"
 ];
 
+// Konfigurierbarer CSV-Export in der Admin-Liste (siehe _initExportPanel/
+// _handleExportCsv in app.js): jedes Feld einzeln per Checkbox an-/abwählbar,
+// gruppiert wie das Trainer-Formular. "type" steuert nur die Formatierung des
+// Zellwerts (_exportFieldValue in app.js) — ohne "type" wird der Rohwert
+// unverändert exportiert. Bewusst ohne interne Felder (id, Dateipfade,
+// Content-Types, Signatur-Bilddaten) — kein sinnvoller Tabellenwert.
+const EXPORT_FIELD_GROUPS = [
+  {
+    title: "Stammdaten",
+    fields: [
+      { key: "vorname", label: "Vorname" },
+      { key: "nachname", label: "Nachname" },
+      { key: "geburtsdatum", label: "Geburtsdatum", type: "dateonly" },
+      { key: "strasse", label: "Straße" },
+      { key: "plz", label: "PLZ" },
+      { key: "ort", label: "Ort" },
+      { key: "telefon", label: "Telefon" },
+      { key: "email", label: "E-Mail" }
+    ]
+  },
+  {
+    title: "Bankverbindung",
+    fields: [
+      { key: "iban", label: "IBAN", type: "iban" },
+      { key: "bankname", label: "Bankname" },
+      { key: "bic", label: "BIC" }
+    ]
+  },
+  {
+    title: "Vertrag & Status",
+    fields: [
+      { key: "lizenz", label: "Lizenz" },
+      { key: "pauschale", label: "Pauschale (EUR)" },
+      { key: "nebentaetigkeit", label: "Nebentätigkeit", type: "nebentaetigkeit" },
+      { key: "nebentaetigkeitBetrag", label: "Nebentätigkeit Betrag (EUR)" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "eingereichtAm", label: "Eingereicht am", type: "derived-eingereicht" },
+      { key: "vertragPdfBereitgestelltAm", label: "Vertrag bereitgestellt am", type: "date" },
+      { key: "vertragUnterschriebenAm", label: "Vertrag unterschrieben am", type: "date" }
+    ]
+  },
+  {
+    title: "Dokumente",
+    fields: [
+      { key: "trainerlizenzArt", label: "Trainerlizenz-Art" },
+      { key: "trainerlizenzGueltigBis", label: "Trainerlizenz gültig bis", type: "dateonly" },
+      { key: "trainerlizenzNichtVorhanden", label: "Keine Trainerlizenz vorhanden", type: "bool" },
+      { key: "trainerlizenzHochgeladenAm", label: "Trainerlizenz hochgeladen am", type: "date" },
+      { key: "fuehrerscheinHochgeladenAm", label: "Führerschein hochgeladen am", type: "date" },
+      { key: "fuehrungszeugnisEingereichtAm", label: "Führungszeugnis eingereicht am", type: "date" }
+    ]
+  }
+];
+
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
 // angepasst werden. Bis dahin greift der Fallback-PDF-Pfad in pdf-utils.js.
@@ -105,6 +159,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.18",
+    groups: [
+      {
+        title: "Admin-Übersicht: konfigurierbarer CSV-Export",
+        items: [
+          "Neuer Button „CSV-Export…“ in der Liste „Eingereichte Trainerdaten“ – jedes Feld (Stammdaten, Bankverbindung, Vertrag & Status, Dokumente) ist per Checkbox einzeln an-/abwählbar.",
+          "Der Export berücksichtigt die aktuelle Such-/Filter-Einstellung: exportiert wird immer genau die gerade angezeigte Liste."
+        ]
+      }
+    ]
+  },
   {
     version: "1.17",
     groups: [
