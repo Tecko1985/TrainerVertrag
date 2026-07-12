@@ -2397,19 +2397,32 @@ function _splitNameForStub(fullName) {
   return { vorname: words.slice(0, -1).join(" "), nachname: words[words.length - 1] };
 }
 
-// Nutzername des zentralen Trainerprofils (ToolsUebersicht) zu einem
-// Personalkosten-Namen, per gleicher order-toleranter Übereinstimmung wie
-// _sameNamePair — null, wenn kein eindeutiger Treffer.
-function _usernameForFullName(fullName) {
+// Zentrales Trainerprofil (ToolsUebersicht) zu einem Personalkosten-Namen, per
+// gleicher order-toleranter Übereinstimmung wie _sameNamePair — null, wenn kein
+// eindeutiger Treffer.
+function _matchTrainerProfile(fullName) {
   const { vorname, nachname } = _splitNameForStub(fullName);
   const matches = (trainerProfiles || []).filter((p) => _sameNamePair(p.vorname, p.nachname, vorname, nachname));
-  return matches.length === 1 ? matches[0].username : null;
+  return matches.length === 1 ? matches[0] : null;
+}
+
+// Ob für einen NEUEN (noch nicht vorhandenen) Namen ein Stub-Trainer angelegt
+// werden darf: Mitglied der Gruppe "Trainer" ODER individuell als
+// "Vertrag benötigt" markiert (z.B. Helfer/Betreuer ohne Trainer-Rolle, die
+// trotzdem einen Vertrag brauchen — Checkbox in der ToolsUebersicht-
+// Nutzerverwaltung, User-Entscheidung 2026-07-12). Kein eindeutiger
+// Namenstreffer -> false (fail-closed, siehe _fetchTrainerGroupMembers).
+function _neuerStubErlaubt(fullName) {
+  const profil = _matchTrainerProfile(fullName);
+  if (!profil) return false;
+  return !!(trainerGroupMembers && trainerGroupMembers.has(profil.username)) || !!profil.vertragBenoetigt;
 }
 
 // Gruppe "Trainer" (ToolsUebersicht) für den Personalkosten-Import: neue Stub-
-// Trainer werden seit 1.19 nur noch für Namen angelegt, die sich einer
-// Gruppe-Trainer-Mitgliedschaft zuordnen lassen (siehe [[project-toolsuebersicht]] —
-// Personalkosten-Stub-Leichen für Nicht-Trainer sollen nicht mehr entstehen).
+// Trainer werden seit 1.19 nur noch für Namen angelegt, die entweder Mitglied
+// dieser Gruppe sind oder individuell als "Vertrag benötigt" markiert wurden
+// (siehe _neuerStubErlaubt, [[project-toolsuebersicht]]) — verhindert
+// Personalkosten-Stub-Leichen für Nicht-Trainer ohne Vertragsbedarf.
 // Bestehende Treffer (auch alte Stubs) sind davon unberührt, nur die Neuanlage
 // ist eingeschränkt.
 async function _fetchTrainerGroupMembers() {
@@ -2479,14 +2492,14 @@ function _renderTextImportPreview() {
     const lizenz    = (cols[1] || "").trim();
     const pauschale = (cols[2] || "").trim();
     const match     = _matchTrainer(name);
-    const blocked   = !match && !(trainerGroupMembers && trainerGroupMembers.has(_usernameForFullName(name)));
+    const blocked   = !match && !_neuerStubErlaubt(name);
     const status    = match
       ? `<span class="badge generiert">→ ${_esc(match.vorname)} ${_esc(match.nachname)}</span>`
       : blocked
-        ? `<span class="badge offen">Nicht in Gruppe „Trainer“</span>`
+        ? `<span class="badge offen">Nicht in Gruppe „Trainer“ / kein Vertrag markiert</span>`
         : `<span class="badge generiert">Neuer Trainer</span>`;
     const action    = blocked
-      ? `<button type="button" class="btn small" disabled title="Person ist nicht Mitglied der Gruppe „Trainer“ in ToolsUebersicht">Übersprungen</button>`
+      ? `<button type="button" class="btn small" disabled title="Weder Mitglied der Gruppe „Trainer“ noch als „Vertrag benötigt“ markiert (ToolsUebersicht-Nutzerverwaltung)">Übersprungen</button>`
       : `<button type="button" class="btn success small" data-import-row="${i}">${match ? "Importieren" : "Neu anlegen"}</button>`;
     return `<tr>
       <td style="padding:6px 10px;">${_esc(name)}</td>
@@ -2577,7 +2590,7 @@ async function _doImport() {
     let trainer = _matchTrainer(name);
     let isNew   = false;
     if (!trainer) {
-      if (!(trainerGroupMembers && trainerGroupMembers.has(_usernameForFullName(name)))) {
+      if (!_neuerStubErlaubt(name)) {
         skippedList.push(name);
         continue;
       }

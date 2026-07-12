@@ -163,9 +163,10 @@ const APP_CHANGELOG = [
     version: "1.19",
     groups: [
       {
-        title: "Personalkosten-Import: Gruppe „Trainer“",
+        title: "Personalkosten-Import: Gruppe „Trainer“ oder „Vertrag benötigt“",
         items: [
-          "Der Personalkosten-Import legt für neue Namen nur noch dann einen Trainer-Eintrag an, wenn die Person Mitglied der ToolsUebersicht-Gruppe „Trainer“ ist — verhindert Stub-Leichen für Personen, die zwar in Personalkosten stehen, aber keine Trainer sind. Bestehende Einträge (auch ältere Stubs) bleiben unangetastet."
+          "Der Personalkosten-Import legt für neue Namen nur noch dann einen Trainer-Eintrag an, wenn die Person Mitglied der ToolsUebersicht-Gruppe „Trainer“ ist ODER dort individuell als „Vertrag benötigt“ markiert wurde (z. B. Helfer/Betreuer ohne Trainer-Rolle) — verhindert Stub-Leichen für Personen, die zwar in Personalkosten stehen, aber keinen Vertrag brauchen. Bestehende Einträge (auch ältere Stubs) bleiben unangetastet.",
+          "Die Trainervertrag-Quote im ToolsUebersicht-Admin-Dashboard zählt entsprechend jetzt beide Gruppen zusammen."
         ]
       }
     ]
