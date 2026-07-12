@@ -1244,6 +1244,7 @@ function _initAdminPanel() {
   document.getElementById("liste-search").addEventListener("input", _renderAdminListe);
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
+  document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
   // (die Buttons werden anders als die Autosave-Felder nicht per cloneNode ersetzt).
@@ -1353,14 +1354,17 @@ function _renderAdminListe() {
   filterbar.style.display = "";
   _populateLizenzFilterOptions();
 
-  const searchTerm   = document.getElementById("liste-search").value.trim().toLowerCase();
-  const statusFilter = document.getElementById("liste-filter-status").value;
-  const lizenzFilter = document.getElementById("liste-filter-lizenz").value;
+  const searchTerm    = document.getElementById("liste-search").value.trim().toLowerCase();
+  const statusFilter  = document.getElementById("liste-filter-status").value;
+  const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
+  const vertragFilter = document.getElementById("liste-filter-vertrag").value;
 
   const filtered = appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
     if (statusFilter && _trainerStatus(t) !== statusFilter) return false;
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
+    if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
+    if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
     return true;
   });
 

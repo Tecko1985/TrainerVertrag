@@ -106,6 +106,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.17",
+    groups: [
+      {
+        title: "Admin-Übersicht: Filter nach Vertragsunterschrift",
+        items: [
+          "Neuer Filter „Vertrag unterschrieben“ / „Vertrag nicht unterschrieben“ in der Liste „Eingereichte Trainerdaten“ – zeigt gezielt die Trainer, die ihren Trainervertrag bereits digital unterschrieben haben."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.16",
     groups: [
       {
