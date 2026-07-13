@@ -854,13 +854,32 @@ function _renderTrainerVertragStatus() {
   }
 }
 
+// Safari (v.a. iOS) blockiert window.open() nach einem await als Popup, auch wenn der
+// Aufruf aus einem Klick-Handler stammt — der "echte Nutzerklick"-Kontext gilt dort nur
+// bis zum ersten await, danach silently blockiert (kein Fehler, kein Alert). Fix: leeres
+// Fenster SYNCHRON im Klick-Callstack öffnen, danach nur noch die URL nachreichen
+// (location.href auf einer bereits offenen Fenster-Referenz ist auch später erlaubt).
+// Verzögertes revoke (10s) lassen wir stehen, da manche mobilen Browser die Blob-URL
+// erst nach dem Laden brauchen.
+function _openBlobTab() {
+  const win = window.open("", "_blank");
+  return {
+    show(blob) {
+      const url = URL.createObjectURL(blob);
+      if (win) win.location.href = url; else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    },
+    abort() { if (win) win.close(); }
+  };
+}
+
 async function _viewMyVertrag(signed) {
+  const tab = _openBlobTab();
   try {
     const blob = await fetchMyVertragBlob(signed);
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     if (err instanceof NotLoggedInError) {
       _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
     } else {
@@ -913,12 +932,12 @@ async function _handleVertragSubmit() {
 }
 
 async function _viewMyFuehrerschein() {
+  const tab = _openBlobTab();
   try {
     const blob = await fetchMyFuehrerscheinBlob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     if (err instanceof NotLoggedInError) {
       _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
     } else {
@@ -928,12 +947,12 @@ async function _viewMyFuehrerschein() {
 }
 
 async function _viewMyFuehrungszeugnis() {
+  const tab = _openBlobTab();
   try {
     const blob = await fetchMyFuehrungszeugnisBlob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     if (err instanceof NotLoggedInError) {
       _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
     } else {
@@ -943,12 +962,12 @@ async function _viewMyFuehrungszeugnis() {
 }
 
 async function _viewMyTrainerlizenz() {
+  const tab = _openBlobTab();
   try {
     const blob = await fetchMyTrainerlizenzBlob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     if (err instanceof NotLoggedInError) {
       _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden.");
     } else {
@@ -1011,12 +1030,12 @@ function _renderFuehrerscheinRegisterRows(list) {
 }
 
 async function _viewFuehrerscheinForOwner(trainerId) {
+  const tab = _openBlobTab();
   try {
     const blob = await fetchFuehrerscheinFileForOwner(trainerId);
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     alert("Datei nicht abrufbar: " + err.message);
   }
 }
@@ -1920,16 +1939,13 @@ const SUBDIR_CTYPE_FIELD = {
 async function _ansehenDocumentAdmin(subdir) {
   const t = appData.trainer.find(x => x.id === currentTrainerId);
   if (!t) return;
+  const tab = _openBlobTab();
   try {
     const blob = await davReadBinary(_trainerDocConfig(subdir, t.id), t[SUBDIR_CTYPE_FIELD[subdir]]);
-    if (!blob) { alert("Datei nicht gefunden."); return; }
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    // Verzögert freigeben: sofortiges revoke direkt nach dem Öffnen bricht die Anzeige
-    // auf manchen (v.a. mobilen) Browsern ab — gleiche Konvention wie im migrierten
-    // Fahrtenbuch-Export.
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    if (!blob) { tab.abort(); alert("Datei nicht gefunden."); return; }
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     alert("Datei nicht abrufbar: " + err.message);
   }
 }
@@ -1945,13 +1961,13 @@ async function _ansehenVertragAdmin(signed) {
   const relPath = signed ? t.vertragSigniertPfad : t.vertragPdfPfad;
   if (!relPath) { alert("Datei nicht gefunden."); return; }
   const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
+  const tab = _openBlobTab();
   try {
     const blob = await davReadBinary({ ...davConfig, url: dir + "/" + relPath }, "application/pdf");
-    if (!blob) { alert("Datei nicht gefunden."); return; }
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    if (!blob) { tab.abort(); alert("Datei nicht gefunden."); return; }
+    tab.show(blob);
   } catch (err) {
+    tab.abort();
     alert("Datei nicht abrufbar: " + err.message);
   }
 }
