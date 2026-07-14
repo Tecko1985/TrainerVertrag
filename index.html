@@ -42,22 +42,27 @@
 
   <!-- Formular -->
   <div id="trainer-form-screen" class="trainer-form-screen" style="display:none;">
-    <div class="card">
-      <h2>Deine Trainerdaten</h2>
-      <p class="muted" style="margin-bottom:6px; line-height:1.5;">
-        Bitte füll das Formular vollständig aus und unterschreibe am Ende.
-        Deine Daten werden sicher auf unserem Vereinsserver gespeichert.
-      </p>
-      <p class="muted" style="margin-bottom:18px; font-size:13px;">
-        Angemeldet als <strong id="tf-angemeldet-als">…</strong> ·
-        <a href="https://tecko1985.github.io/ToolsUebersicht/">Konto verwalten</a>
-      </p>
+    <form id="trainer-form" novalidate>
 
-      <div class="error-banner" id="trainer-error"></div>
+      <div class="card">
+        <h2>Deine Trainerdaten</h2>
+        <p class="muted" style="margin-bottom:6px; line-height:1.5;">
+          Bitte füll das Formular vollständig aus und unterschreibe am Ende.
+          Deine Daten werden sicher auf unserem Vereinsserver gespeichert.
+        </p>
+        <p class="muted" style="font-size:13px;">
+          Angemeldet als <strong id="tf-angemeldet-als">…</strong> ·
+          <a href="https://tecko1985.github.io/ToolsUebersicht/">Konto verwalten</a>
+        </p>
+        <div class="error-banner" id="trainer-error"></div>
+      </div>
 
-      <form id="trainer-form" novalidate>
-
-        <div class="section-divider">Persönliche Daten</div>
+      <details class="card accordion-card" id="tf-persoenlich-card">
+        <summary class="accordion-summary">
+          <span class="accordion-title">Persönliche Daten</span>
+          <span class="accordion-badge na" id="tf-persoenlich-badge">–</span>
+        </summary>
+        <div class="accordion-body">
         <div class="form-grid">
           <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
           <div class="form-field required"><label>Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
@@ -68,13 +73,20 @@
           <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
           <div class="form-field"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" style="margin-bottom:0;">
           <div class="form-field"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
           <div class="form-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
         </div>
+        </div>
+      </details>
 
-        <div class="section-divider">Bankverbindung</div>
-        <div class="form-grid">
+      <details class="card accordion-card" id="tf-bank-card">
+        <summary class="accordion-summary">
+          <span class="accordion-title">Bankverbindung</span>
+          <span class="accordion-badge na" id="tf-bank-badge">–</span>
+        </summary>
+        <div class="accordion-body">
+        <div class="form-grid" style="margin-bottom:0;">
           <div class="form-field required" style="grid-column:1/-1;">
             <label>IBAN</label>
             <input type="text" id="tf-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
@@ -82,9 +94,16 @@
           <div class="form-field"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
           <div class="form-field"><label>BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
         </div>
+        </div>
+      </details>
 
-        <div class="section-divider">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG) — Anlage 1</div>
-        <p class="muted" style="margin:-4px 0 10px; line-height:1.5;">
+      <details class="card accordion-card" id="tf-nebentaetigkeit-card">
+        <summary class="accordion-summary">
+          <span class="accordion-title">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG)</span>
+          <span class="accordion-badge na" id="tf-nebentaetigkeit-badge">–</span>
+        </summary>
+        <div class="accordion-body">
+        <p class="muted" style="margin-bottom:10px; line-height:1.5;">
           Für die steuerfreie Übungsleiterpauschale musst du erklären, ob du im laufenden Kalenderjahr weitere Einnahmen aus einer anderen nebenberuflichen Tätigkeit im Sinne des § 3 Nr. 26 EStG hast bzw. hattest.
         </p>
         <label class="radio-option">
@@ -100,8 +119,15 @@
             </span>
           </span>
         </label>
+        </div>
+      </details>
 
-        <div class="section-divider">Unterschrift</div>
+      <details class="card accordion-card" id="tf-unterschrift-card">
+        <summary class="accordion-summary">
+          <span class="accordion-title">Unterschrift</span>
+          <span class="accordion-badge na" id="tf-unterschrift-badge">–</span>
+        </summary>
+        <div class="accordion-body">
         <div class="signature-box">
           <label>Hier unterschreiben (Maus oder Finger)</label>
           <canvas id="trainer-sig-canvas"></canvas>
@@ -110,12 +136,13 @@
             <button type="button" class="btn secondary small" id="btn-sig-clear">Löschen</button>
           </div>
         </div>
-
-        <div class="btn-row" style="margin-top:24px; justify-content:flex-start;">
-          <button type="submit" class="btn success" id="btn-trainer-submit">Daten einreichen</button>
         </div>
-      </form>
-    </div>
+      </details>
+
+      <div class="btn-row" style="margin-top:8px; margin-bottom:24px; justify-content:flex-start;">
+        <button type="submit" class="btn success" id="btn-trainer-submit">Daten einreichen</button>
+      </div>
+    </form>
   </div>
 
   <!-- Erfolgs-Screen / Bereits-eingereicht-Screen -->
@@ -741,6 +768,6 @@
 <script src="db.js?v=1.18"></script>
 <script src="signature-pad.js?v=1.18"></script>
 <script src="pdf-utils.js?v=1.18"></script>
-<script src="app.js?v=1.22"></script>
+<script src="app.js?v=1.23"></script>
 </body>
 </html>

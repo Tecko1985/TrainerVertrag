@@ -82,9 +82,11 @@ async function _initTrainerGateway() {
       _showReceiptScreen({ justSubmitted: false });
     } else {
       myTrainerRecord = saved || null;
-      _showTrainerFormScreen();
+      // Vorbefüllung MUSS vor _showTrainerFormScreen() passieren -- die ruft am Ende
+      // _updateTrainerFormBadges() auf, das sonst mit noch leeren Feldern rechnet.
       document.getElementById("tf-vorname").value  = (saved && saved.vorname) || currentVorname  || "";
       document.getElementById("tf-nachname").value = (saved && saved.nachname) || currentNachname || "";
+      _showTrainerFormScreen();
     }
     document.getElementById("tf-angemeldet-als").textContent =
       [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername;
@@ -128,6 +130,7 @@ function _showTrainerFormScreen() {
   _renderTrainerKodexStatus();
   _renderTrainerJugendschutzStatus();
   _renderTrainerVertragStatus();
+  _updateTrainerFormBadges();
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -155,10 +158,11 @@ function _renderChangelog() {
 
 function _initTrainerForm() {
   const canvas = document.getElementById("trainer-sig-canvas");
-  trainerSigPad = createSignaturePad(canvas, () => {});
+  trainerSigPad = createSignaturePad(canvas, _updateTrainerFormBadges);
 
   document.getElementById("btn-sig-clear").addEventListener("click", () => {
     trainerSigPad.clear();
+    _updateTrainerFormBadges();
   });
 
   document.getElementById("trainer-form").addEventListener("submit", _handleTrainerSubmit);
@@ -166,8 +170,11 @@ function _initTrainerForm() {
   document.getElementById("btn-trainer-edit").addEventListener("click", _startEditTrainer);
 
   document.querySelectorAll('input[name="tf-nebentaetigkeit"]').forEach(r => {
-    r.addEventListener("change", () => _updateNebentaetigkeitBetragVisibility("tf"));
+    r.addEventListener("change", () => { _updateNebentaetigkeitBetragVisibility("tf"); _updateTrainerFormBadges(); });
   });
+  document.getElementById("tf-nebentaetigkeit-betrag").addEventListener("input", _updateTrainerFormBadges);
+  document.getElementById("tf-vorname").addEventListener("input", _updateTrainerFormBadges);
+  document.getElementById("tf-nachname").addEventListener("input", _updateTrainerFormBadges);
 
   // IBAN auto-formatieren (Leerzeichen alle 4 Stellen)
   const ibanInput = document.getElementById("tf-iban");
@@ -179,7 +186,31 @@ function _initTrainerForm() {
     // Cursor-Position nach Formatierung anpassen
     const diff = fmt.length - raw.length;
     try { ibanInput.setSelectionRange(pos + diff, pos + diff); } catch (_) {}
+    _updateTrainerFormBadges();
   });
+}
+
+// Aktualisiert die vier Abschnitts-Badges des Hauptformulars live bei jeder Eingabe --
+// anders als die übrigen Karten (Server-Status) ist das hier reiner Client-Zustand,
+// noch nicht gespeichert. Prüft exakt dieselben Bedingungen wie _handleTrainerSubmit,
+// damit "alle vier grün" zuverlässig bedeutet "Absenden würde durchgehen" (Ausnahme
+// Unterschrift, die wie im Submit-Handler bewusst kein Pflichtfeld ist, aber trotzdem
+// einen eigenen ausgefüllt/nicht-Status verdient).
+function _updateTrainerFormBadges() {
+  const vorname  = document.getElementById("tf-vorname").value.trim();
+  const nachname = document.getElementById("tf-nachname").value.trim();
+  _setAccordionState("tf-persoenlich-card", (vorname && nachname) ? "done" : "open", "tf-persoenlich-badge");
+
+  const iban = document.getElementById("tf-iban").value.replace(/\s+/g, "").toUpperCase();
+  const ibanOk = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban);
+  _setAccordionState("tf-bank-card", ibanOk ? "done" : "open", "tf-bank-badge");
+
+  const nebenEl = document.querySelector('input[name="tf-nebentaetigkeit"]:checked');
+  const betrag = document.getElementById("tf-nebentaetigkeit-betrag").value.trim();
+  const nebenOk = !!nebenEl && (nebenEl.value !== "andere" || !!betrag);
+  _setAccordionState("tf-nebentaetigkeit-card", nebenOk ? "done" : "open", "tf-nebentaetigkeit-badge");
+
+  _setAccordionState("tf-unterschrift-card", trainerSigPad.isEmpty() ? "open" : "done", "tf-unterschrift-badge");
 }
 
 async function _handleTrainerSubmit(e) {

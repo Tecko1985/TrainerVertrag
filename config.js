@@ -160,6 +160,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.23",
+    groups: [
+      {
+        title: "Hauptformular: aufklappbare Abschnitte mit Status-Häkchen",
+        items: [
+          "Persönliche Daten, Bankverbindung, Erklärung Nebentätigkeit und Unterschrift lassen sich jetzt einzeln auf-/zuklappen, mit demselben Häkchen/Kreuz/Strich-Badge wie die übrigen Karten.",
+          "Die Badges aktualisieren sich live beim Tippen — kein Neuladen nötig, um zu sehen, was noch fehlt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.22",
     groups: [
       {
