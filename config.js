@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.24",
+    groups: [
+      {
+        title: "Trainerbereich: Status-Häkchen der Trainerlizenz",
+        items: [
+          "Eine hochgeladene, aber abgelaufene Trainerlizenz zeigt jetzt korrekt ein rotes Kreuz (offen) statt eines grünen Häkchens — passend zur Gesamt-Ampel im Dashboard."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.23",
     groups: [
       {

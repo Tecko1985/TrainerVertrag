@@ -785,7 +785,12 @@ function _renderTrainerDocumentsStatus() {
   tlGueltigInp.value = t.trainerlizenzGueltigBis || "";
   tlArtSel.disabled = !!t.trainerlizenzNichtVorhanden;
   tlGueltigInp.disabled = !!t.trainerlizenzNichtVorhanden;
-  _setAccordionState("tf-tl-card", (t.trainerlizenzHochgeladenAm || t.trainerlizenzNichtVorhanden) ? "done" : "open", "tf-tl-badge");
+  // Ablauf mitwerten (wie Führerschein/Kodex-Badge und die Server-Ampel `lizenzOk`
+  // in admin-worker.js): eine hochgeladene, aber abgelaufene Lizenz ist NICHT
+  // erledigt -- sonst grünes Häkchen trotz roter Dashboard-Ampel.
+  const tlErledigt = t.trainerlizenzNichtVorhanden ||
+    (t.trainerlizenzHochgeladenAm && !(t.trainerlizenzGueltigBis && _dateOnlyIsPast(t.trainerlizenzGueltigBis)));
+  _setAccordionState("tf-tl-card", tlErledigt ? "done" : "open", "tf-tl-badge");
 
   const fsStatusEl   = document.getElementById("tf-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
