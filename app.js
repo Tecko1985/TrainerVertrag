@@ -190,27 +190,29 @@ function _initTrainerForm() {
   });
 }
 
-// Aktualisiert die vier Abschnitts-Badges des Hauptformulars live bei jeder Eingabe --
-// anders als die übrigen Karten (Server-Status) ist das hier reiner Client-Zustand,
-// noch nicht gespeichert. Prüft exakt dieselben Bedingungen wie _handleTrainerSubmit,
-// damit "alle vier grün" zuverlässig bedeutet "Absenden würde durchgehen" (Ausnahme
-// Unterschrift, die wie im Submit-Handler bewusst kein Pflichtfeld ist, aber trotzdem
-// einen eigenen ausgefüllt/nicht-Status verdient).
+// Aktualisiert das EINE Gesamt-Badge des Hauptformulars live bei jeder Eingabe (alle
+// vier Bereiche zusammen in einer Karte, kein Einzel-Badge pro Bereich) -- anders als
+// die übrigen Karten (Server-Status) ist das hier reiner Client-Zustand, noch nicht
+// gespeichert. Prüft dieselben Pflichtfelder wie _handleTrainerSubmit, plus zusätzlich
+// die Unterschrift (dort bewusst kein Pflichtfeld fürs Absenden, verdient aber trotzdem
+// einen eigenen ausgefüllt/nicht-Status) -- "✓" heißt hier also strenger als "Absenden
+// würde durchgehen": wirklich alles inkl. Unterschrift ist da.
 function _updateTrainerFormBadges() {
   const vorname  = document.getElementById("tf-vorname").value.trim();
   const nachname = document.getElementById("tf-nachname").value.trim();
-  _setAccordionState("tf-persoenlich-card", (vorname && nachname) ? "done" : "open", "tf-persoenlich-badge");
+  const persoenlichOk = !!(vorname && nachname);
 
   const iban = document.getElementById("tf-iban").value.replace(/\s+/g, "").toUpperCase();
   const ibanOk = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban);
-  _setAccordionState("tf-bank-card", ibanOk ? "done" : "open", "tf-bank-badge");
 
   const nebenEl = document.querySelector('input[name="tf-nebentaetigkeit"]:checked');
   const betrag = document.getElementById("tf-nebentaetigkeit-betrag").value.trim();
   const nebenOk = !!nebenEl && (nebenEl.value !== "andere" || !!betrag);
-  _setAccordionState("tf-nebentaetigkeit-card", nebenOk ? "done" : "open", "tf-nebentaetigkeit-badge");
 
-  _setAccordionState("tf-unterschrift-card", trainerSigPad.isEmpty() ? "open" : "done", "tf-unterschrift-badge");
+  const unterschriftOk = !trainerSigPad.isEmpty();
+
+  const alles = persoenlichOk && ibanOk && nebenOk && unterschriftOk;
+  _setAccordionState("tf-hauptformular-card", alles ? "done" : "open", "tf-hauptformular-badge");
 }
 
 async function _handleTrainerSubmit(e) {
