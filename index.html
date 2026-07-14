@@ -289,18 +289,6 @@
       <p class="error-banner" id="tf-fz-error"></p>
       </div>
     </details>
-
-    <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -->
-    <div class="card" id="tf-fs-register-card" style="display:none;">
-      <h2>Führerschein-Register</h2>
-      <p class="muted" style="margin-bottom:14px;">Wer hat eine Kopie hinterlegt? Nur für berechtigte Nutzer sichtbar.</p>
-      <div class="btn-row" style="justify-content:flex-start; gap:10px; margin-bottom:14px;">
-        <button type="button" class="btn secondary small" id="btn-tf-fs-export">📄 Alle als PDF exportieren</button>
-        <span class="muted" id="tf-fs-export-status" style="font-size:12px;"></span>
-      </div>
-      <div class="empty-state" id="tf-fs-register-empty" style="display:none;">Noch keine Führerschein-Kopien hinterlegt.</div>
-      <div id="tf-fs-register-rows" style="overflow-x:auto;"></div>
-    </div>
   </div>
 
   <!-- Trainerkodex (migriert aus der eigenständigen App trainerkodex, seit 1.6;
@@ -369,6 +357,20 @@
       </div>
       </div>
     </details>
+
+    <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -- bewusst
+         ganz unten, da es kein eigenes Dokument/keine eigene Bestätigung ist, sondern
+         eine Übersicht für Berechtigte. -->
+    <div class="card" id="tf-fs-register-card" style="display:none;">
+      <h2>Führerschein-Register</h2>
+      <p class="muted" style="margin-bottom:14px;">Wer hat eine Kopie hinterlegt? Nur für berechtigte Nutzer sichtbar.</p>
+      <div class="btn-row" style="justify-content:flex-start; gap:10px; margin-bottom:14px;">
+        <button type="button" class="btn secondary small" id="btn-tf-fs-export">📄 Alle als PDF exportieren</button>
+        <span class="muted" id="tf-fs-export-status" style="font-size:12px;"></span>
+      </div>
+      <div class="empty-state" id="tf-fs-register-empty" style="display:none;">Noch keine Führerschein-Kopien hinterlegt.</div>
+      <div id="tf-fs-register-rows" style="overflow-x:auto;"></div>
+    </div>
   </div>
 
 </div>
