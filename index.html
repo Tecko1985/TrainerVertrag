@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.18" />
+<link rel="stylesheet" href="style.css?v=1.22" />
 </head>
 <body>
 
@@ -154,8 +154,12 @@
     <!-- Trainervertrag (seit 1.10): das vom Skript generate-pdfs.ps1 bereitgestellte
          Vertrags-PDF ansehen, digital unterschreiben (Original + angehängte
          Unterschriftenseite) und danach jederzeit als unterschriebenes PDF ansehen. -->
-    <div class="card" id="tf-vertrag-card">
-      <h2>Trainervertrag</h2>
+    <details class="card accordion-card" id="tf-vertrag-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Trainervertrag</span>
+        <span class="accordion-badge na" id="tf-vertrag-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
         Sieh dir deinen Trainervertrag an und unterschreibe ihn digital. Dein unterschriebener
         Vertrag wird sicher gespeichert und ist hier jederzeit wieder einsehbar.
@@ -184,15 +188,20 @@
       <p class="muted" id="tf-vertrag-hinweis" style="display:none; margin-top:12px; font-size:12px;">
         Dein unterschriebener Vertrag ist gespeichert. Du kannst ihn oben jederzeit erneut ansehen.
       </p>
-    </div>
+      </div>
+    </details>
 
     <!-- TrainerCheckliste-Status (seit 1.8): read-only Spiegel der Checkliste
          Trainerzu-/-abgang, die die Geschäftsstelle in der eigenständigen App
          TrainerCheckliste führt. Rein informativ, keine Bestätigung/Signatur hier
          (die Unterschriften stammen aus TrainerCheckliste selbst und werden nur
          angezeigt) -- siehe CLAUDE.md. -->
-    <div class="card">
-      <h2>Checkliste Trainerzu-/-abgang</h2>
+    <details class="card accordion-card" id="tf-checkliste-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Checkliste Trainerzu-/-abgang</span>
+        <span class="accordion-badge na" id="tf-checkliste-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
         Status deiner Onboarding-/Offboarding-Checkliste, geführt von der Geschäftsstelle (App TrainerCheckliste). Rein informativ.
       </p>
@@ -201,10 +210,15 @@
         <button type="button" class="btn secondary small" id="btn-checkliste-oeffnen" disabled>Öffnen</button>
       </div>
       <div id="checkliste-detail" style="display:none; margin-top:16px;"></div>
-    </div>
+      </div>
+    </details>
 
-    <div class="card">
-      <h2>Trainerlizenz</h2>
+    <details class="card accordion-card" id="tf-tl-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Trainerlizenz</span>
+        <span class="accordion-badge na" id="tf-tl-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
         Lade eine Kopie deiner Trainerlizenz hoch (Kamera oder Datei/PDF).
       </p>
@@ -230,10 +244,15 @@
         <input type="checkbox" id="tf-tl-keine" /> Ich habe keine Trainerlizenz
       </label>
       <p class="error-banner" id="tf-tl-error"></p>
-    </div>
+      </div>
+    </details>
 
-    <div class="card">
-      <h2>Führerschein</h2>
+    <details class="card accordion-card" id="tf-fs-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Führerschein</span>
+        <span class="accordion-badge na" id="tf-fs-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
         Die Kopie deiner Fahrerlaubnis ist nach der ersten Einreichung <strong>alle 6 Monate</strong> erneut hochzuladen.
       </p>
@@ -246,10 +265,15 @@
         <input type="file" id="tf-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
       </div>
       <p class="error-banner" id="tf-fs-error"></p>
-    </div>
+      </div>
+    </details>
 
-    <div class="card">
-      <h2>Führungszeugnis</h2>
+    <details class="card accordion-card" id="tf-fz-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Führungszeugnis</span>
+        <span class="accordion-badge na" id="tf-fz-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <p class="muted" style="margin-bottom:14px; line-height:1.5;">
         Erweitertes Führungszeugnis hochladen (Kamera oder Datei/PDF). Du kannst deine eigene
         eingereichte Datei jederzeit ansehen; zusätzlich hat der Admin Zugriff.
@@ -263,7 +287,8 @@
         <input type="file" id="tf-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
       </div>
       <p class="error-banner" id="tf-fz-error"></p>
-    </div>
+      </div>
+    </details>
 
     <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -->
     <div class="card" id="tf-fs-register-card" style="display:none;">
@@ -281,8 +306,12 @@
   <!-- Trainerkodex (migriert aus der eigenständigen App trainerkodex, seit 1.6;
        Text+Bestätigung seit 1.7 in einer gemeinsamen Karte, siehe Changelog) -->
   <div id="trainer-kodex-panel" class="trainer-form-screen" style="display:none;">
-    <div class="card">
-      <h2>Trainerkodex</h2>
+    <details class="card accordion-card" id="tf-kodex-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Trainerkodex</span>
+        <span class="accordion-badge na" id="tf-kodex-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <div class="placeholder-banner" id="kodex-placeholder-banner" style="display:none;">
         ⚠️ Platzhaltertext — dies ist noch nicht der endgültige Kodex.
       </div>
@@ -304,14 +333,19 @@
       <div class="btn-row" style="justify-content:flex-start; margin-top:16px;">
         <button type="button" class="btn success" id="btn-tf-kodex-submit">Ich bestätige</button>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 
   <!-- Kinder- und Jugendschutzkonzept (seit 1.7, gleiches Muster wie Trainerkodex:
        eigenständiges Dokument, eigene Bestätigung mit Unterschrift, eigene 6-Monats-Frist) -->
   <div id="trainer-jugendschutz-panel" class="trainer-form-screen" style="display:none;">
-    <div class="card">
-      <h2>Kinder- und Jugendschutzkonzept</h2>
+    <details class="card accordion-card" id="tf-jugendschutz-card">
+      <summary class="accordion-summary">
+        <span class="accordion-title">Kinder- und Jugendschutzkonzept</span>
+        <span class="accordion-badge na" id="tf-jugendschutz-badge">–</span>
+      </summary>
+      <div class="accordion-body">
       <div class="placeholder-banner" id="jugendschutz-placeholder-banner" style="display:none;">
         ⚠️ Platzhaltertext — dies ist noch nicht der endgültige Text.
       </div>
@@ -333,7 +367,8 @@
       <div class="btn-row" style="justify-content:flex-start; margin-top:16px;">
         <button type="button" class="btn success" id="btn-tf-jugendschutz-submit">Ich bestätige</button>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 
 </div>
@@ -704,6 +739,6 @@
 <script src="db.js?v=1.18"></script>
 <script src="signature-pad.js?v=1.18"></script>
 <script src="pdf-utils.js?v=1.18"></script>
-<script src="app.js?v=1.21"></script>
+<script src="app.js?v=1.22"></script>
 </body>
 </html>

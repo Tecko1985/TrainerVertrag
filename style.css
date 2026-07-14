@@ -380,6 +380,51 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 }
 .error-banner.visible { display: block; }
 
+/* Aufklappbare Karten (Trainer-Dokumente/-Bestätigungen) */
+.accordion-card { padding: 0; }
+.accordion-card > summary.accordion-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  border-radius: var(--radius);
+}
+.accordion-card > summary.accordion-summary::-webkit-details-marker { display: none; }
+.accordion-card > summary.accordion-summary::marker { content: ""; }
+.accordion-card > summary.accordion-summary:hover { background: var(--gray); }
+.accordion-card[open] > summary.accordion-summary { border-radius: var(--radius) var(--radius) 0 0; }
+.accordion-card > summary.accordion-summary::before {
+  content: "▸";
+  order: -1;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.accordion-card[open] > summary.accordion-summary::before { transform: rotate(90deg); }
+.accordion-title { flex: 1 1 auto; }
+.accordion-badge {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+}
+.accordion-badge.done { background: var(--green-light); color: var(--green); }
+.accordion-badge.open { background: var(--red-light); color: var(--red); }
+.accordion-badge.na   { background: var(--gray); color: var(--muted); }
+.accordion-body { padding: 0 24px 24px; }
+
 /* Changelog */
 #changelog-list { display: flex; flex-direction: column; gap: 8px; }
 .changelog-entry { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }

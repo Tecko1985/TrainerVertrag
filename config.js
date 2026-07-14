@@ -160,6 +160,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.22",
+    groups: [
+      {
+        title: "Trainerbereich: aufklappbare Karten mit Status-Häkchen",
+        items: [
+          "Trainervertrag, Checkliste Trainerzu-/-abgang, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich jetzt einzeln auf-/zuklappen — die Seite bleibt dadurch deutlich kompakter.",
+          "Jede Karte zeigt direkt im Titel ein Häkchen (erledigt), Kreuz (noch offen) oder einen Strich (aktuell nicht zutreffend). Beim ersten Laden starten offene Punkte automatisch ausgeklappt, erledigte eingeklappt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.19",
     groups: [
       {

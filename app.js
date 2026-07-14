@@ -356,6 +356,25 @@ function _dateOnlyIsPast(iso) {
   return iso < today;
 }
 
+// Setzt Badge (✓/✗/–) einer aufklappbaren Trainer-Karte (<details class="accordion-card">).
+// Der offen/zu-Zustand wird nur beim ALLERERSTEN Aufruf pro Karte (dataset.accInit
+// fehlt noch) automatisch gesetzt -- offene Punkte starten ausgeklappt, erledigte
+// eingeklappt. Spätere Re-Renders (z.B. nach einem Upload) aktualisieren nur noch
+// das Badge und lassen einen inzwischen vom Nutzer selbst gewählten open/zu-Zustand
+// unangetastet.
+function _setAccordionState(cardId, state, badgeId) {
+  const badge = document.getElementById(badgeId);
+  if (badge) {
+    badge.textContent = state === "done" ? "✓" : state === "open" ? "✗" : "–";
+    badge.className = "accordion-badge " + state;
+  }
+  const card = document.getElementById(cardId);
+  if (card && card.dataset.accInit === undefined) {
+    card.open = state === "open";
+    card.dataset.accInit = "1";
+  }
+}
+
 // Einzige Quelle für die Lizenzart-Optionen (TRAINERLIZENZ_ARTEN in config.js) —
 // befüllt beide <select>-Felder (Trainer-Selbstbedienung + Admin-Detail) identisch.
 function _populateLizenzArtSelect(selectId) {
@@ -448,6 +467,7 @@ function _renderMyChecklisteStatus() {
   if (!myChecklisteStatus) {
     statusEl.textContent = "Status derzeit nicht abrufbar.";
     btn.disabled = true;
+    _setAccordionState("tf-checkliste-card", "na", "tf-checkliste-badge");
     return;
   }
   if (!myChecklisteStatus.vorhanden) {
@@ -457,6 +477,7 @@ function _renderMyChecklisteStatus() {
     detailEl.innerHTML = "";
     _checklisteDetailOpen = false;
     btn.textContent = "Öffnen";
+    _setAccordionState("tf-checkliste-card", "na", "tf-checkliste-badge");
     return;
   }
 
@@ -465,6 +486,9 @@ function _renderMyChecklisteStatus() {
     ? `✅ Zugang abgeschlossen${z.datum ? " am " + _esc(_fmtDateOnly(z.datum)) : ""}`
     : "⏳ Zugang noch nicht abgeschlossen";
   btn.disabled = false;
+  // Rein informativ (fließt nicht in die Ampel ein, siehe CLAUDE.md) -- daher nie
+  // ein rotes ✗, nur ✓ bei Abschluss bzw. neutrales – solange offen/nicht vorhanden.
+  _setAccordionState("tf-checkliste-card", z.abgeschlossen ? "done" : "na", "tf-checkliste-badge");
 
   if (_checklisteDetailOpen) {
     detailEl.innerHTML =
@@ -728,6 +752,7 @@ function _renderTrainerDocumentsStatus() {
   tlGueltigInp.value = t.trainerlizenzGueltigBis || "";
   tlArtSel.disabled = !!t.trainerlizenzNichtVorhanden;
   tlGueltigInp.disabled = !!t.trainerlizenzNichtVorhanden;
+  _setAccordionState("tf-tl-card", (t.trainerlizenzHochgeladenAm || t.trainerlizenzNichtVorhanden) ? "done" : "open", "tf-tl-badge");
 
   const fsStatusEl   = document.getElementById("tf-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-tf-fs-ansehen");
@@ -740,11 +765,13 @@ function _renderTrainerDocumentsStatus() {
     fsAnsehenBtn.disabled = false;
     document.getElementById("btn-tf-fs-upload").textContent = "Datei ersetzen…";
     document.getElementById("btn-tf-fs-camera").textContent = "📷 Neu aufnehmen";
+    _setAccordionState("tf-fs-card", gueltig ? "done" : "open", "tf-fs-badge");
   } else {
     fsStatusEl.textContent = "⚠️ Noch keine Führerschein-Kopie eingereicht.";
     fsAnsehenBtn.disabled = true;
     document.getElementById("btn-tf-fs-upload").textContent = "Datei / Galerie wählen…";
     document.getElementById("btn-tf-fs-camera").textContent = "📷 Foto aufnehmen";
+    _setAccordionState("tf-fs-card", "open", "tf-fs-badge");
   }
 
   const fzStatusEl = document.getElementById("tf-fz-status");
@@ -754,11 +781,13 @@ function _renderTrainerDocumentsStatus() {
     fzAnsehenBtn.disabled = false;
     document.getElementById("btn-tf-fz-upload").textContent = "Datei ersetzen…";
     document.getElementById("btn-tf-fz-camera").textContent = "📷 Neu aufnehmen";
+    _setAccordionState("tf-fz-card", "done", "tf-fz-badge");
   } else {
     fzStatusEl.textContent = "⚠️ Noch nicht eingereicht.";
     fzAnsehenBtn.disabled = true;
     document.getElementById("btn-tf-fz-upload").textContent = "Datei / Galerie wählen…";
     document.getElementById("btn-tf-fz-camera").textContent = "📷 Foto aufnehmen";
+    _setAccordionState("tf-fz-card", "open", "tf-fz-badge");
   }
 }
 
@@ -779,9 +808,11 @@ function _renderTrainerKodexStatus() {
       ? `✅ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
       : `⚠️ Bestätigt am ${_esc(_fmtIso(t.kodexBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
     submitBtn.textContent = "Erneut bestätigen";
+    _setAccordionState("tf-kodex-card", gueltig ? "done" : "open", "tf-kodex-badge");
   } else {
     statusEl.textContent = "⚠️ Noch nicht bestätigt.";
     submitBtn.textContent = "Ich bestätige";
+    _setAccordionState("tf-kodex-card", "open", "tf-kodex-badge");
   }
 }
 
@@ -801,9 +832,11 @@ function _renderTrainerJugendschutzStatus() {
       ? `✅ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
       : `⚠️ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
     submitBtn.textContent = "Erneut bestätigen";
+    _setAccordionState("tf-jugendschutz-card", gueltig ? "done" : "open", "tf-jugendschutz-badge");
   } else {
     statusEl.textContent = "⚠️ Noch nicht bestätigt.";
     submitBtn.textContent = "Ich bestätige";
+    _setAccordionState("tf-jugendschutz-card", "open", "tf-jugendschutz-badge");
   }
 }
 
@@ -836,6 +869,7 @@ function _renderTrainerVertragStatus() {
     signWrap.style.display = "none";
     signiertBtn.style.display = "none";
     hinweis.style.display = "none";
+    _setAccordionState("tf-vertrag-card", "na", "tf-vertrag-badge");
     return;
   }
   ansehenBtn.disabled = false;
@@ -844,6 +878,7 @@ function _renderTrainerVertragStatus() {
     signWrap.style.display = "none";
     signiertBtn.style.display = "";
     hinweis.style.display = "";
+    _setAccordionState("tf-vertrag-card", "done", "tf-vertrag-badge");
   } else {
     statusEl.innerHTML = "📄 Vertrag liegt zur Unterschrift bereit (bereitgestellt am " + _esc(_fmtIso(t.vertragPdfBereitgestelltAm)) + ").";
     signWrap.style.display = "";
@@ -851,6 +886,7 @@ function _renderTrainerVertragStatus() {
     hinweis.style.display = "none";
     // Canvas wird erst mit diesem Umschalten sichtbar -> resize() nachziehen.
     vertragSigPad.resize();
+    _setAccordionState("tf-vertrag-card", "open", "tf-vertrag-badge");
   }
 }
 
