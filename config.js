@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.25",
+    groups: [
+      {
+        title: "Aufklappbare Karten: einheitliche Abstände",
+        items: [
+          "Die auf-/zuklappbaren Karten im Trainerbereich haben jetzt überall denselben Innenabstand: Titelzeile und Inhalt sitzen bündig, und der Hervorhebungs-Hintergrund beim Überfahren/Aufklappen reicht bis zum Kartenrand — vorher wirkte er als schmalerer Kasten mit Rand, wodurch die Abstände ungleich aussahen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.24",
     groups: [
       {
