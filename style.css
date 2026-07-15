@@ -397,7 +397,10 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 }
 .accordion-card > summary.accordion-summary::-webkit-details-marker { display: none; }
 .accordion-card > summary.accordion-summary::marker { content: ""; }
-.accordion-card > summary.accordion-summary:hover { background: var(--gray); }
+/* Bewusst kein Hover-Hintergrund: seit padding:0 (bündige Karten) würde er die
+   GANZE Karte grau füllen und damit neben ungehoverten weißen Karten uneinheitlich
+   wirken (auf Touch bliebe der Hover nach dem Antippen kleben). Klick-Affordance
+   liefern der ▸-Pfeil und cursor:pointer. */
 .accordion-card[open] > summary.accordion-summary { border-radius: var(--radius) var(--radius) 0 0; }
 .accordion-card > summary.accordion-summary::before {
   content: "▸";

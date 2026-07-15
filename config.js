@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.26",
+    groups: [
+      {
+        title: "Aufklappbare Karten: kein grauer Block mehr beim Überfahren",
+        items: [
+          "Beim Überfahren einer aufklappbaren Karte mit der Maus wird nicht mehr die ganze Karte grau eingefärbt — alle Karten bleiben einheitlich weiß. Auf dem Handy blieb die zuletzt angetippte Karte sonst grau „hängen“."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.25",
     groups: [
       {
