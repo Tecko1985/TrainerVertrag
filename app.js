@@ -614,7 +614,6 @@ async function _handleKodexSubmit() {
     myTrainerRecord = {
       ...(myTrainerRecord || {}),
       kodexBestaetigtAm: data.kodexBestaetigtAm,
-      kodexSignatureDataUrl: signatureDataUrl,
       kodexVersion: data.kodexVersion
     };
     kodexSigPad.clear();
@@ -666,7 +665,6 @@ async function _handleJugendschutzSubmit() {
     myTrainerRecord = {
       ...(myTrainerRecord || {}),
       jugendschutzBestaetigtAm: data.jugendschutzBestaetigtAm,
-      jugendschutzSignatureDataUrl: signatureDataUrl,
       jugendschutzVersion: data.jugendschutzVersion
     };
     jugendschutzSigPad.clear();
@@ -1410,7 +1408,10 @@ function _trainerStatus(t) {
 // vorhandener Unterschrift ist das ihr Einreichzeitpunkt (Fallback), Import-Stubs
 // (keine Unterschrift) bekommen weiterhin bewusst kein Datum.
 function _eingereichtAm(t) {
-  return t.unterschriftAm || (t.signatureDataUrl ? t.erstelltAm : null);
+  // signaturVorhanden = Flag seit dem Auslagern der Unterschriften; signatureDataUrl
+  // bleibt als Fallback für noch nicht migrierte Alt-Einträge (Parität mit ToolsUebersicht
+  // admin-worker.js::trainervertragEingereichtAm, siehe [[feedback-status-fallback-parity]]).
+  return t.unterschriftAm || ((t.signaturVorhanden || t.signatureDataUrl) ? t.erstelltAm : null);
 }
 
 // Baut die Lizenz-Filteroptionen aus den tatsächlich vorhandenen Werten neu auf
@@ -1651,12 +1652,26 @@ async function _openAdminDetail(id) {
   document.getElementById("d-eingereicht-am").textContent =
     _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "—";
 
-  // Unterschrift-Vorschau
+  // Unterschrift-Vorschau (jetzt ausgelagert -> per WebDAV nachladen). Der Guard gegen
+  // currentTrainerId verhindert, dass eine langsame Antwort ins Detail eines inzwischen
+  // gewechselten Trainers rendert.
   const prev = document.getElementById("d-signature-preview");
   const hint = document.getElementById("d-signature-hint");
-  if (t.signatureDataUrl) {
-    prev.innerHTML = `<img src="${_esc(t.signatureDataUrl)}" alt="Unterschrift" style="max-width:260px; max-height:90px; border:1px solid #dde1e8; border-radius:6px;" />`;
+  const _zeigeSignatur = (dataUrl) => {
+    prev.innerHTML = `<img src="${_esc(dataUrl)}" alt="Unterschrift" style="max-width:260px; max-height:90px; border:1px solid #dde1e8; border-radius:6px;" />`;
     hint.textContent = "";
+  };
+  if (t.signatureDataUrl) {
+    // Alt-Eintrag, noch nicht migriert -> die inline vorhandene Unterschrift direkt zeigen.
+    _zeigeSignatur(t.signatureDataUrl);
+  } else if (t.signaturVorhanden) {
+    prev.innerHTML = "";
+    hint.textContent = "Unterschrift wird geladen …";
+    _ladeSignaturDataUrl(SIGNATUR_SUBDIR.haupt, t.id).then(dataUrl => {
+      if (currentTrainerId !== t.id) return;
+      if (dataUrl) _zeigeSignatur(dataUrl);
+      else hint.textContent = "Unterschrift konnte nicht geladen werden.";
+    });
   } else {
     prev.innerHTML = "";
     hint.textContent = "Keine Unterschrift hinterlegt.";
@@ -1753,6 +1768,36 @@ function _addMonths(date, n) {
 function _trainerDocConfig(subdir, trainerId) {
   const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
   return { ...davConfig, url: dir + "/" + subdir + "/" + trainerId };
+}
+
+// Unterschriften liegen (ausgelagert aus der JSON) als eigene PNG-Dateien in
+// Geschwister-Unterordnern von trainerdaten.json — gleiche Ablage wie die Dokumente.
+const SIGNATUR_SUBDIR = {
+  haupt:        "unterschriften",
+  kodex:        "kodex-unterschriften",
+  jugendschutz: "jugendschutz-unterschriften"
+};
+
+// Lädt eine ausgelagerte Unterschrift im Admin-Modus direkt per WebDAV (davReadBinary
+// über den CORS-Proxy, wie _ansehenDocumentAdmin) und gibt sie als anzeigbare PNG-
+// DataURL zurück — "" bei fehlender Datei/Fehler (Anzeige zeigt dann einen Hinweis).
+async function _ladeSignaturDataUrl(subdir, trainerId) {
+  try {
+    const blob = await davReadBinary(_trainerDocConfig(subdir, trainerId), "image/png");
+    if (!blob) return "";
+    return await _blobToDataUrl(blob);
+  } catch (_) {
+    return "";
+  }
+}
+
+function _blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error("Blob-Lesefehler"));
+    fr.readAsDataURL(blob);
+  });
 }
 
 function _renderDocumentsSection(t) {
@@ -1858,11 +1903,18 @@ function _renderKodexSection(t) {
     statusEl.innerHTML = "Bestätigt am " + _esc(_fmtIso(t.kodexBestaetigtAm)) +
       ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
       `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
+    // Signatur ausgelagert -> per WebDAV nachladen (Guard gegen Trainer-Wechsel).
+    // Alt-Eintrag mit noch inline vorhandener Signatur (nicht migriert): direkt zeigen.
     if (t.kodexSignatureDataUrl) {
       imgEl.src = t.kodexSignatureDataUrl;
       imgEl.style.display = "";
     } else {
       imgEl.style.display = "none";
+      _ladeSignaturDataUrl(SIGNATUR_SUBDIR.kodex, t.id).then(dataUrl => {
+        if (currentTrainerId !== t.id || !dataUrl) return;
+        imgEl.src = dataUrl;
+        imgEl.style.display = "";
+      });
     }
     resetBtn.disabled = false;
   } else {
@@ -1886,6 +1938,9 @@ async function _resetKodexAdmin() {
   appData.trainer[idx] = { ...appData.trainer[idx], kodexBestaetigtAm: "", kodexSignatureDataUrl: "", kodexVersion: "" };
   try {
     await _saveMerged();
+    // Ausgelagerte Unterschrift-Datei mitentfernen (best-effort; die Anzeige ist ohnehin
+    // an kodexBestaetigtAm gegated, eine verwaiste Datei würde nie mehr gezeigt).
+    try { await davDeleteFile(_trainerDocConfig(SIGNATUR_SUBDIR.kodex, currentTrainerId)); } catch (_) {}
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
@@ -1905,11 +1960,18 @@ function _renderJugendschutzSection(t) {
     statusEl.innerHTML = "Bestätigt am " + _esc(_fmtIso(t.jugendschutzBestaetigtAm)) +
       ` · <span class="badge ${abgelaufen ? "abgelaufen" : "generiert"}">` +
       `${abgelaufen ? "Abgelaufen seit " : "Gültig bis "}${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`;
+    // Signatur ausgelagert -> per WebDAV nachladen (Guard gegen Trainer-Wechsel).
+    // Alt-Eintrag mit noch inline vorhandener Signatur (nicht migriert): direkt zeigen.
     if (t.jugendschutzSignatureDataUrl) {
       imgEl.src = t.jugendschutzSignatureDataUrl;
       imgEl.style.display = "";
     } else {
       imgEl.style.display = "none";
+      _ladeSignaturDataUrl(SIGNATUR_SUBDIR.jugendschutz, t.id).then(dataUrl => {
+        if (currentTrainerId !== t.id || !dataUrl) return;
+        imgEl.src = dataUrl;
+        imgEl.style.display = "";
+      });
     }
     resetBtn.disabled = false;
   } else {
@@ -1933,6 +1995,8 @@ async function _resetJugendschutzAdmin() {
   appData.trainer[idx] = { ...appData.trainer[idx], jugendschutzBestaetigtAm: "", jugendschutzSignatureDataUrl: "", jugendschutzVersion: "" };
   try {
     await _saveMerged();
+    // Ausgelagerte Unterschrift-Datei mitentfernen (best-effort, siehe _resetKodexAdmin).
+    try { await davDeleteFile(_trainerDocConfig(SIGNATUR_SUBDIR.jugendschutz, currentTrainerId)); } catch (_) {}
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
@@ -2300,10 +2364,16 @@ async function _generatePdfEinzeln() {
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
   if (idx === -1) return;
   appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
-  const trainer = appData.trainer[idx];
+  // Kopie fürs PDF: die (ausgelagerte) Unterschrift transient nachladen, aber NICHT in
+  // appData.trainer zurückschreiben — sonst landete sie beim nächsten Speichern wieder
+  // inline in der JSON und der ganze Größenvorteil wäre dahin.
+  const trainer = { ...appData.trainer[idx] };
   btn.disabled = true;
   btn.textContent = "Generiere PDF …";
   try {
+    if (trainer.signaturVorhanden && !trainer.signatureDataUrl) {
+      trainer.signatureDataUrl = await _ladeSignaturDataUrl(SIGNATUR_SUBDIR.haupt, trainer.id);
+    }
     await generiereVertrag(trainer);
   } catch (err) {
     document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;

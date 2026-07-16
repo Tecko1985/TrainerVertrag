@@ -400,6 +400,17 @@ async function davWriteFile(config, dataObj) {
   if (!resp.ok) throw new Error(`WebDAV-Schreibfehler (HTTP ${resp.status})`);
 }
 
+// Löscht ein Binärobjekt (z.B. eine ausgelagerte Unterschrift beim Zurücksetzen).
+// 404 = schon weg, wird als Erfolg behandelt (idempotent). Der CORS-Proxy erlaubt
+// DELETE (Methodenliste GET, PUT, DELETE, MKCOL).
+async function davDeleteFile(config) {
+  const resp = await fetch(davRequestUrl(config), {
+    method: "DELETE",
+    headers: { Authorization: davAuthHeader(config) }
+  });
+  if (!resp.ok && resp.status !== 404) throw new Error(`WebDAV-Löschfehler (HTTP ${resp.status})`);
+}
+
 // ─── Binärdateien (Admin: Führerschein/Führungszeugnis ansehen/hochladen) ──────────
 // Läuft über denselben CORS-Proxy wie davReadFile/davWriteFile — der ist bereits
 // Content-Type-transparent, nur die JSON-(De-)Serialisierung wird hier übersprungen.

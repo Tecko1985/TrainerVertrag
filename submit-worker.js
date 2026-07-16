@@ -161,10 +161,62 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
+// Uint8Array -> base64 (Gegenstück zu base64ToBytes) für das Ausliefern einer
+// ausgelagerten Unterschrift als PNG-DataURL an handleMySubmission.
+function bytesToBase64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 // Nextcloud-Verzeichnis, das trainerdaten.json enthält — Dokument-Unterordner liegen
 // als Geschwister direkt daneben.
 function trainerdatenDir(env) {
   return env.NEXTCLOUD_URL.slice(0, env.NEXTCLOUD_URL.lastIndexOf("/"));
+}
+
+// Unterschriften liegen (seit dem Auslagern aus der JSON) als eigene PNG-Binärobjekte
+// in Geschwister-Unterordnern von trainerdaten.json, je Trainer-id genau eine Datei —
+// exakt dasselbe Ablagemuster wie die Dokument-Uploads (siehe DOCUMENT_TYPES/
+// handleUploadDocument), nur dass die Signatur aus dem Formular statt aus einem Upload
+// kommt. Grund: 99 % der alten JSON-Größe waren inline base64-Unterschriften, die bei
+// jedem Speichern komplett mitübertragen wurden.
+const SIGNATURE_SUBDIRS = {
+  haupt:        "unterschriften",
+  kodex:        "kodex-unterschriften",
+  jugendschutz: "jugendschutz-unterschriften"
+};
+
+// Schreibt eine Unterschrift (validierte PNG-DataURL) nach <subdir>/<trainerId>.
+// MKCOL-Retry-einmal falls der Unterordner noch fehlt (wie handleUploadDocument).
+// Wirft bei Nextcloud-Fehler, damit der Aufrufer VOR dem JSON-PUT abbrechen kann.
+async function putSignatureFile(env, authHeader, subdir, trainerId, dataUrl) {
+  const bytes = base64ToBytes(dataUrl.slice(dataUrl.indexOf(",") + 1));
+  const dir = trainerdatenDir(env) + "/" + subdir;
+  const fileUrl = dir + "/" + trainerId;
+  const headers = { Authorization: authHeader, "Content-Type": "image/png" };
+  let resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+  if (resp.status === 404 || resp.status === 409) {
+    await fetch(dir, { method: "MKCOL", headers: { Authorization: authHeader } });
+    resp = await fetch(fileUrl, { method: "PUT", headers, body: bytes });
+  }
+  if (!resp.ok) throw new Error(`Nextcloud PUT ${resp.status}`);
+}
+
+// Liest eine ausgelagerte Unterschrift und gibt sie als PNG-DataURL zurück (oder "").
+// Nur für handleMySubmission, damit der eigene Datensatz wie früher inline ausgeliefert
+// wird und der Trainer-Client (SigPad-Vorbefüllung, Receipt) unverändert bleibt — es ist
+// nur die eine eigene Signatur, kein Größenproblem.
+async function getSignatureDataUrl(env, authHeader, subdir, trainerId) {
+  const fileUrl = trainerdatenDir(env) + "/" + subdir + "/" + trainerId;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) { return ""; }
+  if (!resp.ok) return "";
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  if (buf.length === 0) return "";
+  return "data:image/png;base64," + bytesToBase64(buf);
 }
 
 export default {
@@ -334,6 +386,12 @@ async function handleMySubmission(session, env, corsHeaders) {
   }
 
   const mine = appData.trainer.find(t => t.username === session.username) || null;
+  // Eigene Unterschrift (jetzt ausgelagert) wieder inline anhängen, damit der Trainer-
+  // Client sie wie bisher ins SigPad/den Bestätigungs-Screen laden kann — nur die eine
+  // eigene Signatur, kein Größenproblem.
+  if (mine && mine.signaturVorhanden) {
+    mine.signatureDataUrl = await getSignatureDataUrl(env, authHeader, SIGNATURE_SUBDIRS.haupt, mine.id);
+  }
   return json({ data: mine }, 200, corsHeaders);
 }
 
@@ -378,12 +436,14 @@ async function handleSubmit(body, session, env, corsHeaders) {
     // Anlage 1 (§3 Nr.26 EStG): nur die beiden erlaubten Werte durchlassen
     nebentaetigkeit: (body.nebentaetigkeit === "keine" || body.nebentaetigkeit === "andere")
       ? body.nebentaetigkeit : "",
-    nebentaetigkeitBetrag: String(body.nebentaetigkeitBetrag || "").trim(),
-    // Nur echte PNG-DataURLs durchlassen
-    signatureDataUrl: (typeof body.signatureDataUrl === "string" &&
-                       /^data:image\/png;base64,/.test(body.signatureDataUrl))
-      ? body.signatureDataUrl : ""
+    nebentaetigkeitBetrag: String(body.nebentaetigkeitBetrag || "").trim()
   };
+
+  // Unterschrift wird NICHT mehr inline in der JSON gespeichert, sondern als eigenes
+  // PNG-Binärobjekt (siehe putSignatureFile) — nur ein Existenz-Flag bleibt im Datensatz.
+  const sig = (typeof body.signatureDataUrl === "string" &&
+               /^data:image\/png;base64,/.test(body.signatureDataUrl))
+    ? body.signatureDataUrl : "";
 
   // Upsert per verifiziertem Nutzernamen (nicht per client-gemeldeter id) — pro
   // Konto gibt es damit immer genau einen Datensatz, ein erneutes Absenden
@@ -407,7 +467,7 @@ async function handleSubmit(body, session, env, corsHeaders) {
   // Ein Import-Stub oder ein Submit ohne Signatur bekommt daher kein Datum;
   // eine bereits vorhandene Signaturzeit wird bei leerer Signatur nicht gelöscht.
   const nowIso = new Date().toISOString();
-  const unterschriftPatch = fields.signatureDataUrl ? { unterschriftAm: nowIso } : {};
+  const unterschriftPatch = sig ? { unterschriftAm: nowIso, signaturVorhanden: true } : {};
 
   let resultId;
   if (existingIdx !== -1) {
@@ -441,6 +501,17 @@ async function handleSubmit(body, session, env, corsHeaders) {
     };
     appData.trainer.push(newEntry);
     resultId = newEntry.id;
+  }
+
+  // Unterschrift zuerst als eigene Datei ablegen — schlägt das fehl, wird die JSON
+  // (unten) bewusst NICHT geschrieben, damit signaturVorhanden nie ohne die Datei
+  // dasteht. Bei leerer Signatur bleibt eine evtl. vorhandene Datei unangetastet.
+  if (sig) {
+    try {
+      await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.haupt, resultId, sig);
+    } catch (e) {
+      return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+    }
   }
 
   try {
@@ -634,8 +705,14 @@ async function handleSubmitKodex(body, session, env, corsHeaders) {
 
   const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
   const nowIso = new Date().toISOString();
+  // Unterschrift als eigene Datei ablegen (nicht mehr inline) — bei Fehler abbrechen,
+  // bevor kodexBestaetigtAm ohne die zugehörige Datei gespeichert wird.
+  try {
+    await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.kodex, appData.trainer[idx].id, signatureDataUrl);
+  } catch (e) {
+    return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+  }
   appData.trainer[idx].kodexBestaetigtAm = nowIso;
-  appData.trainer[idx].kodexSignatureDataUrl = signatureDataUrl;
   appData.trainer[idx].kodexVersion = KODEX_VERSION;
 
   try {
@@ -676,8 +753,13 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
 
   const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
   const nowIso = new Date().toISOString();
+  // Unterschrift als eigene Datei ablegen (nicht mehr inline), siehe handleSubmitKodex.
+  try {
+    await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.jugendschutz, appData.trainer[idx].id, signatureDataUrl);
+  } catch (e) {
+    return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+  }
   appData.trainer[idx].jugendschutzBestaetigtAm = nowIso;
-  appData.trainer[idx].jugendschutzSignatureDataUrl = signatureDataUrl;
   appData.trainer[idx].jugendschutzVersion = JUGENDSCHUTZKONZEPT_VERSION;
 
   try {
