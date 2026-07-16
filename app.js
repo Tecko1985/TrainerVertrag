@@ -2358,23 +2358,28 @@ async function _generatePdf() {
 
 // ─── PDF generieren (Einzel) ──────────────────────────────────────────────────
 
+// Kopie fürs PDF: die (ausgelagerte) Unterschrift transient nachladen, aber NICHT in
+// appData.trainer zurückschreiben — sonst landete sie beim nächsten Speichern wieder
+// inline in der JSON und der ganze Größenvorteil wäre dahin. Beide PDF-Wege (einzeln
+// und Sammel-ZIP) müssen da durch, sonst fehlt die Unterschrift im fertigen Vertrag.
+async function _trainerMitSignatur(t) {
+  const kopie = { ...t };
+  if (kopie.signaturVorhanden && !kopie.signatureDataUrl) {
+    kopie.signatureDataUrl = await _ladeSignaturDataUrl(SIGNATUR_SUBDIR.haupt, kopie.id);
+  }
+  return kopie;
+}
+
 async function _generatePdfEinzeln() {
   const btn = document.getElementById("btn-pdf-einzeln");
   if (!currentTrainerId) return;
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
   if (idx === -1) return;
   appData.trainer[idx] = { ...appData.trainer[idx], ..._collectDetailData() };
-  // Kopie fürs PDF: die (ausgelagerte) Unterschrift transient nachladen, aber NICHT in
-  // appData.trainer zurückschreiben — sonst landete sie beim nächsten Speichern wieder
-  // inline in der JSON und der ganze Größenvorteil wäre dahin.
-  const trainer = { ...appData.trainer[idx] };
   btn.disabled = true;
   btn.textContent = "Generiere PDF …";
   try {
-    if (trainer.signaturVorhanden && !trainer.signatureDataUrl) {
-      trainer.signatureDataUrl = await _ladeSignaturDataUrl(SIGNATUR_SUBDIR.haupt, trainer.id);
-    }
-    await generiereVertrag(trainer);
+    await generiereVertrag(await _trainerMitSignatur(appData.trainer[idx]));
   } catch (err) {
     document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;
     document.getElementById("admin-detail-error").classList.add("visible");
@@ -2395,7 +2400,7 @@ async function _generateAlleZip() {
   try {
     await generiereAlleVertraegeZip(appData.trainer, (done, total) => {
       statusEl.textContent = done + " / " + total + " …";
-    });
+    }, _trainerMitSignatur);
     statusEl.textContent = "ZIP bereit ✓";
     setTimeout(() => { statusEl.textContent = ""; }, 3000);
   } catch (err) {

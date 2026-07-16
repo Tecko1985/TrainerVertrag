@@ -44,12 +44,16 @@ async function generiereVertrag(trainer) {
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
-async function generiereAlleVertraegeZip(trainerList, onProgress) {
+// prepareTrainer (optional) darf pro Trainer eine angereicherte Kopie liefern -- der
+// Admin haengt darueber die ausgelagerte Unterschrift an, ohne dass pdf-utils.js den
+// WebDAV-Weg kennen muss. Ohne den Hook wird die Liste unveraendert verarbeitet.
+async function generiereAlleVertraegeZip(trainerList, onProgress, prepareTrainer) {
   if (typeof JSZip === "undefined") throw new Error("JSZip nicht geladen.");
   const zip = new JSZip();
   let done = 0;
   const usedNames = new Set();
-  for (const t of trainerList) {
+  for (const t0 of trainerList) {
+    const t = prepareTrainer ? await prepareTrainer(t0) : t0;
     const blob = await _buildPdfBlob(t);
     // Namensgleiche Trainer würden sich sonst im ZIP gegenseitig überschreiben.
     let name = `${t.nachname}_${t.vorname}_Vertrag.pdf`;
