@@ -1075,11 +1075,10 @@ async function _handleVertragSubmit() {
     const dateStr = new Date().toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const signedBytes = await buildSignedVertragPdf(origBytes, { name, dateStr, signaturePngDataUrl: signatureDataUrl });
     const signedBlob = new Blob([signedBytes], { type: "application/pdf" });
-    const data = await submitVertragUnterschrift(signedBlob, signatureDataUrl);
+    const data = await submitVertragUnterschrift(signedBlob);
     myTrainerRecord = {
       ...(myTrainerRecord || {}),
-      vertragUnterschriebenAm: data.vertragUnterschriebenAm,
-      vertragSignatureDataUrl: signatureDataUrl
+      vertragUnterschriebenAm: data.vertragUnterschriebenAm
     };
     vertragSigPad.clear();
     _renderTrainerVertragStatus();
@@ -2138,7 +2137,7 @@ async function _resetVertragUnterschriftAdmin() {
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
   if (idx === -1) return;
 
-  appData.trainer[idx] = { ...appData.trainer[idx], vertragUnterschriebenAm: "", vertragSigniertPfad: "", vertragSignatureDataUrl: "" };
+  appData.trainer[idx] = { ...appData.trainer[idx], vertragUnterschriebenAm: "", vertragSigniertPfad: "" };
   try {
     await _saveMerged();
   } catch (err) {
@@ -2169,7 +2168,7 @@ async function _resetVertragAdmin() {
   appData.trainer[idx] = {
     ...appData.trainer[idx],
     vertragPdfPfad: "", vertragPdfBereitgestelltAm: "",
-    vertragUnterschriebenAm: "", vertragSigniertPfad: "", vertragSignatureDataUrl: "",
+    vertragUnterschriebenAm: "", vertragSigniertPfad: "",
     vertragsGeneriert: false,
     status: ""
   };

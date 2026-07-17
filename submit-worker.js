@@ -570,7 +570,7 @@ async function handleSubmit(body, session, env, corsHeaders) {
       // leer = automatische Ableitung greift wieder (Badge "Ausstehend").
       status: "",
       // Der zugewiesene/unterschriebene Trainervertrag (vertragPdfBereitgestelltAm/
-      // vertragUnterschriebenAm/vertragSignatureDataUrl) wird hier BEWUSST NICHT
+      // vertragUnterschriebenAm/vertragSigniertPfad) wird hier BEWUSST NICHT
       // angetastet: ein Vertrag gilt fuers Jahr, geaenderte Stammdaten machen ihn nicht
       // ungueltig. Geaenderte Daten sind erst fuer einen spaeter bewusst neu
       // ausgestellten Vertrag relevant (generate-pdfs.ps1 -Zuweisen -Alle).
@@ -1224,10 +1224,10 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
   }
   if (bytes.length === 0) return json({ error: "Leeres PDF" }, 400, corsHeaders);
   if (bytes.length > DOC_MAX_FILE_BYTES) return json({ error: "Datei zu groß" }, 413, corsHeaders);
-  // Signatur-Vorschau (klein, inline im Datensatz -- nur fürs Admin-Detail, wie kodex).
-  const signatureDataUrl = (typeof body.signatureDataUrl === "string" &&
-                             /^data:image\/png;base64,/.test(body.signatureDataUrl))
-    ? body.signatureDataUrl : "";
+  // body.signatureDataUrl wird seit 1.34 bewusst ignoriert (ältere Clients schicken es
+  // evtl. noch): die Unterschrift steckt bereits im signierten PDF. Das frühere Feld
+  // vertragSignatureDataUrl hat sie zusätzlich inline im Datensatz abgelegt -- nie
+  // gelesen, aber ~50 KB je Unterschrift und damit 99 % der JSON-Größe.
 
   const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
   let appData;
@@ -1263,8 +1263,7 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
   appData.trainer[idx] = {
     ...appData.trainer[idx],
     vertragUnterschriebenAm: nowIso,
-    vertragSigniertPfad: signedPath,
-    vertragSignatureDataUrl: signatureDataUrl
+    vertragSigniertPfad: signedPath
   };
   try {
     const putResp = await fetch(env.NEXTCLOUD_URL, {

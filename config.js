@@ -160,6 +160,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.34",
+    groups: [
+      {
+        title: "Speichern im Admin wieder schnell",
+        items: [
+          "Die Unterschrift unter dem Trainervertrag wurde bisher zusätzlich als Bild in die Datendatei geschrieben — obwohl sie im unterschriebenen PDF ohnehin enthalten ist und an keiner Stelle angezeigt wurde. Dieses eine Feld machte zuletzt rund 99 % der Dateigröße aus und hat jedes Speichern im Admin ausgebremst. Es wird jetzt weder erzeugt noch gespeichert, die Altbestände sind bereinigt.",
+          "Am unterschriebenen Vertrag ändert sich nichts: Er liegt unverändert als PDF in der Cloud und bleibt über „Unterschrieben ansehen“ abrufbar."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.33",
     groups: [
       {

@@ -313,7 +313,11 @@ async function fetchMyVertragBlob(signed) {
 // Unterschriftenseite, gebaut in buildSignedVertragPdf/pdf-utils.js). Der Nutzer wird
 // serverseitig aus dem Token ermittelt; signatureDataUrl ist nur die kleine Vorschau
 // fürs Admin-Detail (die eigentliche Unterschrift steckt bereits im PDF).
-async function submitVertragUnterschrift(signedPdfBlob, signatureDataUrl) {
+// Die Unterschrift selbst wird NICHT mitgeschickt: sie steckt bereits im signierten PDF
+// (buildSignedVertragPdf rendert sie hinein). Bis 1.33 landete sie zusätzlich als
+// vertragSignatureDataUrl im Datensatz -- ein Feld, das nachweislich nie jemand gelesen
+// hat und das mit ~50 KB je Unterschrift 99 % der trainerdaten.json ausmachte.
+async function submitVertragUnterschrift(signedPdfBlob) {
   if (signedPdfBlob.size > MAX_FILE_BYTES) {
     throw new Error("PDF ist zu groß (max. " + Math.round(MAX_FILE_BYTES / 1024 / 1024) + " MB).");
   }
@@ -325,8 +329,7 @@ async function submitVertragUnterschrift(signedPdfBlob, signatureDataUrl) {
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({
       action: "submit-vertrag-unterschrift",
-      dataBase64,
-      signatureDataUrl: signatureDataUrl || ""
+      dataBase64
     })
   });
   const data = await resp.json().catch(() => ({}));

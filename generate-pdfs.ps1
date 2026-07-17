@@ -180,7 +180,6 @@ function Patch-TrainerdatenJson([string]$url, [System.Management.Automation.PSCr
       # Neu ausgestellter Original-Vertrag -> evtl. alte Unterschrift/Signaturpfad verwerfen.
       Set-Prop $tr 'vertragSigniertPfad' ''
       Set-Prop $tr 'vertragUnterschriebenAm' ''
-      Set-Prop $tr 'vertragSignatureDataUrl' ''
       # Status wie der App-Button "Word-Vertrag generieren".
       Set-Prop $tr 'vertragsGeneriert' $true
       Set-Prop $tr 'status' 'generiert'
