@@ -19,6 +19,17 @@ let currentVorname   = null;
 let currentNachname  = null;
 let currentIsAdmin   = false;
 let currentGroupIds  = [];
+// Bekommt der eingeloggte Nutzer einen Trainervertrag (Gruppe "Trainer" ODER Häkchen
+// "Vertrag benötigt")? Kommt server-verifiziert aus me() — der Client kann es nicht
+// selbst ableiten, weil currentGroupIds nur IDs enthält, nicht den Gruppennamen.
+// false = reines Kontaktdaten-Formular (z.B. Geschäftsführung), siehe
+// _applyVertragspflichtGate(). Default true: ein Gateway, das die Frage (noch) nicht
+// beantwortet, darf niemandem seine Vertragsdaten wegnehmen — gleiche Übergangs-
+// toleranz wie in verifySession() im submit-worker.
+let currentVertragspflichtig = true;
+// Original-Intro-Text des Hauptformulars aus index.html, beim ersten
+// _applyVertragspflichtGate() gesichert (siehe dort).
+let _introTextTrainer = null;
 let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
 let trainerGroupMembers = null; // Nutzernamen der ToolsUebersicht-Gruppe "Trainer", frisch geladen bei jedem Personalkosten-Import (siehe _loadFromPersonalkosten)
@@ -71,12 +82,20 @@ async function _initTrainerGateway() {
     currentNachname  = me.nachname || null;
     currentIsAdmin   = !!me.isAdmin;
     currentGroupIds  = Array.isArray(me.groupIds) ? me.groupIds : [];
+    // `!== false` statt `!!`: siehe Deklaration oben — ein Gateway ohne das Feld
+    // (noch nicht redeployed) lässt das Formular unverändert vollständig.
+    currentVertragspflichtig = me.vertragspflichtig !== false;
+    _applyVertragspflichtGate();
 
-    // iban ist ein Pflichtfeld der echten Formular-Einreichung — ein Datensatz kann
-    // aber auch schon existieren, weil nur ein Dokument hochgeladen wurde (siehe
-    // resolveOwnTrainerRecord in submit-worker.js), ohne dass je das Hauptformular
-    // ausgefüllt wurde. Nur ein echtes iban zeigt den Bestätigungs-Screen.
-    if (saved && saved.iban) {
+    // Woran erkennt man "hat das Hauptformular schon ausgefüllt"? Am jeweiligen
+    // Pflichtfeld der eigenen Einreichungsart (gleiche Bedingung wie handleSubmit im
+    // Worker prüft): Ein Datensatz allein reicht nicht, er kann auch nur von einem
+    // Dokument-Upload stammen (resolveOwnTrainerRecord) oder ein Import-Stub sein.
+    // Für Vertragspflichtige ist das die iban, für alle anderen die email — sonst
+    // landete ein Nicht-Trainer nach dem Einreichen wieder auf dem leeren Formular
+    // statt auf seiner Bestätigung, weil er nie eine iban bekommt.
+    const eigenesPflichtfeldDa = saved && (currentVertragspflichtig ? saved.iban : saved.email);
+    if (eigenesPflichtfeldDa) {
       myTrainerRecord = saved;
       _renderTrainerReceipt(myTrainerRecord);
       _showReceiptScreen({ justSubmitted: false });
@@ -112,25 +131,62 @@ function _showTrainerConnectScreen(errorMsg) {
   err.textContent = errorMsg || "";
 }
 
+// Die drei Panels (Dokumente, Trainerkodex, Jugendschutzkonzept) hängen alle am
+// Trainervertrag und werden deshalb gemeinsam gegated. Liefert zurück, ob sie sichtbar
+// sind — die Aufrufer sparen sich damit resize()/Render-Arbeit für Karten, die gar
+// nicht im Dokument stehen.
+function _showTrainerVertragsPanels() {
+  const anzeige = currentVertragspflichtig ? "" : "none";
+  document.getElementById("trainer-documents-panel").style.display = anzeige;
+  document.getElementById("trainer-kodex-panel").style.display = anzeige;
+  document.getElementById("trainer-jugendschutz-panel").style.display = anzeige;
+  return currentVertragspflichtig;
+}
+
 function _showTrainerFormScreen() {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
-  document.getElementById("trainer-documents-panel").style.display = "";
-  document.getElementById("trainer-kodex-panel").style.display = "";
-  document.getElementById("trainer-jugendschutz-panel").style.display = "";
-  // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
-  // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
-  trainerSigPad.resize();
-  kodexSigPad.resize();
-  jugendschutzSigPad.resize();
-  vertragSigPad.resize();
-  _renderTrainerDocumentsStatus();
-  _renderMyChecklisteStatus();
-  _renderTrainerKodexStatus();
-  _renderTrainerJugendschutzStatus();
-  _renderTrainerVertragStatus();
+  if (_showTrainerVertragsPanels()) {
+    // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
+    // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
+    trainerSigPad.resize();
+    kodexSigPad.resize();
+    jugendschutzSigPad.resize();
+    vertragSigPad.resize();
+    _renderTrainerDocumentsStatus();
+    _renderMyChecklisteStatus();
+    _renderTrainerKodexStatus();
+    _renderTrainerJugendschutzStatus();
+    _renderTrainerVertragStatus();
+  }
   _updateTrainerFormBadges();
+}
+
+// Blendet alles aus, was ausschließlich dem Trainervertrag dient, wenn der eingeloggte
+// Nutzer gar keinen bekommt: Bankverbindung, Anlage 1 und Unterschrift im Haupt-
+// formular. Übrig bleibt genau das, was der Verein braucht, um die Person zu
+// erreichen — Name, Geburtsdatum, Anschrift, Telefon, E-Mail. Die drei Dokument-Panels
+// erledigt _showTrainerVertragsPanels() bei jedem Screen-Wechsel.
+// Nach dem Login aufgerufen; der Worker verwirft die Felder zusätzlich serverseitig,
+// das hier ist die Anzeige-Seite derselben Regel.
+// Bewusst symmetrisch (setzt beide Richtungen, nicht nur "ausblenden"): sonst hinge
+// der Zustand des zuletzt geladenen Kontos in der Seite fest, sobald die Funktion je
+// ein zweites Mal mit anderem Ergebnis läuft.
+function _applyVertragspflichtGate() {
+  // Trainer-Fassung des Intro-Texts steht im HTML und ist dort gepflegt — beim ersten
+  // Lauf sichern statt sie hier ein zweites Mal auszuformulieren.
+  const intro = document.getElementById("tf-intro-text");
+  if (_introTextTrainer === null) _introTextTrainer = intro.textContent;
+
+  document.getElementById("tf-vertragsdaten").style.display = currentVertragspflichtig ? "" : "none";
+  // E-Mail rückt an die Stelle von IBAN/Nebentätigkeit: einziges Pflichtfeld dieser
+  // Einreichungsart (gleiche Bedingung wie Worker-Prüfung und Dashboard-Ampel).
+  document.getElementById("tf-email-field").classList.toggle("required", !currentVertragspflichtig);
+  intro.textContent = currentVertragspflichtig
+    ? _introTextTrainer
+    : "Bitte hinterleg hier deine Kontaktdaten, damit der Verein dich erreichen kann. " +
+      "Deine Daten werden sicher auf unserem Vereinsserver gespeichert.";
 }
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
@@ -202,6 +258,15 @@ function _updateTrainerFormBadges() {
   const nachname = document.getElementById("tf-nachname").value.trim();
   const persoenlichOk = !!(vorname && nachname);
 
+  // Ohne Vertragspflicht zählt nur, was die Person auch sieht: Name + E-Mail. Würde
+  // hier weiter die IBAN geprüft, stünde das Badge dauerhaft auf "offen" für ein Feld,
+  // das gar nicht im Formular ist.
+  if (!currentVertragspflichtig) {
+    const emailOk = !!document.getElementById("tf-email").value.trim();
+    _setAccordionState("tf-hauptformular-card", (persoenlichOk && emailOk) ? "done" : "open", "tf-hauptformular-badge");
+    return;
+  }
+
   const iban = document.getElementById("tf-iban").value.replace(/\s+/g, "").toUpperCase();
   const ibanOk = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban);
 
@@ -221,25 +286,15 @@ async function _handleTrainerSubmit(e) {
 
   const vorname  = document.getElementById("tf-vorname").value.trim();
   const nachname = document.getElementById("tf-nachname").value.trim();
-  const iban     = document.getElementById("tf-iban").value.replace(/\s+/g, "").toUpperCase();
+  const email    = document.getElementById("tf-email").value.trim().toLowerCase();
 
   if (!vorname)  return _setTrainerError("Bitte Vorname eingeben.");
   if (!nachname) return _setTrainerError("Bitte Nachname eingeben.");
-  if (!iban)     return _setTrainerError("Bitte IBAN eingeben.");
-  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) {
-    return _setTrainerError("Die IBAN scheint ungültig zu sein. Bitte prüfen.");
-  }
 
-  const nebentaetigkeitEl = document.querySelector('input[name="tf-nebentaetigkeit"]:checked');
-  if (!nebentaetigkeitEl) {
-    return _setTrainerError("Bitte die Erklärung zur Nebentätigkeit (§ 3 Nr. 26 EStG) auswählen.");
-  }
-  const nebentaetigkeit = nebentaetigkeitEl.value;
-  const nebentaetigkeitBetrag = document.getElementById("tf-nebentaetigkeit-betrag").value.trim();
-  if (nebentaetigkeit === "andere" && !nebentaetigkeitBetrag) {
-    return _setTrainerError("Bitte die Höhe der anderen Einnahmen angeben.");
-  }
-
+  // Die Basisdaten sind für beide Einreichungsarten gleich; alles Weitere hängt am
+  // Trainervertrag und wird nur geprüft/mitgeschickt, wenn es einen gibt. Die
+  // Bedingungen spiegeln handleSubmit im Worker — der lehnt sonst ab, was das
+  // Formular durchgelassen hat.
   const payload = {
     vorname,
     nachname,
@@ -248,14 +303,37 @@ async function _handleTrainerSubmit(e) {
     plz:          document.getElementById("tf-plz").value.trim(),
     ort:          document.getElementById("tf-ort").value.trim(),
     telefon:      document.getElementById("tf-telefon").value.trim(),
-    email:        document.getElementById("tf-email").value.trim().toLowerCase(),
-    iban,
-    bankname:     document.getElementById("tf-bankname").value.trim(),
-    bic:          document.getElementById("tf-bic").value.trim().toUpperCase(),
-    nebentaetigkeit,
-    nebentaetigkeitBetrag: nebentaetigkeit === "andere" ? nebentaetigkeitBetrag : "",
-    signatureDataUrl: trainerSigPad.toDataURL()
+    email
   };
+
+  if (currentVertragspflichtig) {
+    const iban = document.getElementById("tf-iban").value.replace(/\s+/g, "").toUpperCase();
+    if (!iban) return _setTrainerError("Bitte IBAN eingeben.");
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) {
+      return _setTrainerError("Die IBAN scheint ungültig zu sein. Bitte prüfen.");
+    }
+
+    const nebentaetigkeitEl = document.querySelector('input[name="tf-nebentaetigkeit"]:checked');
+    if (!nebentaetigkeitEl) {
+      return _setTrainerError("Bitte die Erklärung zur Nebentätigkeit (§ 3 Nr. 26 EStG) auswählen.");
+    }
+    const nebentaetigkeit = nebentaetigkeitEl.value;
+    const nebentaetigkeitBetrag = document.getElementById("tf-nebentaetigkeit-betrag").value.trim();
+    if (nebentaetigkeit === "andere" && !nebentaetigkeitBetrag) {
+      return _setTrainerError("Bitte die Höhe der anderen Einnahmen angeben.");
+    }
+
+    payload.iban = iban;
+    payload.bankname = document.getElementById("tf-bankname").value.trim();
+    payload.bic = document.getElementById("tf-bic").value.trim().toUpperCase();
+    payload.nebentaetigkeit = nebentaetigkeit;
+    payload.nebentaetigkeitBetrag = nebentaetigkeit === "andere" ? nebentaetigkeitBetrag : "";
+    payload.signatureDataUrl = trainerSigPad.toDataURL();
+  } else if (!email) {
+    // Einziges zusätzliches Pflichtfeld dieser Einreichungsart — ohne E-Mail wäre der
+    // Datensatz zwecklos, sie ist der Grund für das Formular (Kontaktaufnahme).
+    return _setTrainerError("Bitte E-Mail-Adresse eingeben, damit der Verein dich erreichen kann.");
+  }
 
   const btn = document.getElementById("btn-trainer-submit");
   btn.disabled = true;
@@ -287,15 +365,16 @@ async function _handleTrainerSubmit(e) {
 function _showReceiptScreen(opts) {
   const justSubmitted = !!(opts && opts.justSubmitted);
   document.getElementById("success-heading").textContent = justSubmitted ? "Danke!" : "Bereits eingereicht";
+  // Ohne Vertragspflicht gibt es auch keinen Vertrag, auf den man warten könnte.
   document.getElementById("success-text").textContent = justSubmitted
-    ? "Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist."
+    ? (currentVertragspflichtig
+        ? "Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist."
+        : "Deine Kontaktdaten wurden erfolgreich hinterlegt. Danke!")
     : "Du hast mit diesem Konto bereits Daten eingereicht. Falls sich etwas geändert hat, kannst du sie unten bearbeiten.";
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "";
-  document.getElementById("trainer-documents-panel").style.display = "";
-  document.getElementById("trainer-kodex-panel").style.display = "";
-  document.getElementById("trainer-jugendschutz-panel").style.display = "";
+  if (!_showTrainerVertragsPanels()) return;
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
   vertragSigPad.resize();
@@ -359,6 +438,21 @@ function _renderTrainerReceipt(payload) {
   document.getElementById("r-adresse").textContent = adresse || "—";
   document.getElementById("r-telefon").textContent = payload.telefon || "—";
   document.getElementById("r-email").textContent = payload.email || "—";
+
+  // Vertragsspezifische Zeilen ganz weglassen statt mit "—" zu füllen: wer keinen
+  // Vertrag bekommt, hat diese Felder nie gesehen und soll sie hier auch nicht
+  // erklärt bekommen müssen.
+  const vertragsZeilen = ["r-row-iban", "r-row-bankname", "r-row-bic", "r-row-nebentaetigkeit", "r-unterschrift-divider"];
+  for (const id of vertragsZeilen) {
+    document.getElementById(id).style.display = currentVertragspflichtig ? "" : "none";
+  }
+
+  const sigImg = document.getElementById("r-signature");
+  if (!currentVertragspflichtig) {
+    sigImg.style.display = "none";
+    return;
+  }
+
   document.getElementById("r-iban").textContent = payload.iban ? payload.iban.replace(/(.{4})/g, "$1 ").trim() : "—";
   document.getElementById("r-bankname").textContent = payload.bankname || "—";
   document.getElementById("r-bic").textContent = payload.bic || "—";
@@ -367,7 +461,6 @@ function _renderTrainerReceipt(payload) {
     : payload.nebentaetigkeit === "keine" ? "Keine"
     : "—";
 
-  const sigImg = document.getElementById("r-signature");
   sigImg.src = payload.signatureDataUrl || "";
   sigImg.style.display = payload.signatureDataUrl ? "block" : "none";
 }
@@ -1400,6 +1493,17 @@ function _trainerStatus(t) {
   // Admin kann den Status im Detail manuell überschreiben (Select "d-status").
   // Ohne expliziten Wert bleibt es bei der bisherigen automatischen Ableitung.
   if (t.status) return t.status;
+  // Für dieses Konto ist kein Trainervertrag vorgesehen (Geschäftsführung o.ä., siehe
+  // vertragspflichtig in submit-worker.js): Der Eintrag ist mit den Kontaktdaten
+  // fertig und wartet auf nichts. "Ausstehend" wäre nicht bloß falsch beschriftet —
+  // generate-pdfs.ps1 -Zuweisen filtert genau auf diesen Status und würde einen
+  // Trainervertrag ohne IBAN und ohne Pauschale erzeugen.
+  // Bewusst `=== false` und nicht `!t.vertragspflichtig`: alle Datensätze von vor
+  // diesem Feld haben undefined und müssen weiterhin Verträge bekommen.
+  // Soll jemand doch einen Vertrag bekommen, gibt es zwei Wege: das Häkchen "Vertrag
+  // benötigt" im Gateway setzen (dann greift ab der nächsten Einreichung wieder alles
+  // automatisch) oder hier im Detail den Status manuell auf "Ausstehend" stellen.
+  if (t.vertragspflichtig === false) return "kontaktdaten";
   if (t.vertragsGeneriert) return "generiert";
   return t.username ? "ausstehend" : "unvollstaendig";
 }
@@ -1482,7 +1586,7 @@ function _renderAdminListe() {
   }
   noMatch.style.display = "none";
 
-  const statusLabel = { generiert: "✓ Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig" };
+  const statusLabel = { generiert: "✓ Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig", kontaktdaten: "Nur Kontaktdaten" };
 
   rows.innerHTML = filtered.map(t => {
     const status = _trainerStatus(t);
@@ -1606,7 +1710,7 @@ function _exportFieldValue(t, f) {
     case "nebentaetigkeit":
       return t.nebentaetigkeit === "andere" ? "Andere" : t.nebentaetigkeit === "keine" ? "Keine" : "";
     case "status": {
-      const labels = { generiert: "Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig" };
+      const labels = { generiert: "Vertrag erstellt", ausstehend: "Ausstehend", unvollstaendig: "Unvollständig", kontaktdaten: "Nur Kontaktdaten" };
       return labels[_trainerStatus(t)] || "";
     }
     case "derived-eingereicht":

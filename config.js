@@ -160,6 +160,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.32",
+    groups: [
+      {
+        title: "Konten ohne Trainervertrag: nur noch Kontaktdaten",
+        items: [
+          "Wer keinen Trainervertrag bekommt (z. B. Geschäftsstelle/Geschäftsführung), sieht im Formular jetzt nur noch die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail. Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept entfallen für diese Konten komplett.",
+          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ ODER individuell als „Vertrag benötigt“ markiert. An der Ansicht von Trainern ändert sich dadurch nichts.",
+          "Die E-Mail-Adresse ist für diese Konten Pflichtfeld — sie ist der Grund für den Eintrag. Das Ampel-Badge auf der Dashboard-Kachel wird für sie grün, sobald sie hinterlegt ist, statt eine Unterschrift und Dokumente einzufordern, die es für sie gar nicht gibt.",
+          "In der Admin-Liste erscheinen solche Einträge als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.31",
     groups: [
       {

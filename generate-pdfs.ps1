@@ -248,12 +248,25 @@ Write-Host ("{0} Trainer geladen." -f $trainer.Count) -ForegroundColor Green
 # Jahres-Neuauslauf, ignoriert auch den Status). Stubs ohne username werden immer
 # uebersprungen.
 
+# Ist fuer diesen Datensatz ueberhaupt ein Trainervertrag vorgesehen? Das Feld
+# vertragspflichtig schreibt submit-worker.js server-verifiziert bei jeder Einreichung
+# (Gruppe "Trainer" ODER Haekchen "Vertrag benoetigt"); wer keinen Vertrag braucht,
+# hinterlegt in der App nur Kontaktdaten -- ohne IBAN und ohne Pauschale waere sein
+# Vertrag ohnehin unbrauchbar.
+# Nur ein EXPLIZITES $false schliesst aus: alle Datensaetze von vor Einfuehrung des
+# Feldes haben es gar nicht ($null) und muessen weiterhin Vertraege bekommen.
+# ($false -eq $null ist in PS 5.1 False -- empirisch geprueft, auch nach ConvertFrom-Json.)
+function Test-Vertragspflichtig($t) {
+  return -not ($false -eq $t.vertragspflichtig)
+}
+
 # Replik von _trainerStatus() in app.js (kein gemeinsames Modul zwischen App und
 # Skript -- gleiche Duplizierungs-Konvention wie Build-NebentaetigkeitReplacements;
 # bei Aenderungen dort von Hand synchron halten). Explizites status-Feld (Admin-
 # Dropdown) hat Vorrang vor der automatischen Ableitung.
 function Get-TrainerStatus($t) {
   if ($t.status) { return $t.status }
+  if (-not (Test-Vertragspflichtig $t)) { return 'kontaktdaten' }
   if ($t.vertragsGeneriert) { return 'generiert' }
   if ($t.username) { return 'ausstehend' }
   return 'unvollstaendig'
@@ -262,13 +275,15 @@ function Get-TrainerStatus($t) {
 if (-not $Test) {
   $gesamt = $trainer.Count
   if ($Alle) {
-    $trainer = @($trainer | Where-Object { $_.username })
+    # -Alle ignoriert bewusst den Status (Jahres-Neuausstellung), NICHT aber die
+    # Vertragspflicht: ein Konto ohne Trainervertrag soll auch hier keinen bekommen.
+    $trainer = @($trainer | Where-Object { $_.username -and (Test-Vertragspflichtig $_) })
   } else {
     $trainer = @($trainer | Where-Object { $_.username -and -not $_.vertragPdfBereitgestelltAm -and (Get-TrainerStatus $_) -eq 'ausstehend' })
   }
   $uebersprungen = $gesamt - $trainer.Count
   if ($uebersprungen -gt 0) {
-    Write-Host ("{0} von {1} uebersprungen (kein Login, Status nicht 'Ausstehend' oder Vertrag bereits ausgestellt; -Alle erzwingt Neuausstellung)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
+    Write-Host ("{0} von {1} uebersprungen (kein Login, kein Vertrag vorgesehen, Status nicht 'Ausstehend' oder Vertrag bereits ausgestellt; -Alle erzwingt Neuausstellung)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
   }
   if ($trainer.Count -eq 0) { throw 'Kein passender Trainer gefunden (alle haben schon einen Vertrag oder stehen nicht auf Ausstehend?). Fuer eine Neuausstellung -Alle verwenden.' }
   Write-Host ("{0} Trainer werden bearbeitet." -f $trainer.Count) -ForegroundColor Green

@@ -50,7 +50,8 @@
         </summary>
         <div class="accordion-body">
 
-        <p class="muted" style="margin-bottom:6px; line-height:1.5;">
+        <!-- Text wechselt für Nicht-Vertragspflichtige, siehe _applyVertragspflichtGate() -->
+        <p class="muted" style="margin-bottom:6px; line-height:1.5;" id="tf-intro-text">
           Bitte füll das Formular vollständig aus und unterschreibe am Ende.
           Deine Daten werden sicher auf unserem Vereinsserver gespeichert.
         </p>
@@ -74,9 +75,17 @@
         </div>
         <div class="form-grid">
           <div class="form-field"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
-          <div class="form-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
+          <!-- Für Nicht-Vertragspflichtige wird die E-Mail zum Pflichtfeld (Klasse
+               "required" setzt _applyVertragspflichtGate): sie ist der einzige Zweck
+               ihres Datensatzes und die Bedingung des Ampel-Badges im Dashboard. -->
+          <div class="form-field" id="tf-email-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
         </div>
 
+        <!-- Bankverbindung / Anlage 1 / Unterschrift dienen ausschließlich dem
+             Trainervertrag. Wer keinen bekommt (Geschäftsführung o.ä.), sieht diese
+             drei Blöcke nicht — _applyVertragspflichtGate() in app.js blendet sie aus,
+             der Worker verwirft die Felder zusätzlich serverseitig. -->
+        <div id="tf-vertragsdaten">
         <div class="section-divider">Bankverbindung</div>
         <div class="form-grid">
           <div class="form-field required" style="grid-column:1/-1;">
@@ -114,6 +123,7 @@
             <button type="button" class="btn secondary small" id="btn-sig-clear">Löschen</button>
           </div>
         </div>
+        </div>
 
         <div class="btn-row" style="margin-top:24px; justify-content:flex-start;">
           <button type="submit" class="btn success" id="btn-trainer-submit">Daten einreichen</button>
@@ -139,12 +149,14 @@
         <div class="receipt-row"><span class="receipt-label">Adresse</span><span class="receipt-value" id="r-adresse"></span></div>
         <div class="receipt-row"><span class="receipt-label">Telefon</span><span class="receipt-value" id="r-telefon"></span></div>
         <div class="receipt-row"><span class="receipt-label">E-Mail</span><span class="receipt-value" id="r-email"></span></div>
-        <div class="receipt-row"><span class="receipt-label">IBAN</span><span class="receipt-value iban-field" id="r-iban"></span></div>
-        <div class="receipt-row"><span class="receipt-label">Bank</span><span class="receipt-value" id="r-bankname"></span></div>
-        <div class="receipt-row"><span class="receipt-label">BIC</span><span class="receipt-value" id="r-bic"></span></div>
-        <div class="receipt-row"><span class="receipt-label">Nebentätigkeit (§ 3 Nr. 26 EStG)</span><span class="receipt-value" id="r-nebentaetigkeit"></span></div>
+        <!-- Vertragsspezifische Zeilen: für Nicht-Vertragspflichtige ausgeblendet
+             (_renderTrainerReceipt), sonst stünde bei ihnen überall "—". -->
+        <div class="receipt-row" id="r-row-iban"><span class="receipt-label">IBAN</span><span class="receipt-value iban-field" id="r-iban"></span></div>
+        <div class="receipt-row" id="r-row-bankname"><span class="receipt-label">Bank</span><span class="receipt-value" id="r-bankname"></span></div>
+        <div class="receipt-row" id="r-row-bic"><span class="receipt-label">BIC</span><span class="receipt-value" id="r-bic"></span></div>
+        <div class="receipt-row" id="r-row-nebentaetigkeit"><span class="receipt-label">Nebentätigkeit (§ 3 Nr. 26 EStG)</span><span class="receipt-value" id="r-nebentaetigkeit"></span></div>
       </div>
-      <div class="section-divider">Unterschrift</div>
+      <div class="section-divider" id="r-unterschrift-divider">Unterschrift</div>
       <img id="r-signature" alt="Unterschrift" class="receipt-signature" />
     </div>
 
@@ -452,6 +464,7 @@
                   <option value="unvollstaendig">Unvollständig</option>
                   <option value="ausstehend">Ausstehend</option>
                   <option value="generiert">Vertrag erstellt</option>
+                  <option value="kontaktdaten">Nur Kontaktdaten</option>
                 </select>
               </div>
               <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
@@ -656,10 +669,15 @@
             <div class="form-grid">
               <div class="form-field" style="max-width:220px;">
                 <label>Status</label>
+                <!-- "Nur Kontaktdaten" ist der abgeleitete Status für Konten ohne
+                     Trainervertrag. Hier trotzdem wählbar, damit der Admin einen Eintrag
+                     bewusst aus dem Vertragslauf nehmen bzw. per "Ausstehend" wieder
+                     hineinholen kann (siehe _trainerStatus). -->
                 <select id="d-status">
                   <option value="unvollstaendig">Unvollständig</option>
                   <option value="ausstehend">Ausstehend</option>
                   <option value="generiert">Vertrag erstellt</option>
+                  <option value="kontaktdaten">Nur Kontaktdaten</option>
                 </select>
               </div>
             </div>
@@ -764,13 +782,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.31"></script>
+<script src="config.js?v=1.32"></script>
 <script src="kodex-text.js?v=1.18"></script>
 <script src="jugendschutz-text.js?v=1.18"></script>
 <script src="checkliste-schema.js?v=1.18"></script>
 <script src="db.js?v=1.27"></script>
 <script src="signature-pad.js?v=1.18"></script>
 <script src="pdf-utils.js?v=1.19"></script>
-<script src="app.js?v=1.29"></script>
+<script src="app.js?v=1.32"></script>
 </body>
 </html>

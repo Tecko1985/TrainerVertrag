@@ -154,6 +154,28 @@ const JUGENDSCHUTZKONZEPT_VERSION = "1.0";
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
 const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
 
+// Alles rund um Trainervertrag und Trainer-Dokumente: nur für Vertragspflichtige
+// (Gruppe "Trainer" ODER vertragBenoetigt-Flag, siehe verifySession). Wer keinen
+// Vertrag braucht, hinterlegt hier ausschließlich Kontaktdaten und bekommt die
+// zugehörigen Karten gar nicht erst angezeigt — ein Request darauf kann nur aus einem
+// veralteten Client-Cache oder von Hand kommen und wird mit 403 abgewiesen.
+//
+// BEWUSST NICHT in dieser Liste:
+//   my-submission/submit  -> jeder reicht seine eigenen Daten ein; handleSubmit
+//                            unterscheidet die beiden Umfänge selbst.
+//   list-fuehrerscheine, *-file-for-owner -> Fremdeinsicht in die Dokumente ANDERER,
+//                            gegated auf Admin bzw. Gruppe fuehrerschein-einsicht. Das
+//                            ist eine Sichtberechtigung und hat mit der eigenen
+//                            Vertragspflicht nichts zu tun: ein Mitglied der
+//                            Einsichtsgruppe darf das Register lesen, auch wenn es
+//                            selbst nie einen Trainervertrag bekommt.
+const NUR_VERTRAGSPFLICHTIG_ACTIONS = new Set([
+  "upload-fuehrerschein", "upload-fuehrungszeugnis", "upload-trainerlizenz",
+  "my-fuehrerschein-file", "my-fuehrungszeugnis-file", "my-trainerlizenz-file",
+  "set-trainerlizenz-details", "submit-kodex", "submit-jugendschutzkonzept",
+  "my-vertrag-file", "my-vertrag-signiert-file", "submit-vertrag-unterschrift"
+]);
+
 function base64ToBytes(b64) {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
@@ -255,6 +277,10 @@ export default {
       return json({ error: "Nicht angemeldet" }, 401, corsHeaders);
     }
 
+    if (NUR_VERTRAGSPFLICHTIG_ACTIONS.has(body.action) && !session.vertragspflichtig) {
+      return json({ error: "Nicht berechtigt: für dieses Konto ist kein Trainervertrag vorgesehen" }, 403, corsHeaders);
+    }
+
     if (body.action === "my-submission") {
       return handleMySubmission(session, env, corsHeaders);
     }
@@ -331,7 +357,18 @@ async function verifySession(env, authHeader) {
       vorname: me.vorname || null,
       nachname: me.nachname || null,
       isAdmin: !!me.isAdmin,
-      groupIds: Array.isArray(me.groupIds) ? me.groupIds : []
+      groupIds: Array.isArray(me.groupIds) ? me.groupIds : [],
+      // Braucht diese Person einen Trainervertrag (Gruppe "Trainer" ODER
+      // vertragBenoetigt-Flag)? Entscheidet, ob sie Bankverbindung/Nebentätigkeit/
+      // Unterschrift/Dokumente überhaupt einreichen darf -- siehe handleSubmit.
+      //
+      // Bewusst `!== false` statt `!!`: Ein landingpage-Worker, der das Feld noch
+      // nicht kennt, liefert undefined. Mit `!!` wäre dann SCHLAGARTIG JEDER Trainer
+      // "nicht vertragspflichtig" und verlöre Bankverbindung und Vertrag. So ist der
+      // unbekannte Fall der bisherige Vollzugriff, und nur ein Server, der die Frage
+      // wirklich beantwortet hat, schränkt ein -- Deploy-Reihenfolge der beiden
+      // Worker damit egal (gleiche Übergangstoleranz wie bei der Signatur-Auslagerung).
+      vertragspflichtig: me.vertragspflichtig !== false
     };
   } catch (_) {
     return null;
@@ -395,14 +432,29 @@ async function handleMySubmission(session, env, corsHeaders) {
   return json({ data: mine }, 200, corsHeaders);
 }
 
+// Zwei Einreichungsarten, unterschieden durch session.vertragspflichtig (server-
+// verifiziert aus dem Gateway, siehe verifySession):
+//   vertragspflichtig  -> volle Trainerdaten (Bankverbindung, Anlage 1, Unterschrift)
+//   nicht pflichtig    -> NUR Kontaktdaten (z.B. Geschäftsführung), damit der Verein
+//                         die Person erreichen kann. IBAN/Nebentätigkeit/Unterschrift
+//                         sieht sie im Formular gar nicht.
 async function handleSubmit(body, session, env, corsHeaders) {
-  // Pflichtfelder prüfen
-  for (const field of ["vorname", "nachname", "iban", "nebentaetigkeit"]) {
+  const vertragspflichtig = session.vertragspflichtig;
+
+  // Pflichtfelder prüfen. Für Nicht-Vertragspflichtige tritt die E-Mail an die Stelle
+  // von IBAN/Nebentätigkeit: Kontaktaufnahme ist der einzige Zweck ihres Datensatzes,
+  // ein Eintrag ohne E-Mail wäre wertlos. Gleiche Bedingung wie das Ampel-Badge im
+  // Dashboard (handleMyTrainerdatenStatus) -- Formular und Ampel dürfen nie
+  // auseinanderlaufen.
+  const pflichtfelder = vertragspflichtig
+    ? ["vorname", "nachname", "iban", "nebentaetigkeit"]
+    : ["vorname", "nachname", "email"];
+  for (const field of pflichtfelder) {
     if (!body[field] || !String(body[field]).trim()) {
       return json({ error: `Pflichtfeld fehlt: ${field}` }, 400, corsHeaders);
     }
   }
-  if (body.nebentaetigkeit === "andere" && !String(body.nebentaetigkeitBetrag || "").trim()) {
+  if (vertragspflichtig && body.nebentaetigkeit === "andere" && !String(body.nebentaetigkeitBetrag || "").trim()) {
     return json({ error: "Pflichtfeld fehlt: nebentaetigkeitBetrag" }, 400, corsHeaders);
   }
 
@@ -430,18 +482,30 @@ async function handleSubmit(body, session, env, corsHeaders) {
     ort:          String(body.ort      || "").trim(),
     telefon:      String(body.telefon  || "").trim(),
     email:        String(body.email    || "").trim().toLowerCase(),
-    iban:         String(body.iban     || "").replace(/\s+/g, "").toUpperCase(),
-    bankname:     String(body.bankname || "").trim(),
-    bic:          String(body.bic      || "").trim().toUpperCase(),
+    // Vertragsdaten NUR von Vertragspflichtigen übernehmen. Ein Nicht-Trainer sieht
+    // diese Felder gar nicht — kämen sie trotzdem an (veralteter Client im Cache, von
+    // Hand abgesetzter Request), werden sie hier verworfen statt gespeichert. Ohne
+    // diesen Zweig wäre die Trennung reine Frontend-Kosmetik.
+    iban:         vertragspflichtig ? String(body.iban     || "").replace(/\s+/g, "").toUpperCase() : "",
+    bankname:     vertragspflichtig ? String(body.bankname || "").trim() : "",
+    bic:          vertragspflichtig ? String(body.bic      || "").trim().toUpperCase() : "",
     // Anlage 1 (§3 Nr.26 EStG): nur die beiden erlaubten Werte durchlassen
-    nebentaetigkeit: (body.nebentaetigkeit === "keine" || body.nebentaetigkeit === "andere")
+    nebentaetigkeit: (vertragspflichtig && (body.nebentaetigkeit === "keine" || body.nebentaetigkeit === "andere"))
       ? body.nebentaetigkeit : "",
-    nebentaetigkeitBetrag: String(body.nebentaetigkeitBetrag || "").trim()
+    nebentaetigkeitBetrag: vertragspflichtig ? String(body.nebentaetigkeitBetrag || "").trim() : "",
+    // Server-verifizierter Schnappschuss der Vertragspflicht zum Einreichzeitpunkt.
+    // Steht im Datensatz, weil Admin-Liste und generate-pdfs.ps1 nur die JSON sehen und
+    // sonst nicht wissen könnten, dass dieser Eintrag nie einen Vertrag bekommen soll.
+    // Beide Leser prüfen bewusst `!== false` — die Bestandsdatensätze von vor diesem
+    // Feld haben undefined und müssen weiter Verträge bekommen.
+    vertragspflichtig
   };
 
   // Unterschrift wird NICHT mehr inline in der JSON gespeichert, sondern als eigenes
   // PNG-Binärobjekt (siehe putSignatureFile) — nur ein Existenz-Flag bleibt im Datensatz.
-  const sig = (typeof body.signatureDataUrl === "string" &&
+  // Von Nicht-Vertragspflichtigen wird sie verworfen: kein Vertrag, keine Unterschrift.
+  const sig = (vertragspflichtig &&
+               typeof body.signatureDataUrl === "string" &&
                /^data:image\/png;base64,/.test(body.signatureDataUrl))
     ? body.signatureDataUrl : "";
 
