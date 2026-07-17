@@ -13,10 +13,11 @@
 #                                          (Upload nach Nextcloud vertraege/<id> + Vermerk
 #                                          im Datensatz). Ohne -Zuweisen bleibt das Skript
 #                                          rein lesend (PDFs liegen nur lokal in PDFs/).
-#                                          Standardmaessig nur Trainer OHNE bereits
-#                                          ausgestellten Vertrag -- bestehende (evtl.
-#                                          unterschriebene) Vertraege bleiben unangetastet,
-#                                          der Lauf ist damit gefahrlos wiederholbar.
+#                                          Standardmaessig nur Trainer mit Status
+#                                          "Ausstehend" und OHNE bereits ausgestellten
+#                                          Vertrag -- bestehende (evtl. unterschriebene)
+#                                          Vertraege bleiben unangetastet, der Lauf ist
+#                                          damit gefahrlos wiederholbar.
 #   .\generate-pdfs.ps1 -Zuweisen -Alle -> Neuausstellung fuer ALLE angemeldeten Trainer
 #                                          (bewusster Jahres-Neuauslauf: ersetzt vorhandene
 #                                          Vertraege und setzt deren Unterschrift zurueck).
@@ -236,23 +237,40 @@ Write-Host ("{0} Trainer geladen." -f $trainer.Count) -ForegroundColor Green
 
 # ── Zu bearbeitende Trainer auswaehlen ───────────────────────────────────────
 # Standard: Person hat sich selbst ueber das Trainer-Formular angemeldet (username
-# gesetzt) UND hat noch keinen zugewiesenen Vertrag (vertragPdfBereitgestelltAm leer).
-# Ein bereits ausgestellter Vertrag gilt fuers Jahr und wird NICHT angeruehrt --
-# geaenderte Stammdaten aendern daran nichts. -Alle erzwingt die Neuausstellung fuer
-# ALLE angemeldeten Trainer (bewusster Jahres-Neuauslauf: ersetzt vorhandene Vertraege
-# und setzt deren Unterschrift zurueck). Stubs ohne username werden immer uebersprungen.
+# gesetzt) UND hat noch keinen zugewiesenen Vertrag (vertragPdfBereitgestelltAm leer)
+# UND steht auf Status "Ausstehend" (Admin kann einzelne Trainer per Status-Dropdown
+# gezielt zurueckhalten, z.B. bei unvollstaendigen/fehlerhaften Daten).
+# Der vertragPdfBereitgestelltAm-Schutz bleibt BEWUSST zusaetzlich bestehen: eine
+# Formular-Neueinreichung setzt status/vertragsGeneriert serverseitig zurueck (der
+# Trainer zeigt danach wieder "Ausstehend"), der ausgestellte Vertrag gilt aber
+# weiter fuers Jahr -- Status allein wuerde solche Vertraege ungewollt ersetzen.
+# -Alle erzwingt die Neuausstellung fuer ALLE angemeldeten Trainer (bewusster
+# Jahres-Neuauslauf, ignoriert auch den Status). Stubs ohne username werden immer
+# uebersprungen.
+
+# Replik von _trainerStatus() in app.js (kein gemeinsames Modul zwischen App und
+# Skript -- gleiche Duplizierungs-Konvention wie Build-NebentaetigkeitReplacements;
+# bei Aenderungen dort von Hand synchron halten). Explizites status-Feld (Admin-
+# Dropdown) hat Vorrang vor der automatischen Ableitung.
+function Get-TrainerStatus($t) {
+  if ($t.status) { return $t.status }
+  if ($t.vertragsGeneriert) { return 'generiert' }
+  if ($t.username) { return 'ausstehend' }
+  return 'unvollstaendig'
+}
+
 if (-not $Test) {
   $gesamt = $trainer.Count
   if ($Alle) {
     $trainer = @($trainer | Where-Object { $_.username })
   } else {
-    $trainer = @($trainer | Where-Object { $_.username -and -not $_.vertragPdfBereitgestelltAm })
+    $trainer = @($trainer | Where-Object { $_.username -and -not $_.vertragPdfBereitgestelltAm -and (Get-TrainerStatus $_) -eq 'ausstehend' })
   }
   $uebersprungen = $gesamt - $trainer.Count
   if ($uebersprungen -gt 0) {
-    Write-Host ("{0} von {1} uebersprungen (kein Login oder Vertrag bereits ausgestellt; -Alle erzwingt Neuausstellung)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
+    Write-Host ("{0} von {1} uebersprungen (kein Login, Status nicht 'Ausstehend' oder Vertrag bereits ausgestellt; -Alle erzwingt Neuausstellung)." -f $uebersprungen, $gesamt) -ForegroundColor DarkGray
   }
-  if ($trainer.Count -eq 0) { throw 'Kein passender Trainer gefunden (alle haben schon einen Vertrag?). Fuer eine Neuausstellung -Alle verwenden.' }
+  if ($trainer.Count -eq 0) { throw 'Kein passender Trainer gefunden (alle haben schon einen Vertrag oder stehen nicht auf Ausstehend?). Fuer eine Neuausstellung -Alle verwenden.' }
   Write-Host ("{0} Trainer werden bearbeitet." -f $trainer.Count) -ForegroundColor Green
 }
 
