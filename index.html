@@ -728,6 +728,22 @@
           </div>
         </div>
         <div class="card">
+          <h3>Vertrags-PDFs erzeugen (lokal)</h3>
+          <p class="muted" style="margin-bottom:10px;">
+            Das Skript <code>generate-pdfs.ps1</code> erzeugt für alle angemeldeten Trainer mit Status
+            „Ausstehend“ (und ohne bereits zugewiesenen Vertrag) die Vertrags-PDFs über das lokal
+            installierte Microsoft Word — die IBANs verlassen den Rechner nicht. Mit dem Schalter
+            <code>-Zuweisen</code> werden die PDFs zusätzlich hochgeladen und den Trainern zur
+            Unterschrift bereitgestellt. Beide Dateien in denselben Ordner legen, dann in PowerShell
+            dort ausführen: <code>.\generate-pdfs.ps1 -Zuweisen</code> — das WebDAV-App-Passwort wird
+            beim Start abgefragt.
+          </p>
+          <div class="btn-row" style="justify-content:flex-start; flex-wrap:wrap;">
+            <a class="btn secondary small" href="generate-pdfs.ps1" download>Skript herunterladen (generate-pdfs.ps1)</a>
+            <a class="btn secondary small" href="vertrag-template.docx" download>Vorlage herunterladen (vertrag-template.docx)</a>
+          </div>
+        </div>
+        <div class="card">
           <h3>Versionshistorie <span class="version-badge-dark" id="version-badge-2"></span></h3>
           <div id="changelog-list"></div>
         </div>
@@ -740,7 +756,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.29"></script>
+<script src="config.js?v=1.30"></script>
 <script src="kodex-text.js?v=1.18"></script>
 <script src="jugendschutz-text.js?v=1.18"></script>
 <script src="checkliste-schema.js?v=1.18"></script>

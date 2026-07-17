@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.30",
+    groups: [
+      {
+        title: "Einstellungen: PDF-Skript zum Herunterladen",
+        items: [
+          "Neue Karte im Einstellungen-Tab (Admin): generate-pdfs.ps1 und die Vertragsvorlage lassen sich direkt herunterladen — wie in Dokumentenvorlagen. Das Skript erzeugt die Vertrags-PDFs lokal über Microsoft Word und weist sie mit -Zuweisen den Trainern zu; berücksichtigt werden nur Trainer mit Status Ausstehend ohne bereits zugewiesenen Vertrag."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.29",
     groups: [
       {
