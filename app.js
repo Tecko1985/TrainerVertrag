@@ -1373,6 +1373,7 @@ function _initAdminPanel() {
   document.getElementById("btn-d-kodex-reset").addEventListener("click", _resetKodexAdmin);
   document.getElementById("btn-d-jugendschutz-reset").addEventListener("click", _resetJugendschutzAdmin);
   document.getElementById("btn-d-vertrag-reset").addEventListener("click", _resetVertragUnterschriftAdmin);
+  document.getElementById("btn-d-vertrag-neuausstellung").addEventListener("click", _resetVertragAdmin);
 
   document.getElementById("btn-d-fz-camera").addEventListener("click", () => document.getElementById("d-fz-camera-input").click());
   document.getElementById("d-fz-camera-input").addEventListener("change", (e) => {
@@ -1871,6 +1872,7 @@ function _renderDocumentsSection(t) {
   const vOrigBtn  = document.getElementById("btn-d-vertrag-ansehen");
   const vSignBtn  = document.getElementById("btn-d-vertrag-signiert-ansehen");
   const vResetBtn = document.getElementById("btn-d-vertrag-reset");
+  const vNeuBtn   = document.getElementById("btn-d-vertrag-neuausstellung");
   if (t.vertragPdfBereitgestelltAm) {
     let html = "Bereitgestellt am " + _esc(_fmtIso(t.vertragPdfBereitgestelltAm));
     html += t.vertragUnterschriebenAm
@@ -1880,11 +1882,13 @@ function _renderDocumentsSection(t) {
     vOrigBtn.disabled = false;
     vSignBtn.disabled = !t.vertragUnterschriebenAm;
     vResetBtn.disabled = !t.vertragUnterschriebenAm;
+    vNeuBtn.disabled = false;
   } else {
     vStatusEl.textContent = "Noch kein Vertrag zugewiesen (per generate-pdfs.ps1 -Zuweisen).";
     vOrigBtn.disabled = true;
     vSignBtn.disabled = true;
     vResetBtn.disabled = true;
+    vNeuBtn.disabled = true;
   }
 }
 
@@ -2026,6 +2030,48 @@ async function _resetVertragUnterschriftAdmin() {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
   }
+  _renderDocumentsSection(appData.trainer[idx]);
+}
+
+// Setzt die KOMPLETTE Vertragszuweisung zurueck (anders als der reine Unterschrift-
+// Reset oben) -- fuer den Einzelfall "ausgestellter Vertrag war fehlerhaft, bitte neu
+// ausstellen". generate-pdfs.ps1 -Zuweisen ueberspringt bewusst jeden Trainer mit
+// gesetztem vertragPdfBereitgestelltAm; erst dieses Zuruecksetzen macht den Trainer
+// dort wieder sichtbar. Das Status-Override wird mitgeleert (wie handleSubmit im
+// Worker), damit die Ampel nicht auf einem manuellen Wert haengen bleibt.
+async function _resetVertragAdmin() {
+  if (!currentTrainerId) return;
+  const t = appData.trainer.find(x => x.id === currentTrainerId);
+  if (!t) return;
+  if (!confirm(`Trainervertrag von ${t.vorname} ${t.nachname} wirklich zurücksetzen? Der zugewiesene Vertrag samt Unterschrift wird entfernt. Der nächste Lauf von generate-pdfs.ps1 -Zuweisen stellt einen neuen Vertrag aus.`)) return;
+
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+
+  const altePfade = [appData.trainer[idx].vertragSigniertPfad, appData.trainer[idx].vertragPdfPfad].filter(Boolean);
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    vertragPdfPfad: "", vertragPdfBereitgestelltAm: "",
+    vertragUnterschriebenAm: "", vertragSigniertPfad: "", vertragSignatureDataUrl: "",
+    vertragsGeneriert: false,
+    status: ""
+  };
+  try {
+    await _saveMerged();
+    // Abgelegte PDFs best-effort mitentfernen (wie _resetKodexAdmin) -- sonst blieben
+    // bei einer Namenskorrektur verwaiste Dateien im alten vertraege/-Ordner zurueck.
+    const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
+    for (const rel of altePfade) {
+      try { await davDeleteFile({ ...davConfig, url: dir + "/" + rel }); } catch (_) {}
+    }
+  } catch (err) {
+    errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  const statusSelect = document.getElementById("d-status");
+  if (statusSelect) statusSelect.value = _trainerStatus(appData.trainer[idx]);
   _renderDocumentsSection(appData.trainer[idx]);
 }
 

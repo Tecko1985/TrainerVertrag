@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.29",
+    groups: [
+      {
+        title: "Admin: Vertrag zurücksetzen (Neuausstellung)",
+        items: [
+          "Neuer Button im Admin-Detail neben dem Unterschrift-Reset: setzt die komplette Vertragszuweisung eines einzelnen Trainers zurück (inkl. Unterschrift und abgelegter PDF-Dateien). Der nächste Lauf von generate-pdfs.ps1 -Zuweisen stellt für diesen Trainer dann einen neuen Vertrag aus — bisher ging das nur per -Alle für alle Trainer gleichzeitig oder von Hand in den Daten."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.26",
     groups: [
       {
