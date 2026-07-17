@@ -732,13 +732,21 @@
           <p class="muted" style="margin-bottom:10px;">
             Das Skript <code>generate-pdfs.ps1</code> erzeugt für alle angemeldeten Trainer mit Status
             „Ausstehend“ (und ohne bereits zugewiesenen Vertrag) die Vertrags-PDFs über das lokal
-            installierte Microsoft Word — die IBANs verlassen den Rechner nicht. Mit dem Schalter
-            <code>-Zuweisen</code> werden die PDFs zusätzlich hochgeladen und den Trainern zur
-            Unterschrift bereitgestellt. Beide Dateien in denselben Ordner legen, dann in PowerShell
-            dort ausführen: <code>.\generate-pdfs.ps1 -Zuweisen</code> — das WebDAV-App-Passwort wird
-            beim Start abgefragt.
+            installierte Microsoft Word — die IBANs verlassen den Rechner nicht. Alle vier Dateien in
+            denselben Ordner legen, dann die gewünschte Variante per Doppelklick starten (das
+            WebDAV-App-Passwort wird beim Start abgefragt):
+          </p>
+          <p class="muted" style="margin-bottom:10px;">
+            <strong>Variante 1 — nur lokal:</strong> erzeugt die PDFs nur im Unterordner <code>PDFs\</code>,
+            nichts wird hochgeladen.<br>
+            <strong>Variante 2 — erzeugen + zuweisen:</strong> lädt die PDFs zusätzlich hoch und stellt sie
+            den Trainern zur Unterschrift bereit (entspricht <code>.\generate-pdfs.ps1 -Zuweisen</code>).
           </p>
           <div class="btn-row" style="justify-content:flex-start; flex-wrap:wrap;">
+            <a class="btn secondary small" href="vertraege-nur-lokal.bat" download>Variante 1: nur lokal (.bat)</a>
+            <a class="btn secondary small" href="vertraege-zuweisen.bat" download>Variante 2: erzeugen + zuweisen (.bat)</a>
+          </div>
+          <div class="btn-row" style="justify-content:flex-start; flex-wrap:wrap; margin-top:6px;">
             <a class="btn secondary small" href="generate-pdfs.ps1" download>Skript herunterladen (generate-pdfs.ps1)</a>
             <a class="btn secondary small" href="vertrag-template.docx" download>Vorlage herunterladen (vertrag-template.docx)</a>
           </div>
@@ -756,7 +764,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.30"></script>
+<script src="config.js?v=1.31"></script>
 <script src="kodex-text.js?v=1.18"></script>
 <script src="jugendschutz-text.js?v=1.18"></script>
 <script src="checkliste-schema.js?v=1.18"></script>

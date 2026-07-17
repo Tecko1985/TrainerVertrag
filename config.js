@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.31",
+    groups: [
+      {
+        title: "Einstellungen: beide Skript-Varianten als Doppelklick-Starter",
+        items: [
+          "Die Download-Karte bietet jetzt zwei Batch-Starter an: Variante 1 erzeugt die Vertrags-PDFs nur lokal, Variante 2 erzeugt und weist sie den Trainern zu (-Zuweisen). Die Starter laufen per Doppelklick und umgehen die Windows-Blockade für heruntergeladene PowerShell-Skripte."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.30",
     groups: [
       {
