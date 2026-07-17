@@ -52,6 +52,16 @@
 //   { action: "trainerlizenz-file-for-owner", trainerId }  (NUR Admin, wie Führungszeugnis --
 //     keine eigene Sichtgruppe angefragt) -> rohe Datei-Bytes | 404 -- von Personalakte genutzt
 //
+// SEIT 1.33 (hinterlegtes Dokument eines Trainers löschen, NUR Admin):
+//   { action: "delete-fuehrerschein-for-owner", trainerId }
+//   { action: "delete-fuehrungszeugnis-for-owner", trainerId }
+//   { action: "delete-trainerlizenz-for-owner", trainerId }
+//     -> entfernt Datei UND Status-Felder; die Person muss danach selbst neu hochladen
+//     -> { success:true, id } | 404 (kein Dokument hinterlegt)
+//     Auch beim Führerschein bewusst NUR Admin — die Gruppe fuehrerschein-einsicht darf
+//     fremde Führerscheine ansehen (mayViewAllFuehrerscheine), das ist eine Sicht- und
+//     keine Verwaltungsberechtigung. Genutzt vom Admin-Detail hier und von Personalakte.
+//
 // SEIT 1.4 (Trainer-Selbstauskunft: keine Lizenz vorhanden, Lizenzart, Gültig bis):
 //   { action: "set-trainerlizenz-details", nichtVorhanden, art?, gueltigBis?, vorname?, nachname? }
 //     -> setzt alle drei Felder auf dem EIGENEN Datensatz (immer alle zusammen, kein
@@ -169,6 +179,10 @@ const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
 //                            Vertragspflicht nichts zu tun: ein Mitglied der
 //                            Einsichtsgruppe darf das Register lesen, auch wenn es
 //                            selbst nie einen Trainervertrag bekommt.
+//   delete-*-for-owner    -> aus demselben Grund nicht hier: Fremdverwaltung der
+//                            Dokumente ANDERER, gegated auf Admin (siehe
+//                            handleDeleteDocumentForOwner). Ein Admin ohne eigene
+//                            Vertragspflicht muss trotzdem löschen dürfen.
 const NUR_VERTRAGSPFLICHTIG_ACTIONS = new Set([
   "upload-fuehrerschein", "upload-fuehrungszeugnis", "upload-trainerlizenz",
   "my-fuehrerschein-file", "my-fuehrungszeugnis-file", "my-trainerlizenz-file",
@@ -319,6 +333,15 @@ export default {
     }
     if (body.action === "set-trainerlizenz-details") {
       return handleSetTrainerlizenzDetails(body, session, env, corsHeaders);
+    }
+    if (body.action === "delete-fuehrerschein-for-owner") {
+      return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrerschein);
+    }
+    if (body.action === "delete-fuehrungszeugnis-for-owner") {
+      return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrungszeugnis);
+    }
+    if (body.action === "delete-trainerlizenz-for-owner") {
+      return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.trainerlizenz);
     }
     if (body.action === "submit-kodex") {
       return handleSubmitKodex(body, session, env, corsHeaders);
@@ -700,6 +723,72 @@ async function handleUploadDocument(body, session, env, corsHeaders, docType) {
   }
 
   return json({ success: true, id: trainerId, [docType.uploadedAtField]: nowIso }, 200, corsHeaders);
+}
+
+// Löscht das hinterlegte Dokument eines BELIEBIGEN Trainers — Gegenstück zu
+// handleUploadDocument, für den Fall "das Hinterlegte taugt nicht, die Person soll ein
+// neues hochladen". Anders als beim Upload ist der Eigentümer hier nicht der
+// eingeloggte Nutzer, sondern kommt als trainerId aus dem Body (wie bei den
+// *-file-for-owner-Aktionen), deshalb NUR Admin: die Gruppe fuehrerschein-einsicht darf
+// fremde Führerscheine ansehen, aber nicht verwalten.
+//
+// Reihenfolge ist handleUploadDocument gespiegelt (erst Datei, dann Metadaten): bricht
+// der zweite Schritt ab, ist das Dokument weg und der Status behauptet noch
+// "vorhanden" — ein erneuter Löschversuch heilt das (der DELETE toleriert 404).
+// Andersherum bliebe die Datei ohne jeden Verweis darauf liegen, was gerade beim
+// Führungszeugnis niemand will.
+async function handleDeleteDocumentForOwner(body, session, env, corsHeaders, docType) {
+  if (!session.isAdmin) return json({ error: "Nicht berechtigt" }, 403, corsHeaders);
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const trainerId = String(body.trainerId || "");
+  const idx = appData.trainer.findIndex(t => t.id === trainerId);
+  if (idx === -1) return json({ error: "Trainer nicht gefunden" }, 404, corsHeaders);
+  if (!appData.trainer[idx][docType.uploadedAtField]) {
+    return json({ error: "Kein Dokument hinterlegt" }, 404, corsHeaders);
+  }
+
+  const fileUrl = trainerdatenDir(env) + "/" + docType.subdir + "/" + trainerId;
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "DELETE", headers: { Authorization: authHeader } });
+  } catch (e) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (!resp.ok && resp.status !== 404) return json({ error: `Nextcloud DELETE ${resp.status}` }, 502, corsHeaders);
+
+  // trainerlizenzNichtVorhanden/-Art/-GueltigBis bleiben stehen: das sind Aussagen über
+  // die Lizenz der Person, nicht über die gelöschte Scan-Datei — gleiche Trennung wie
+  // beim Re-Upload, der Art/Gültig-bis ebenfalls unangetastet lässt.
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    [docType.uploadedAtField]: "",
+    [docType.nameField]: "",
+    [docType.ctypeField]: ""
+  };
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Datei gelöscht, aber Metadaten-Update fehlgeschlagen: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, id: trainerId }, 200, corsHeaders);
 }
 
 // Trainer setzt/aktualisiert seine Trainerlizenz-Metadaten (keine Lizenz vorhanden,

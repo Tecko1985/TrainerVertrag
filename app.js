@@ -1445,6 +1445,7 @@ function _initAdminPanel() {
     if (f) _uploadDocumentAdmin("trainerlizenzen", f, "trainerlizenzHochgeladenAm", "trainerlizenzDateiName", "trainerlizenzContentType");
   });
   document.getElementById("btn-d-tl-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("trainerlizenzen"));
+  document.getElementById("btn-d-tl-loeschen").addEventListener("click", () => _deleteDocumentAdmin("trainerlizenzen", "trainerlizenzHochgeladenAm", "trainerlizenzDateiName", "trainerlizenzContentType", "Trainerlizenz"));
 
   document.getElementById("btn-d-fs-upload").addEventListener("click", () => document.getElementById("d-fs-file-input").click());
   document.getElementById("d-fs-file-input").addEventListener("change", (e) => {
@@ -1457,6 +1458,7 @@ function _initAdminPanel() {
     if (f) _uploadDocumentAdmin("fuehrerscheine", f, "fuehrerscheinHochgeladenAm", "fuehrerscheinDateiName", "fuehrerscheinContentType");
   });
   document.getElementById("btn-d-fs-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrerscheine"));
+  document.getElementById("btn-d-fs-loeschen").addEventListener("click", () => _deleteDocumentAdmin("fuehrerscheine", "fuehrerscheinHochgeladenAm", "fuehrerscheinDateiName", "fuehrerscheinContentType", "Führerschein"));
 
   document.getElementById("btn-d-fz-upload").addEventListener("click", () => document.getElementById("d-fz-file-input").click());
   document.getElementById("d-fz-file-input").addEventListener("change", (e) => {
@@ -1474,6 +1476,7 @@ function _initAdminPanel() {
     if (f) _uploadDocumentAdmin("fuehrungszeugnisse", f, "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType");
   });
   document.getElementById("btn-d-fz-ansehen").addEventListener("click", () => _ansehenDocumentAdmin("fuehrungszeugnisse"));
+  document.getElementById("btn-d-fz-loeschen").addEventListener("click", () => _deleteDocumentAdmin("fuehrungszeugnisse", "fuehrungszeugnisEingereichtAm", "fuehrungszeugnisDateiName", "fuehrungszeugnisContentType", "Führungszeugnis"));
 
   document.getElementById("btn-d-vertrag-ansehen").addEventListener("click", () => _ansehenVertragAdmin(false));
   document.getElementById("btn-d-vertrag-signiert-ansehen").addEventListener("click", () => _ansehenVertragAdmin(true));
@@ -1910,6 +1913,7 @@ function _renderDocumentsSection(t) {
   const tlAnsehenBtn = document.getElementById("btn-d-tl-ansehen");
   const tlUploadBtn  = document.getElementById("btn-d-tl-upload");
   const tlCameraBtn  = document.getElementById("btn-d-tl-camera");
+  const tlLoeschBtn  = document.getElementById("btn-d-tl-loeschen");
   const tlArtSel     = document.getElementById("d-tl-art");
   const tlGueltigInp = document.getElementById("d-tl-gueltig-bis");
   if (t.trainerlizenzHochgeladenAm) {
@@ -1936,11 +1940,15 @@ function _renderDocumentsSection(t) {
   }
   tlArtSel.disabled = !!t.trainerlizenzNichtVorhanden;
   tlGueltigInp.disabled = !!t.trainerlizenzNichtVorhanden;
+  // Löschen hat dieselbe Bedingung wie Ansehen (es muss eine Datei da sein), deshalb
+  // einmal nach dem Block statt in jedem Zweig.
+  tlLoeschBtn.disabled = !t.trainerlizenzHochgeladenAm;
 
   const fsStatusEl   = document.getElementById("d-fs-status");
   const fsAnsehenBtn = document.getElementById("btn-d-fs-ansehen");
   const fsUploadBtn  = document.getElementById("btn-d-fs-upload");
   const fsCameraBtn  = document.getElementById("btn-d-fs-camera");
+  const fsLoeschBtn  = document.getElementById("btn-d-fs-loeschen");
   if (t.fuehrerscheinHochgeladenAm) {
     const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
     const gueltig = faelligAm.getTime() > Date.now();
@@ -1955,11 +1963,13 @@ function _renderDocumentsSection(t) {
     fsUploadBtn.textContent = "Hochladen…";
     fsCameraBtn.textContent = "📷 Aufnehmen";
   }
+  fsLoeschBtn.disabled = !t.fuehrerscheinHochgeladenAm;
 
   const fzStatusEl   = document.getElementById("d-fz-status");
   const fzAnsehenBtn = document.getElementById("btn-d-fz-ansehen");
   const fzUploadBtn  = document.getElementById("btn-d-fz-upload");
   const fzCameraBtn  = document.getElementById("btn-d-fz-camera");
+  const fzLoeschBtn  = document.getElementById("btn-d-fz-loeschen");
   if (t.fuehrungszeugnisEingereichtAm) {
     fzStatusEl.textContent = "Eingereicht am " + _fmtIso(t.fuehrungszeugnisEingereichtAm);
     fzAnsehenBtn.disabled = false;
@@ -1971,6 +1981,7 @@ function _renderDocumentsSection(t) {
     fzUploadBtn.textContent = "Hochladen…";
     fzCameraBtn.textContent = "📷 Aufnehmen";
   }
+  fzLoeschBtn.disabled = !t.fuehrungszeugnisEingereichtAm;
 
   const vStatusEl = document.getElementById("d-vertrag-status");
   const vOrigBtn  = document.getElementById("btn-d-vertrag-ansehen");
@@ -2211,6 +2222,51 @@ async function _uploadDocumentAdmin(subdir, file, dateField, nameField, ctypeFie
     await _saveMerged();
   } catch (err) {
     errEl.textContent = "Datei hochgeladen, aber Speichern der Metadaten fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+  }
+  _renderDocumentsSection(appData.trainer[idx]);
+}
+
+// Löscht ein hinterlegtes Dokument — Gegenstück zu _uploadDocumentAdmin, für den Fall
+// "das Hinterlegte taugt nicht, die Person soll ein neues hochladen". Bewusst getrennt
+// von "Ersetzen": danach steht der Status wieder auf offen, die Person sieht ihre
+// Aufgabe in der eigenen Dokumente-Karte wieder.
+//
+// Reihenfolge ist _uploadDocumentAdmin gespiegelt (erst Datei, dann Metadaten): bricht
+// Schritt 2 ab, ist das Dokument weg und der Status behauptet noch "vorhanden" — ein
+// erneuter Löschversuch heilt das (davDeleteFile toleriert 404). Andersherum bliebe die
+// Datei ohne jeden Verweis darauf liegen, was gerade beim Führungszeugnis niemand will.
+async function _deleteDocumentAdmin(subdir, dateField, nameField, ctypeField, label) {
+  if (!currentTrainerId) return;
+  const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
+  if (idx === -1) return;
+  const t = appData.trainer[idx];
+  if (!t[dateField]) return;
+  if (!confirm(`${label} von ${t.vorname} ${t.nachname} wirklich löschen? Die Datei wird endgültig entfernt — danach steht das Dokument wieder als offen da und muss neu hochgeladen werden.`)) return;
+
+  const errEl = document.getElementById("d-doc-error");
+  errEl.style.display = "none";
+  try {
+    await davDeleteFile(_trainerDocConfig(subdir, t.id));
+  } catch (err) {
+    errEl.textContent = "Löschen fehlgeschlagen: " + err.message;
+    errEl.style.display = "block";
+    return;
+  }
+
+  // trainerlizenzNichtVorhanden/-Art/-GueltigBis bleiben stehen: das sind Aussagen über
+  // die Lizenz der Person, nicht über die gelöschte Scan-Datei — gleiche Trennung wie
+  // beim Re-Upload, der Art/Gültig-bis ebenfalls unangetastet lässt.
+  appData.trainer[idx] = {
+    ...appData.trainer[idx],
+    [dateField]: "",
+    [nameField]: "",
+    [ctypeField]: ""
+  };
+  try {
+    await _saveMerged();
+  } catch (err) {
+    errEl.textContent = "Datei gelöscht, aber Speichern der Metadaten fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
   }
   _renderDocumentsSection(appData.trainer[idx]);

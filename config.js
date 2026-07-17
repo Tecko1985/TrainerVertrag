@@ -160,6 +160,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.33",
+    groups: [
+      {
+        title: "Dokumente löschen (Admin)",
+        items: [
+          "Im Admin-Detail gibt es für Trainerlizenz, Führerschein und Führungszeugnis jetzt neben Ansehen und Ersetzen auch einen Löschen-Button — für den Fall, dass das Hinterlegte unbrauchbar ist (unscharfes Foto, falsche Datei) und der Trainer ein neues hochladen soll. Danach steht das Dokument bei ihm wieder als offen da.",
+          "Dasselbe Löschen geht jetzt auch aus der Personalakte heraus. Beides darf nur ein Admin.",
+          "Lizenzart, „gültig bis“ und das Häkchen „Keine Trainerlizenz vorhanden“ bleiben beim Löschen des Scans unverändert — sie beschreiben die Lizenz der Person, nicht die Datei."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.32",
     groups: [
       {
