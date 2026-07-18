@@ -160,373 +160,6 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
-    version: "1.34",
-    groups: [
-      {
-        title: "Speichern im Admin wieder schnell",
-        items: [
-          "Die Unterschrift unter dem Trainervertrag wurde bisher zusätzlich als Bild in die Datendatei geschrieben — obwohl sie im unterschriebenen PDF ohnehin enthalten ist und an keiner Stelle angezeigt wurde. Dieses eine Feld machte zuletzt rund 99 % der Dateigröße aus und hat jedes Speichern im Admin ausgebremst. Es wird jetzt weder erzeugt noch gespeichert, die Altbestände sind bereinigt.",
-          "Am unterschriebenen Vertrag ändert sich nichts: Er liegt unverändert als PDF in der Cloud und bleibt über „Unterschrieben ansehen“ abrufbar."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.33",
-    groups: [
-      {
-        title: "Dokumente löschen (Admin)",
-        items: [
-          "Im Admin-Detail gibt es für Trainerlizenz, Führerschein und Führungszeugnis jetzt neben Ansehen und Ersetzen auch einen Löschen-Button — für den Fall, dass das Hinterlegte unbrauchbar ist (unscharfes Foto, falsche Datei) und der Trainer ein neues hochladen soll. Danach steht das Dokument bei ihm wieder als offen da.",
-          "Dasselbe Löschen geht jetzt auch aus der Personalakte heraus. Beides darf nur ein Admin.",
-          "Lizenzart, „gültig bis“ und das Häkchen „Keine Trainerlizenz vorhanden“ bleiben beim Löschen des Scans unverändert — sie beschreiben die Lizenz der Person, nicht die Datei."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.32",
-    groups: [
-      {
-        title: "Konten ohne Trainervertrag: nur noch Kontaktdaten",
-        items: [
-          "Wer keinen Trainervertrag bekommt (z. B. Geschäftsstelle/Geschäftsführung), sieht im Formular jetzt nur noch die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail. Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept entfallen für diese Konten komplett.",
-          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ ODER individuell als „Vertrag benötigt“ markiert. An der Ansicht von Trainern ändert sich dadurch nichts.",
-          "Die E-Mail-Adresse ist für diese Konten Pflichtfeld — sie ist der Grund für den Eintrag. Das Ampel-Badge auf der Dashboard-Kachel wird für sie grün, sobald sie hinterlegt ist, statt eine Unterschrift und Dokumente einzufordern, die es für sie gar nicht gibt.",
-          "In der Admin-Liste erscheinen solche Einträge als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.31",
-    groups: [
-      {
-        title: "Einstellungen: beide Skript-Varianten als Doppelklick-Starter",
-        items: [
-          "Die Download-Karte bietet jetzt zwei Batch-Starter an: Variante 1 erzeugt die Vertrags-PDFs nur lokal, Variante 2 erzeugt und weist sie den Trainern zu (-Zuweisen). Die Starter laufen per Doppelklick und umgehen die Windows-Blockade für heruntergeladene PowerShell-Skripte."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.30",
-    groups: [
-      {
-        title: "Einstellungen: PDF-Skript zum Herunterladen",
-        items: [
-          "Neue Karte im Einstellungen-Tab (Admin): generate-pdfs.ps1 und die Vertragsvorlage lassen sich direkt herunterladen — wie in Dokumentenvorlagen. Das Skript erzeugt die Vertrags-PDFs lokal über Microsoft Word und weist sie mit -Zuweisen den Trainern zu; berücksichtigt werden nur Trainer mit Status Ausstehend ohne bereits zugewiesenen Vertrag."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.29",
-    groups: [
-      {
-        title: "Admin: Vertrag zurücksetzen (Neuausstellung)",
-        items: [
-          "Neuer Button im Admin-Detail neben dem Unterschrift-Reset: setzt die komplette Vertragszuweisung eines einzelnen Trainers zurück (inkl. Unterschrift und abgelegter PDF-Dateien). Der nächste Lauf von generate-pdfs.ps1 -Zuweisen stellt für diesen Trainer dann einen neuen Vertrag aus — bisher ging das nur per -Alle für alle Trainer gleichzeitig oder von Hand in den Daten."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.26",
-    groups: [
-      {
-        title: "Aufklappbare Karten: kein grauer Block mehr beim Überfahren",
-        items: [
-          "Beim Überfahren einer aufklappbaren Karte mit der Maus wird nicht mehr die ganze Karte grau eingefärbt — alle Karten bleiben einheitlich weiß. Auf dem Handy blieb die zuletzt angetippte Karte sonst grau „hängen“."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.25",
-    groups: [
-      {
-        title: "Aufklappbare Karten: einheitliche Abstände",
-        items: [
-          "Die auf-/zuklappbaren Karten im Trainerbereich haben jetzt überall denselben Innenabstand: Titelzeile und Inhalt sitzen bündig, und der Hervorhebungs-Hintergrund beim Überfahren/Aufklappen reicht bis zum Kartenrand — vorher wirkte er als schmalerer Kasten mit Rand, wodurch die Abstände ungleich aussahen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.24",
-    groups: [
-      {
-        title: "Trainerbereich: Status-Häkchen der Trainerlizenz",
-        items: [
-          "Eine hochgeladene, aber abgelaufene Trainerlizenz zeigt jetzt korrekt ein rotes Kreuz (offen) statt eines grünen Häkchens — passend zur Gesamt-Ampel im Dashboard."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.23",
-    groups: [
-      {
-        title: "Hauptformular: aufklappbare Abschnitte mit Status-Häkchen",
-        items: [
-          "Persönliche Daten, Bankverbindung, Erklärung Nebentätigkeit und Unterschrift lassen sich jetzt einzeln auf-/zuklappen, mit demselben Häkchen/Kreuz/Strich-Badge wie die übrigen Karten.",
-          "Die Badges aktualisieren sich live beim Tippen — kein Neuladen nötig, um zu sehen, was noch fehlt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.22",
-    groups: [
-      {
-        title: "Trainerbereich: aufklappbare Karten mit Status-Häkchen",
-        items: [
-          "Trainervertrag, Checkliste Trainerzu-/-abgang, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich jetzt einzeln auf-/zuklappen — die Seite bleibt dadurch deutlich kompakter.",
-          "Jede Karte zeigt direkt im Titel ein Häkchen (erledigt), Kreuz (noch offen) oder einen Strich (aktuell nicht zutreffend). Beim ersten Laden starten offene Punkte automatisch ausgeklappt, erledigte eingeklappt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.19",
-    groups: [
-      {
-        title: "Personalkosten-Import: Gruppe „Trainer“ oder „Vertrag benötigt“",
-        items: [
-          "Der Personalkosten-Import legt für neue Namen nur noch dann einen Trainer-Eintrag an, wenn die Person Mitglied der ToolsUebersicht-Gruppe „Trainer“ ist ODER dort individuell als „Vertrag benötigt“ markiert wurde (z. B. Helfer/Betreuer ohne Trainer-Rolle) — verhindert Stub-Leichen für Personen, die zwar in Personalkosten stehen, aber keinen Vertrag brauchen. Bestehende Einträge (auch ältere Stubs) bleiben unangetastet.",
-          "Die Trainervertrag-Quote im ToolsUebersicht-Admin-Dashboard zählt entsprechend jetzt beide Gruppen zusammen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.18",
-    groups: [
-      {
-        title: "Admin-Übersicht: konfigurierbarer CSV-Export",
-        items: [
-          "Neuer Button „CSV-Export…“ in der Liste „Eingereichte Trainerdaten“ – jedes Feld (Stammdaten, Bankverbindung, Vertrag & Status, Dokumente) ist per Checkbox einzeln an-/abwählbar.",
-          "Der Export berücksichtigt die aktuelle Such-/Filter-Einstellung: exportiert wird immer genau die gerade angezeigte Liste."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.17",
-    groups: [
-      {
-        title: "Admin-Übersicht: Filter nach Vertragsunterschrift",
-        items: [
-          "Neuer Filter „Vertrag unterschrieben“ / „Vertrag nicht unterschrieben“ in der Liste „Eingereichte Trainerdaten“ – zeigt gezielt die Trainer, die ihren Trainervertrag bereits digital unterschrieben haben."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.16",
-    groups: [
-      {
-        title: "Admin-Detail: Speichern-Button",
-        items: [
-          "Neuer Button „Speichern“ in der Trainer-Detailansicht – speichert sofort und sichtbar, statt auf das automatische Speichern (1,2 Sekunden nach der letzten Eingabe) zu warten.",
-          "Randfall behoben: Ein Wechsel zurück zur Liste oder zu einem anderen Trainer kurz nach einer Eingabe konnte die zuletzt eingegebene Änderung stillschweigend verwerfen, bevor das automatische Speichern ausgelöst wurde."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.15",
-    groups: [
-      {
-        title: "Admin-Detail: Vertragsunterschrift zurücksetzen",
-        items: [
-          "Neuer Button „Unterschrift zurücksetzen“ beim Trainervertrag im Admin-Detail – ermöglicht dem Trainer ein erneutes Unterschreiben (z. B. bei einem Versehen), ohne den zugewiesenen Original-Vertrag anzutasten."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.14",
-    groups: [
-      {
-        title: "Trainervertrag: Unterschrift direkt im Dokument",
-        items: [
-          "Die digitale Unterschrift wird jetzt zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gestempelt (Hauptvertrag Seite 2 und Anlage 1 Seite 4) – der Vertrag sieht damit auch an den gewohnten Stellen unterschrieben aus."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.13",
-    groups: [
-      {
-        title: "Trainervertrag: Statusanzeige repariert",
-        items: [
-          "Der Bereich „Trainervertrag“ zeigte bei bereits registrierten Trainern (Bestätigungs-Screen „Bereits eingereicht“) immer den leeren Ausgangszustand, auch wenn längst ein Vertrag bereitgestellt oder unterschrieben wurde – betraf praktisch jeden Trainer nach der ersten Einreichung. Behoben: Status und Ansehen-Button aktualisieren sich jetzt auch auf diesem Screen korrekt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.12",
-    groups: [
-      {
-        title: "Admin-Übersicht",
-        items: [
-          "Die Liste „Eingereichte Trainerdaten“ zeigt jetzt zusätzlich die hinterlegte Pauschale je Trainer an – zum schnellen Abgleich, ohne jeden Eintrag einzeln zu öffnen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.11",
-    groups: [
-      {
-        title: "Trainervertrag: übersichtliche Ablage",
-        items: [
-          "Unterschriebene und bereitgestellte Trainerverträge werden in der Cloud jetzt nach Jahr und Trainername abgelegt (z. B. vertraege/2026/Vorname_Nachname/) statt unter technischen IDs — dadurch im Nextcloud leicht wiederzufinden und automatisch nach Jahren archiviert."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.10",
-    groups: [
-      {
-        title: "Trainervertrag ansehen & unterschreiben",
-        items: [
-          "Neuer Bereich „Trainervertrag\" im Trainerbereich: sobald dein Vertrag bereitgestellt wurde, kannst du ihn direkt ansehen und digital unterschreiben.",
-          "Beim Unterschreiben wird ein fertiges PDF erzeugt (dein Vertrag plus eine Unterschriftenseite mit Name, Datum und Signatur) und sicher auf dem Vereinsserver gespeichert.",
-          "Dein unterschriebener Vertrag ist jederzeit wieder einsehbar — du hast damit selbst im Blick, was du wann unterschrieben hast.",
-          "Admin-Detail: Original- und unterschriebenen Vertrag ansehen sowie den Unterschrift-Status je Trainer.",
-          "Die Verträge werden mit generate-pdfs.ps1 -Zuweisen erzeugt und den Trainern zugewiesen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.9",
-    groups: [
-      {
-        title: "Admin-Dokumente",
-        items: [
-          "\"Ansehen\" bei Führerschein/Führungszeugnis/Trainerlizenz im Admin-Detail zeigt die Datei jetzt im Browser an, statt sie herunterzuladen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.8",
-    groups: [
-      {
-        title: "TrainerCheckliste-Status im Trainerbereich",
-        items: [
-          "Neue Karte „Checkliste Trainerzu-/-abgang\" direkt hier im Trainerdaten-Tab, zwischen der Unterschrift des Hauptformulars und der Trainerlizenz.",
-          "Zeigt an, ob der eigene Zugang (Onboarding) laut Geschäftsstelle abgeschlossen ist.",
-          "„Öffnen\" zeigt die komplette Checkliste zum Nachlesen: alle abgehakten Punkte, Bemerkungen sowie die Unterschriften von Trainer/Betreuer und Geschäftsstelle — rein informativ, keine eigene Bestätigung nötig."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.7",
-    groups: [
-      {
-        title: "Kinder- und Jugendschutzkonzept",
-        items: [
-          "Neuer Bereich „Jugendschutzkonzept\" — Text lesen und mit Unterschrift bestätigen, gleiches Prinzip wie beim Trainerkodex, direkt hier im Trainerdaten-Tab.",
-          "Die Bestätigung ist ebenfalls alle 6 Monate erneut fällig; ist sie abgelaufen, zählt das mit zum Gesamtstatus (rotes Kreuz auf der Dashboard-Kachel, Eingabe erforderlich).",
-          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
-        ]
-      },
-      {
-        title: "Trainerkodex: Darstellung zusammengelegt",
-        items: [
-          "Text und Bestätigung (Unterschrift) stehen jetzt in einer gemeinsamen Karte statt in zwei getrennten — rein optische Vereinfachung, keine Funktionsänderung."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.6",
-    groups: [
-      {
-        title: "Trainerkodex",
-        items: [
-          "Der Verhaltenskodex ist keine eigene App mehr: Kodex lesen und mit Unterschrift bestätigen läuft jetzt direkt hier, über denselben Gateway-Login wie das Hauptformular.",
-          "Die Bestätigung ist alle 6 Monate erneut fällig (wie die Führerschein-Kopie) — abgelaufene Bestätigungen werden entsprechend markiert.",
-          "Bestehende Bestätigungen aus der bisherigen Trainerkodex-App wurden übernommen.",
-          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift der jeweiligen Person, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
-        ]
-      },
-      {
-        title: "TrainerCheckliste-Status im Admin-Detail",
-        items: [
-          "Zeigt zusätzlich an, ob für den Trainer in TrainerCheckliste Zugang bzw. Abgang abgeschlossen sind (rein informativ, ohne Auswirkung auf den Ampel-Status der Trainerdaten-Kachel)."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.5",
-    groups: [
-      {
-        title: "Trainerlizenz: Art + Gültigkeit",
-        items: [
-          "Neues Dropdown „Lizenzart\" (C-/B-/A-Lizenz, DFB-Basis-/Elite-Jugend-/Fußball-Lehrer-Lizenz u.a.) bei der Trainerlizenz, sowohl bei dir selbst als auch im Admin-Detail.",
-          "Neues Datumsfeld „Lizenz gültig bis\" mit automatischer Gültig/Abgelaufen-Anzeige, sobald eine Datei hochgeladen ist."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.4",
-    groups: [
-      {
-        title: "Trainerlizenz: Selbstauskunft für alle",
-        items: [
-          "Neue Checkbox „Ich habe keine Trainerlizenz\" jetzt auch in der Trainer-Selbstbedienung, nicht nur im Admin-Detail — jeder kann selbst bestätigen, dass keine Lizenz vorhanden ist."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.3",
-    groups: [
-      {
-        title: "Layout-Fix",
-        items: [
-          "Checkbox „Keine Trainerlizenz vorhanden\" stand fälschlich in derselben Zeile wie die Buttons ganz am rechten Rand — steht jetzt sichtbar auf einer eigenen Zeile darunter."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.2",
-    groups: [
-      {
-        title: "Dokumente: Admin-Detail nachgebessert",
-        items: [
-          "Admin kann Trainerlizenz, Führerschein und Führungszeugnis jetzt auch im Detailbereich direkt per Kamera fotografieren, nicht nur per Datei-/Galerie-Auswahl.",
-          "Neue Checkbox „Keine Trainerlizenz vorhanden\" bei Trainerlizenz, damit der Status nicht dauerhaft als ausstehend erscheint, wenn jemand schlicht keine besitzt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.1",
-    groups: [
-      {
-        title: "Dokumente: Trainerlizenz",
-        items: [
-          "Kopie der Trainerlizenz direkt hochladen (Kamera oder Datei/PDF), an derselben Stelle wie Führerschein und Führungszeugnis — die eigene Datei ist jederzeit selbst einsehbar.",
-          "Admin kann die Trainerlizenz im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen und direkt aus der Personalakte öffnen."
-        ]
-      }
-    ]
-  },
-  {
     version: "1.0",
     groups: [
       {
@@ -539,22 +172,26 @@ const APP_CHANGELOG = [
         ]
       },
       {
-        title: "Dokumente: Führerschein & Führungszeugnis",
+        title: "Übersichtliche Darstellung im Trainerbereich",
         items: [
-          "Führerschein-Kopie direkt hochladen (Kamera oder Datei/PDF); „Gültig bis …“ mit Erinnerung, alle 6 Monate erneut einzureichen. Register für Admin und die Gruppe „Führerschein Einsicht“ inklusive Sammel-PDF-Export aller eingereichten Kopien.",
-          "Erweitertes Führungszeugnis hochladen; die eigene Datei ist selbst einsehbar, fremde Führungszeugnisse aus Datenschutzgründen nur für Admins (u. a. direkt aus der Personalakte).",
-          "Admin kann beide Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen (Personalkosten-Import-Stubs)."
+          "Persönliche Daten, Bankverbindung, Erklärung Nebentätigkeit und Unterschrift sowie Trainervertrag, Checkliste Trainerzu-/-abgang, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich jeweils einzeln auf-/zuklappen — die Seite bleibt dadurch deutlich kompakter.",
+          "Jede Karte zeigt direkt im Titel ein Häkchen (erledigt), Kreuz (noch offen) oder einen Strich (aktuell nicht zutreffend), aktualisiert live beim Tippen. Beim ersten Laden starten offene Punkte automatisch ausgeklappt, erledigte eingeklappt."
         ]
       },
       {
-        title: "Admin-Ansicht",
+        title: "Konten ohne Trainervertrag: nur noch Kontaktdaten",
         items: [
-          "Übersicht aller eingereichten Trainer-Einträge mit Status (Unvollständig / Ausstehend / Vertrag generiert) und Lizenz direkt in der Liste.",
-          "Suchfeld (nach Name) sowie Filter nach Status und Lizenz.",
-          "Trainer-Daten bearbeiten und speichern (automatisches Speichern); Eintrag löschen mit Sicherheitsabfrage.",
-          "Während einer Admin-Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
-          "Status im Detail ist manuell umstellbar, wird bei einer erneuten Einreichung des Trainers aber automatisch zurückgesetzt (ein bereits generierter Vertrag fällt so wieder als veraltet auf).",
-          "Lizenz wird beim Öffnen eines Trainer-Details automatisch aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist."
+          "Wer keinen Trainervertrag bekommt (z. B. Geschäftsstelle/Geschäftsführung), sieht im Formular nur noch die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail. Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept entfallen für diese Konten komplett.",
+          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ ODER individuell als „Vertrag benötigt“ markiert. An der Ansicht von Trainern ändert sich dadurch nichts.",
+          "Die E-Mail-Adresse ist für diese Konten Pflichtfeld — sie ist der Grund für den Eintrag. In der Admin-Liste erscheinen solche Einträge als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
+        ]
+      },
+      {
+        title: "Trainervertrag ansehen & digital unterschreiben",
+        items: [
+          "Sobald der Vertrag bereitgestellt wurde, im Trainerbereich direkt ansehen und digital unterschreiben. Die Unterschrift wird zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gestempelt — er sieht damit auch an den gewohnten Stellen unterschrieben aus.",
+          "Der unterschriebene Vertrag ist jederzeit wieder einsehbar; unterschriebene und bereitgestellte Verträge werden in der Cloud nach Jahr und Trainername abgelegt statt unter technischen IDs.",
+          "Admin-Detail: Original- und unterschriebenen Vertrag ansehen sowie den Unterschrift-Status je Trainer; die Unterschrift lässt sich bei Bedarf zurücksetzen (erneutes Unterschreiben möglich, Original-Vertrag bleibt unangetastet), oder die komplette Vertragszuweisung eines Trainers zurücksetzen (inkl. Unterschrift und Dateien), damit beim nächsten Lauf von generate-pdfs.ps1 -Zuweisen ein neuer Vertrag ausgestellt wird."
         ]
       },
       {
@@ -566,19 +203,64 @@ const APP_CHANGELOG = [
         ]
       },
       {
+        title: "Dokumente: Trainerlizenz, Führerschein & Führungszeugnis",
+        items: [
+          "Trainerlizenz, Führerschein und erweitertes Führungszeugnis direkt hochladen (Kamera oder Datei/PDF), an derselben Stelle im Trainerbereich — die eigene Datei ist jederzeit selbst einsehbar; fremde Führungszeugnisse bleiben aus Datenschutzgründen nur für Admins sichtbar.",
+          "Führerschein: „Gültig bis …“ mit Erinnerung, alle 6 Monate erneut einzureichen. Eigenes Register für Admin und die Gruppe „Führerschein Einsicht“ inklusive Sammel-PDF-Export aller eingereichten Kopien.",
+          "Trainerlizenz: Lizenzart per Dropdown (C-/B-/A-Lizenz, DFB-Basis-/Elite-Jugend-/Fußball-Lehrer-Lizenz u. a.) und Datum „gültig bis“ mit automatischer Gültig/Abgelaufen-Anzeige, sobald eine Datei hochgeladen ist; Checkbox „Ich habe keine Trainerlizenz“ für alle, damit der Status nicht dauerhaft als ausstehend erscheint.",
+          "Admin kann alle drei Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen/ersetzen (u. a. direkt aus der Personalakte) — ein hinterlegtes Dokument öffnet sich dabei im Browser statt herunterzuladen.",
+          "Löschen-Button je Dokument für den Fall, dass das Hinterlegte unbrauchbar ist (unscharfes Foto, falsche Datei) — danach steht es beim Trainer wieder als offen da und kann neu hochgeladen werden; Lizenzart, „gültig bis“ und die Checkbox „Keine Trainerlizenz“ bleiben davon unberührt."
+        ]
+      },
+      {
+        title: "Trainerkodex",
+        items: [
+          "Verhaltenskodex lesen und mit Unterschrift bestätigen, direkt im Trainerbereich über denselben zentralen Login.",
+          "Die Bestätigung ist alle 6 Monate erneut fällig — abgelaufene Bestätigungen werden entsprechend markiert.",
+          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+        ]
+      },
+      {
+        title: "Jugendschutzkonzept",
+        items: [
+          "Kinder- und Jugendschutzkonzept lesen und mit Unterschrift bestätigen — gleiches Prinzip wie beim Trainerkodex, unabhängig davon geführt.",
+          "Die Bestätigung ist ebenfalls alle 6 Monate erneut fällig; ist sie abgelaufen, zählt das mit zum Gesamtstatus (rotes Kreuz auf der Dashboard-Kachel, Eingabe erforderlich).",
+          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+        ]
+      },
+      {
+        title: "Checkliste Trainerzu-/-abgang im Trainerdaten-Tab",
+        items: [
+          "Eigene Karte direkt im Trainerbereich: zeigt an, ob der eigene Zugang (Onboarding) laut Geschäftsstelle abgeschlossen ist. „Öffnen“ zeigt die komplette Checkliste zum Nachlesen — alle abgehakten Punkte, Bemerkungen sowie die Unterschriften von Trainer/Betreuer und Geschäftsstelle, rein informativ.",
+          "Admin-Detail zeigt zusätzlich, ob für den Trainer in TrainerCheckliste Zugang bzw. Abgang abgeschlossen sind."
+        ]
+      },
+      {
+        title: "Admin-Ansicht",
+        items: [
+          "Übersicht aller eingereichten Trainer-Einträge mit Status (Unvollständig / Ausstehend / Vertrag generiert), Lizenz und Pauschale direkt in der Liste.",
+          "Suchfeld (nach Name) sowie Filter nach Status, Lizenz und Vertragsunterschrift.",
+          "Trainer-Daten bearbeiten und speichern (automatisches Speichern, zusätzlich ein „Speichern“-Button für sofortiges, sichtbares Sichern); Eintrag löschen mit Sicherheitsabfrage.",
+          "Während einer Admin-Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
+          "Status im Detail ist manuell umstellbar, wird bei einer erneuten Einreichung des Trainers aber automatisch zurückgesetzt (ein bereits generierter Vertrag fällt so wieder als veraltet auf).",
+          "Lizenz wird beim Öffnen eines Trainer-Details automatisch aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist.",
+          "Konfigurierbarer CSV-Export der Liste „Eingereichte Trainerdaten“ — jedes Feld (Stammdaten, Bankverbindung, Vertrag & Status, Dokumente) einzeln per Checkbox an-/abwählbar; berücksichtigt die aktuelle Such-/Filter-Einstellung."
+        ]
+      },
+      {
         title: "Datenimport",
         items: [
           "„Von Personalkosten laden“ holt Lizenz und monatliche Pauschale aller Trainer der aktuellen Saison direkt aus der Personalkosten-App (Namensabgleich) — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
           "Vorschau zeigt alle geladenen Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button, um einzelne Trainer unabhängig vom Sammel-Import zu übernehmen.",
-          "Namen ohne bestehenden Trainer werden als neuer, unvollständiger Eintrag angelegt (Lizenz/Pauschale, Stammdaten fehlen noch) — als „Unvollständig“ markiert und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet.",
+          "Ein neuer Trainer-Eintrag wird nur angelegt, wenn die Person Mitglied der Gruppe „Trainer“ ist ODER individuell als „Vertrag benötigt“ markiert wurde — verhindert Einträge für Personen ohne Trainer-Rolle. Namen ohne bestehenden Trainer werden als „Unvollständig“ markiert und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet.",
           "Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz und Pauschale (bzw. „fehlt“), aktualisiert sich nach jedem Import."
         ]
       },
       {
         title: "Lokaler Stapel-Export",
         items: [
-          "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht).",
-          "Verarbeitet dabei nur Trainer mit Status „Ausstehend“ — unvollständige (Stub ohne Anmeldung) und bereits generierte Verträge werden automatisch übersprungen."
+          "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht). Verarbeitet dabei nur Trainer mit Status „Ausstehend“ — unvollständige (Stub ohne Anmeldung) und bereits generierte Verträge werden automatisch übersprungen.",
+          "Skript und Vertragsvorlage lassen sich im Einstellungen-Tab (Admin) direkt herunterladen, inklusive zweier Doppelklick-Starter (nur lokal erzeugen, oder erzeugen und den Trainern zuweisen) — umgeht die Windows-Blockade für heruntergeladene PowerShell-Skripte."
         ]
       }
     ]
