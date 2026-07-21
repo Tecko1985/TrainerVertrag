@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.1",
+    groups: [
+      {
+        title: "Führerschein-Register",
+        items: [
+          "PDF-Export: Name, Upload-Datum und Gültigkeit stehen jetzt auf derselben Seite wie das zugehörige Führerschein-Foto. Vorher kam das Foto immer auf einer eigenen Folgeseite — das PDF war dadurch doppelt so lang und wirkte halb leer."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.0",
     groups: [
       {

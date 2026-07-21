@@ -1206,12 +1206,15 @@ async function _viewFuehrerscheinForOwner(trainerId) {
 
 // A4 in PDF-Punkten (72dpi) — für Deckblätter und eingebettete Fotos im Sammel-Export.
 const PDF_PAGE_A4 = [595.28, 841.89];
-function _pdfAddImagePage(doc, image) {
-  const [pw, ph] = PDF_PAGE_A4;
-  const maxW = pw - 100, maxH = ph - 140;
-  const scale = Math.min(maxW / image.width, maxH / image.height, 1);
-  const w = image.width * scale, h = image.height * scale;
-  doc.addPage(PDF_PAGE_A4).drawImage(image, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+// Passt Foto/Scan proportional in den freien Bereich unterhalb der Kopfzeilen (obenY)
+// und zentriert es dort. Gleiche Geometrie für Bilder (drawImage) und eingebettete
+// PDF-Seiten (drawPage) — beide haben .width/.height.
+function _pdfFitBox(obj, obenY) {
+  const [pw] = PDF_PAGE_A4;
+  const maxW = pw - 100, maxH = obenY - 50;
+  const scale = Math.min(maxW / obj.width, maxH / obj.height, 1);
+  const w = obj.width * scale, h = obj.height * scale;
+  return { x: (pw - w) / 2, y: 50 + (maxH - h) / 2, width: w, height: h };
 }
 
 // 1:1 aus dem migrierten Fahrtenbuch-Feature portiert (exportFuehrerscheinePdf),
@@ -1229,6 +1232,8 @@ async function _exportFuehrerscheinePdf() {
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
     const out = await PDFDocument.create();
     const font = await out.embedFont(StandardFonts.HelveticaBold);
+    // Liefert die Seite samt Oberkante des freien Bereichs darunter zurück, damit
+    // Foto/Scan auf DIESELBE Seite passen (vorher: Name und Bild auf zwei Seiten).
     const drawLabelPage = (lines) => {
       const page = out.addPage(PDF_PAGE_A4);
       let y = 780;
@@ -1236,6 +1241,7 @@ async function _exportFuehrerscheinePdf() {
         page.drawText(line, { x: 50, y, size: i === 0 ? 18 : 12, font, color: rgb(0.1, 0.1, 0.1) });
         y -= i === 0 ? 30 : 20;
       });
+      return { page, freiAb: y - 10 };
     };
     drawLabelPage(["Führerschein-Register", `Export vom ${new Date().toLocaleDateString("de-DE")} · ${list.length} Trainer`]);
 
@@ -1252,16 +1258,25 @@ async function _exportFuehrerscheinePdf() {
       }
       const faelligAm = _addMonths(new Date(t.fuehrerscheinHochgeladenAm), FUEHRERSCHEIN_GUELTIGKEIT_MONATE);
       const gueltig = faelligAm.getTime() > Date.now();
-      drawLabelPage([wer, `Hochgeladen: ${_fmtIso(t.fuehrerscheinHochgeladenAm)}`, `Gültig bis: ${faelligAm.toLocaleDateString("de-DE")} (${gueltig ? "gültig" : "abgelaufen"})`]);
+      const { page, freiAb } = drawLabelPage([wer, `Hochgeladen: ${_fmtIso(t.fuehrerscheinHochgeladenAm)}`, `Gültig bis: ${faelligAm.toLocaleDateString("de-DE")} (${gueltig ? "gültig" : "abgelaufen"})`]);
       const ct = (t.fuehrerscheinContentType || "").toLowerCase();
       try {
         if (ct === "application/pdf") {
+          // Erste Seite unter die Kopfzeilen einbetten; mehrseitige Scans hängen ihre
+          // Folgeseiten wie bisher als volle Seiten an.
           const src = await PDFDocument.load(bytes);
-          (await out.copyPages(src, src.getPageIndices())).forEach((p) => out.addPage(p));
+          const [erste, ...weitere] = src.getPageIndices();
+          const eingebettet = await out.embedPage(src.getPage(erste));
+          page.drawPage(eingebettet, _pdfFitBox(eingebettet, freiAb));
+          if (weitere.length) {
+            (await out.copyPages(src, weitere)).forEach((p) => out.addPage(p));
+          }
         } else if (ct === "image/png") {
-          _pdfAddImagePage(out, await out.embedPng(bytes));
+          const img = await out.embedPng(bytes);
+          page.drawImage(img, _pdfFitBox(img, freiAb));
         } else if (ct === "image/jpeg" || ct === "image/jpg") {
-          _pdfAddImagePage(out, await out.embedJpg(bytes));
+          const img = await out.embedJpg(bytes);
+          page.drawImage(img, _pdfFitBox(img, freiAb));
         } else {
           fehler.push(`${wer} (Dateiformat „${t.fuehrerscheinContentType || "unbekannt"}“ wird nicht unterstützt)`);
         }
