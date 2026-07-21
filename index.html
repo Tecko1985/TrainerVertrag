@@ -435,6 +435,7 @@
     <nav>
       <button data-tab="liste" class="active">Trainer</button>
       <button data-tab="import">Import</button>
+      <button data-tab="info">Info</button>
       <button data-tab="einstellungen" style="margin-left:auto;">Einstellungen</button>
     </nav>
 
@@ -738,6 +739,18 @@
         </div>
       </section>
 
+      <!-- ---------- Info ---------- -->
+      <section class="tab-section" id="tab-info">
+        <div class="card">
+          <h2>Über die Trainerdaten <span class="version-badge-dark" id="version-badge-2"></span></h2>
+          <p class="muted">Stammdaten der Trainer als Grundlage für Verträge und Dokumente.</p>
+        </div>
+        <div class="card">
+          <h2>Änderungen</h2>
+          <div id="changelog-list"></div>
+        </div>
+      </section>
+
       <!-- Tab: Einstellungen -->
       <section class="tab-section" id="tab-einstellungen">
         <div class="card">
@@ -772,10 +785,6 @@
             <a class="btn secondary small" href="vertrag-template.docx" download>Vorlage herunterladen (vertrag-template.docx)</a>
           </div>
         </div>
-        <div class="card">
-          <h3>Versionshistorie <span class="version-badge-dark" id="version-badge-2"></span></h3>
-          <div id="changelog-list"></div>
-        </div>
       </section>
 
     </main>
@@ -792,6 +801,6 @@
 <script src="db.js?v=1.0"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.1"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

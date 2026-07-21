@@ -1418,9 +1418,9 @@ function _initAdminPanel() {
   // Header-Versionsbadge (auch im Trainer-Modus sichtbar) springt in den
   // Admin-Bereich zur Versionshistorie -- entspricht "Admin"-Button + Einstellungen-Tab.
   const versionBadgeHeader = document.getElementById("version-badge");
-  versionBadgeHeader.addEventListener("click", () => { _switchToAdmin(); _activateAdminTab("einstellungen"); });
+  versionBadgeHeader.addEventListener("click", () => { _switchToAdmin(); _activateAdminTab("info"); });
   versionBadgeHeader.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _switchToAdmin(); _activateAdminTab("einstellungen"); }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _switchToAdmin(); _activateAdminTab("info"); }
   });
 
   document.getElementById("btn-disconnect").addEventListener("click", async () => {
