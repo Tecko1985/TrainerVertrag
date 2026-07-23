@@ -1446,10 +1446,12 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
-  // Delegation statt Einzel-Listener: die Gruppen-Checkboxen werden bei jedem
-  // Listen-Render neu gebaut (siehe _renderGruppenFilterCheckboxes).
-  document.getElementById("liste-filter-gruppen-row").addEventListener("change", (e) => {
-    if (e.target && e.target.classList.contains("gruppen-filter-cb")) _renderAdminListe();
+  // Delegation statt Einzel-Listener: die Gruppen-Checkboxen im Export-Panel
+  // werden bei jedem Listen-Render neu gebaut (siehe _renderExportGruppenSection).
+  // Sie wirken nur auf die Exportmenge, nicht auf die Bildschirmliste — deshalb
+  // genügt es, die Info-Zeile zu aktualisieren.
+  document.getElementById("export-gruppen-section").addEventListener("change", (e) => {
+    if (e.target && e.target.classList.contains("export-gruppen-cb")) _updateExportInfoLine();
   });
   _initExportPanel();
 
@@ -1559,11 +1561,11 @@ function _populateLizenzFilterOptions() {
   if (distinct.includes(current)) sel.value = current;
 }
 
-// Gateway-Gruppen (Aktion "list-groups", Admin-only) für den Gruppen-Filter der
-// Liste und die Export-Spalte "Gruppen" — lazy beim ersten Listen-Render, ein
-// Versuch pro Sitzung. Braucht wie das Lizenz-Prefill im Detail ein aktives
-// ToolsUebersicht-Admin-Login im selben Browser; ohne zeigt die Zeile einen
-// Hinweis statt still zu verschwinden. Die zentralen Profile werden mitgeladen,
+// Gateway-Gruppen (Aktion "list-groups", Admin-only) für die Gruppen-Auswahl
+// im Export-Panel und die Export-Spalte "Gruppen" — lazy beim ersten
+// Listen-Render, ein Versuch pro Sitzung. Braucht wie das Lizenz-Prefill im
+// Detail ein aktives ToolsUebersicht-Admin-Login im selben Browser; ohne zeigt
+// die Sektion einen Hinweis statt still zu fehlen. Die zentralen Profile werden mitgeladen,
 // damit auch Import-Stubs ohne Konto-Verknüpfung per Namensabgleich ihrer
 // Gruppe zugeordnet werden können (siehe _trainerGatewayUsername).
 async function _ensureFilterGruppen() {
@@ -1581,11 +1583,14 @@ async function _ensureFilterGruppen() {
       name: g.name || "",
       members: new Set(g.memberUsernames || [])
     }));
-    _renderAdminListe(); // baut jetzt auch die Gruppen-Checkboxen (Rekursionsschutz: _filterGruppenVersucht)
+    // Die Bildschirmliste ist von den Gruppen unberührt (sie beschränken nur
+    // den Export) — es reichen Sektion und Info-Zeile.
+    _renderExportGruppenSection();
+    _updateExportInfoLine();
   } catch (_) {
-    const row = document.getElementById("liste-filter-gruppen-row");
-    row.style.display = "";
-    row.innerHTML = `<span class="muted">Gruppen-Filter nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.</span>`;
+    document.getElementById("export-gruppen-section").innerHTML =
+      `<div class="section-divider" style="margin:14px 0 8px;">Gruppen</div>
+       <p class="muted" style="margin:0;">Gruppen-Auswahl nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.</p>`;
   }
 }
 
@@ -1600,18 +1605,19 @@ function _trainerGatewayUsername(t) {
   return profil ? profil.username : null;
 }
 
-// Baut die Gruppen-Checkbox-Zeile unter der Filterleiste: eine Checkbox je
-// Gruppe, in der mindestens eine Person der Liste Mitglied ist (leere Gruppen
-// wären totes Rauschen, analog Lizenz-Filter), plus "Ohne Gruppe" für Einträge
-// ohne Gruppenzuordnung. Mehrfachauswahl = ODER-Verknüpfung; keine angekreuzt
-// = kein Gruppenfilter. Wirkt über _filteredTrainerList() auf Liste UND
-// CSV-Export (Mehrfach-Export ausgewählter Gruppen). Erhält die aktuelle
-// Auswahl über den Neubau hinweg. Vor dem Laden der Gruppen: no-op (bzw. der
-// Fehlerhinweis aus _ensureFilterGruppen bleibt stehen).
-function _renderGruppenFilterCheckboxes() {
+// Baut die Sektion "Gruppen" im CSV-Export-Panel: eine Checkbox je Gruppe, in
+// der mindestens eine Person der Liste Mitglied ist (leere Gruppen wären totes
+// Rauschen, analog Lizenz-Filter), plus "Ohne Gruppe" für Einträge ohne
+// Gruppenzuordnung. Angekreuzte Gruppen beschränken NUR die Exportmenge
+// (ODER-verknüpft, siehe _exportTrainerList) — keine angekreuzt = alle
+// exportieren (Filter-Konvention wie die Dropdowns der Filterleiste, so bleibt
+// der Normalfall "alle" klicklos und der Mehrfach-Export ist reines Ankreuzen).
+// Erhält die aktuelle Auswahl über den Neubau hinweg. Vor dem Laden der
+// Gruppen: no-op (bzw. der Fehlerhinweis aus _ensureFilterGruppen bleibt stehen).
+function _renderExportGruppenSection() {
   if (!filterGruppen) return;
-  const row = document.getElementById("liste-filter-gruppen-row");
-  const vorher = new Set(Array.from(row.querySelectorAll(".gruppen-filter-cb:checked")).map(cb => cb.dataset.value));
+  const wrap = document.getElementById("export-gruppen-section");
+  const vorher = new Set(Array.from(wrap.querySelectorAll(".export-gruppen-cb:checked")).map(cb => cb.dataset.value));
 
   const vertreten = filterGruppen
     .filter(g => appData.trainer.some(t => {
@@ -1621,14 +1627,17 @@ function _renderGruppenFilterCheckboxes() {
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
 
   const cb = (value, label) => `
-    <label style="display:inline-flex; align-items:center; gap:5px; margin-right:14px; cursor:pointer; white-space:nowrap;">
-      <input type="checkbox" class="gruppen-filter-cb" data-value="${_esc(value)}"${vorher.has(value) ? " checked" : ""} /> ${_esc(label)}
+    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
+      <input type="checkbox" class="export-gruppen-cb" data-value="${_esc(value)}"${vorher.has(value) ? " checked" : ""} /> ${_esc(label)}
     </label>`;
 
-  row.style.display = "";
-  row.innerHTML = `<span class="muted" style="margin-right:10px;">Gruppen:</span>` +
-    vertreten.map(g => cb(g.id, g.name)).join("") +
-    cb("__ohne__", "Ohne Gruppe");
+  wrap.innerHTML = `
+    <div class="section-divider" style="margin:14px 0 8px;">Gruppen – nur ausgewählte exportieren</div>
+    <p class="muted" style="margin:0 0 8px; font-size:12px;">Keine Gruppe angekreuzt = alle exportieren. Mehrere ankreuzbar; exportiert wird, wer in mindestens einer der angekreuzten Gruppen ist.</p>
+    <div class="form-grid" style="margin-bottom:0;">
+      ${vertreten.map(g => cb(g.id, g.name)).join("")}
+      ${cb("__ohne__", "Ohne Gruppe")}
+    </div>`;
 }
 
 // Namen aller Gruppen, in denen die Person Mitglied ist (kommasepariert,
@@ -1647,19 +1656,14 @@ function _trainerGruppenNamen(t) {
 }
 
 // Liest die aktuellen Filter/Suchfeld-Werte aus dem DOM und wendet sie auf
-// appData.trainer an — einzige Quelle für "was ist gerade sichtbar", genutzt
-// sowohl von _renderAdminListe() (Bildschirmliste) als auch vom CSV-Export
-// (_handleExportCsv), damit beide garantiert dieselbe Menge zeigen/exportieren.
+// appData.trainer an — Quelle für "was ist gerade sichtbar" (Bildschirmliste).
+// Der CSV-Export nutzt _exportTrainerList(), das diese Menge zusätzlich um die
+// Gruppen-Auswahl aus dem Export-Panel verengt.
 function _filteredTrainerList() {
   const searchTerm    = document.getElementById("liste-search").value.trim().toLowerCase();
   const statusFilter  = document.getElementById("liste-filter-status").value;
   const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
   const vertragFilter = document.getElementById("liste-filter-vertrag").value;
-  // Angekreuzte Gruppen-Checkboxen (Mehrfachauswahl, ODER-verknüpft); leer =
-  // kein Gruppenfilter. "__ohne__" steht für Einträge ohne Gruppenzuordnung.
-  const gruppenAuswahl = new Set(
-    Array.from(document.querySelectorAll("#liste-filter-gruppen-row .gruppen-filter-cb:checked")).map(cb => cb.dataset.value)
-  );
 
   return appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
@@ -1667,13 +1671,26 @@ function _filteredTrainerList() {
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
     if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
     if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
-    if (gruppenAuswahl.size) {
-      const u = _trainerGatewayUsername(t);
-      const inGewaehlterGruppe = !!u && (filterGruppen || []).some(g => gruppenAuswahl.has(g.id) && g.members.has(u));
-      const ohneGruppe = !u || !(filterGruppen || []).some(g => g.members.has(u));
-      if (!inGewaehlterGruppe && !(gruppenAuswahl.has("__ohne__") && ohneGruppe)) return false;
-    }
     return true;
+  });
+}
+
+// Exportmenge = sichtbare Liste, zusätzlich verengt auf die im Export-Panel
+// angekreuzten Gruppen (ODER-verknüpft; "__ohne__" = ohne Gruppenzuordnung).
+// Keine Gruppe angekreuzt = keine Einschränkung. Genutzt vom CSV-Export und
+// von der Info-Zeile, damit der Zähler immer die echte Exportmenge zeigt.
+function _exportTrainerList() {
+  const basis = _filteredTrainerList();
+  const auswahl = new Set(
+    Array.from(document.querySelectorAll("#export-gruppen-section .export-gruppen-cb:checked")).map(cb => cb.dataset.value)
+  );
+  if (!auswahl.size) return basis;
+
+  return basis.filter(t => {
+    const u = _trainerGatewayUsername(t);
+    const inGewaehlterGruppe = !!u && (filterGruppen || []).some(g => auswahl.has(g.id) && g.members.has(u));
+    const ohneGruppe = !u || !(filterGruppen || []).some(g => g.members.has(u));
+    return inGewaehlterGruppe || (auswahl.has("__ohne__") && ohneGruppe);
   });
 }
 
@@ -1690,7 +1707,6 @@ function _renderAdminListe() {
     noMatch.style.display = "none";
     header.style.display = "none";
     filterbar.style.display = "none";
-    document.getElementById("liste-filter-gruppen-row").style.display = "none";
     _updateExportInfoLine();
     return;
   }
@@ -1698,8 +1714,8 @@ function _renderAdminListe() {
   header.style.display = "";
   filterbar.style.display = "";
   _populateLizenzFilterOptions();
-  _ensureFilterGruppen(); // async, erster Aufruf lädt die Gruppen und rendert danach erneut
-  _renderGruppenFilterCheckboxes();
+  _ensureFilterGruppen(); // async, erster Aufruf lädt die Gruppen und baut danach die Export-Sektion
+  _renderExportGruppenSection();
 
   const filtered = _filteredTrainerList();
   _updateExportInfoLine();
@@ -1743,8 +1759,9 @@ function _renderAdminListe() {
 
 // ─── CSV-Export (konfigurierbar, seit 1.18) ────────────────────────────────────
 // Jedes Feld einzeln per Checkbox wählbar (EXPORT_FIELD_GROUPS in config.js).
-// Exportiert immer genau die aktuell gefilterte/gesuchte Liste (_filteredTrainerList()) —
-// anders als "Alle als PDF-ZIP", das bewusst immer den kompletten Bestand nimmt.
+// Exportiert die aktuell gefilterte/gesuchte Liste, zusätzlich verengt auf die
+// im Panel angekreuzten Gruppen (_exportTrainerList()) — anders als
+// "Alle als PDF-ZIP", das bewusst immer den kompletten Bestand nimmt.
 // Rein clientseitig, kein Worker-Redeploy: CSV wird im Browser aus appData gebaut.
 
 function _initExportPanel() {
@@ -1790,18 +1807,23 @@ function _updateExportInfoLine() {
   if (!el) return;
   const total   = document.querySelectorAll(".export-field-cb").length;
   const checked = document.querySelectorAll(".export-field-cb:checked").length;
-  const rowCount = appData.trainer.length ? _filteredTrainerList().length : 0;
-  el.textContent = `${checked} von ${total} Feldern ausgewählt · exportiert ${rowCount} Trainer (aktuelle Filterung/Suche).`;
+  const basisCount  = appData.trainer.length ? _filteredTrainerList().length : 0;
+  const exportCount = appData.trainer.length ? _exportTrainerList().length : 0;
+  // Weicht die Exportmenge durch die Gruppen-Auswahl von der sichtbaren Liste
+  // ab, wird das explizit ausgewiesen statt still weggefiltert.
+  el.textContent = exportCount === basisCount
+    ? `${checked} von ${total} Feldern ausgewählt · exportiert ${exportCount} Trainer (aktuelle Filterung/Suche).`
+    : `${checked} von ${total} Feldern ausgewählt · exportiert ${exportCount} von ${basisCount} Trainern (aktuelle Filterung/Suche + Gruppen-Auswahl).`;
 }
 
 function _handleExportCsv() {
   const selectedKeys = Array.from(document.querySelectorAll(".export-field-cb:checked")).map(cb => cb.dataset.field);
   if (!selectedKeys.length) { alert("Bitte mindestens ein Feld für den Export auswählen."); return; }
 
-  const rows = _filteredTrainerList().slice().sort((a, b) =>
+  const rows = _exportTrainerList().slice().sort((a, b) =>
     ((a.nachname || "") + (a.vorname || "")).localeCompare((b.nachname || "") + (b.vorname || ""), "de")
   );
-  if (!rows.length) { alert("Die aktuelle Filterung/Suche ergibt keine Treffer zum Exportieren."); return; }
+  if (!rows.length) { alert("Die aktuelle Filterung/Suche/Gruppen-Auswahl ergibt keine Treffer zum Exportieren."); return; }
 
   const fieldLookup = new Map(EXPORT_FIELD_GROUPS.flatMap(g => g.fields).map(f => [f.key, f]));
   const cols = selectedKeys.map(key => fieldLookup.get(key)).filter(Boolean);
