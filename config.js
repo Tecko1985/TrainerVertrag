@@ -160,6 +160,17 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.2",
+    groups: [
+      {
+        title: "Eingereichte Trainerdaten",
+        items: [
+          "Neuer Filter „Alle Gruppen“ in der Filterleiste: zeigt nur Personen, die Mitglied der gewählten Benutzergruppe aus der Tools-Übersicht sind. „Ohne Gruppe“ findet umgekehrt alle Einträge ohne Gruppenzuordnung. Suche, übrige Filter und der CSV-Export berücksichtigen den Gruppen-Filter automatisch mit. Voraussetzung ist ein Admin-Login in der Tools-Übersicht im selben Browser — ohne bleibt der Filter ausgegraut."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.1",
     groups: [
       {

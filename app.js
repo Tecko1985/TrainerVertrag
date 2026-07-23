@@ -33,6 +33,8 @@ let _introTextTrainer = null;
 let _fuehrerscheinRegisterList = null; // nur befüllt, wenn Admin/Gruppe fuehrerschein-einsicht
 let trainerProfiles = null; // zentrale Lizenz/Mannschaft-Profile aller Nutzer, lazy geladen (siehe _openAdminDetail)
 let trainerGroupMembers = null; // Nutzernamen der ToolsUebersicht-Gruppe "Trainer", frisch geladen bei jedem Personalkosten-Import (siehe _loadFromPersonalkosten)
+let filterGruppen = null; // ALLE Gateway-Gruppen [{id, name, members:Set}] für den Gruppen-Filter der Admin-Liste, lazy (siehe _ensureFilterGruppen)
+let _filterGruppenVersucht = false; // ein Ladeversuch pro Sitzung — ohne Gateway-Admin-Login bleibt der Filter deaktiviert
 let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only Cross-Read), lazy geladen (siehe _renderChecklisteStatus)
 let myChecklisteStatus = null; // eigener TrainerCheckliste-Eintrag (Trainer-Selbstbedienung, seit 1.8), einmalig geladen in _initTrainerGateway (siehe _renderMyChecklisteStatus)
 let _checklisteDetailOpen = false; // Aufklapp-Zustand der "Öffnen"-Detailansicht, überlebt Re-Render (siehe _showTrainerFormScreen)
@@ -1444,6 +1446,7 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
+  document.getElementById("liste-filter-gruppe").addEventListener("change", _renderAdminListe);
   _initExportPanel();
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
@@ -1552,6 +1555,71 @@ function _populateLizenzFilterOptions() {
   if (distinct.includes(current)) sel.value = current;
 }
 
+// Gateway-Gruppen (Aktion "list-groups", Admin-only) für den Gruppen-Filter der
+// Liste — lazy beim ersten Listen-Render, ein Versuch pro Sitzung. Braucht wie
+// das Lizenz-Prefill im Detail ein aktives ToolsUebersicht-Admin-Login im selben
+// Browser; ohne bleibt der Filter sichtbar, aber deaktiviert (mit Hinweis im
+// Tooltip) statt still zu verschwinden. Die zentralen Profile werden mitgeladen,
+// damit auch Import-Stubs ohne Konto-Verknüpfung per Namensabgleich ihrer
+// Gruppe zugeordnet werden können (siehe _trainerGatewayUsername).
+async function _ensureFilterGruppen() {
+  if (_filterGruppenVersucht) return;
+  _filterGruppenVersucht = true;
+  try {
+    const [data] = await Promise.all([
+      gatewayRequest({ action: "list-groups" }),
+      (async () => {
+        if (trainerProfiles === null) trainerProfiles = await fetchTrainerProfiles().catch(() => []);
+      })()
+    ]);
+    filterGruppen = (data.groups || []).map(g => ({
+      id: String(g.id),
+      name: g.name || "",
+      members: new Set(g.memberUsernames || [])
+    }));
+    _renderAdminListe(); // befüllt jetzt auch die Gruppen-Optionen (Rekursionsschutz: _filterGruppenVersucht)
+  } catch (_) {
+    const sel = document.getElementById("liste-filter-gruppe");
+    sel.disabled = true;
+    sel.title = "Gruppen nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.";
+  }
+}
+
+// Gateway-Konto zu einem Trainer-Datensatz: username (Self-Submit), sonst
+// linkedUsername (Provisioning-Platzhalter), sonst Namensabgleich übers
+// zentrale Profil (alte Import-Stubs ohne Verknüpfung) — gleiche Kette wie
+// _neuerStubErlaubt(). null = kein (eindeutiges) Konto, zählt als "Ohne Gruppe".
+function _trainerGatewayUsername(t) {
+  if (t.username) return t.username;
+  if (t.linkedUsername) return t.linkedUsername;
+  const profil = _matchTrainerProfile(((t.vorname || "") + " " + (t.nachname || "")).trim());
+  return profil ? profil.username : null;
+}
+
+// Baut die Gruppen-Filteroptionen analog zum Lizenz-Filter nur aus Gruppen, in
+// denen mindestens eine Person der Liste Mitglied ist (leere Gruppen wären
+// totes Rauschen), plus "Ohne Gruppe" für Einträge ohne Gruppenzuordnung.
+// Erhält die aktuelle Auswahl. Vor dem Laden der Gruppen: no-op, das Select
+// zeigt dann nur "Alle Gruppen".
+function _populateGruppenFilterOptions() {
+  if (!filterGruppen) return;
+  const sel = document.getElementById("liste-filter-gruppe");
+  const current = sel.value;
+
+  const vertreten = filterGruppen
+    .filter(g => appData.trainer.some(t => {
+      const u = _trainerGatewayUsername(t);
+      return u && g.members.has(u);
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+
+  sel.innerHTML = `<option value="">Alle Gruppen</option>` +
+    vertreten.map(g => `<option value="${_esc(g.id)}">${_esc(g.name)}</option>`).join("") +
+    `<option value="__ohne__">Ohne Gruppe</option>`;
+
+  if (current === "__ohne__" || vertreten.some(g => g.id === current)) sel.value = current;
+}
+
 // Liest die aktuellen Filter/Suchfeld-Werte aus dem DOM und wendet sie auf
 // appData.trainer an — einzige Quelle für "was ist gerade sichtbar", genutzt
 // sowohl von _renderAdminListe() (Bildschirmliste) als auch vom CSV-Export
@@ -1561,6 +1629,10 @@ function _filteredTrainerList() {
   const statusFilter  = document.getElementById("liste-filter-status").value;
   const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
   const vertragFilter = document.getElementById("liste-filter-vertrag").value;
+  const gruppeFilter  = document.getElementById("liste-filter-gruppe").value;
+  const gewaehlteGruppe = (gruppeFilter && gruppeFilter !== "__ohne__")
+    ? (filterGruppen || []).find(g => g.id === gruppeFilter) || null
+    : null;
 
   return appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
@@ -1568,6 +1640,13 @@ function _filteredTrainerList() {
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
     if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
     if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
+    if (gruppeFilter === "__ohne__") {
+      const u = _trainerGatewayUsername(t);
+      if (u && (filterGruppen || []).some(g => g.members.has(u))) return false;
+    } else if (gruppeFilter) {
+      const u = _trainerGatewayUsername(t);
+      if (!gewaehlteGruppe || !u || !gewaehlteGruppe.members.has(u)) return false;
+    }
     return true;
   });
 }
@@ -1592,6 +1671,8 @@ function _renderAdminListe() {
   header.style.display = "";
   filterbar.style.display = "";
   _populateLizenzFilterOptions();
+  _ensureFilterGruppen(); // async, erster Aufruf lädt die Gruppen und rendert danach erneut
+  _populateGruppenFilterOptions();
 
   const filtered = _filteredTrainerList();
   _updateExportInfoLine();
