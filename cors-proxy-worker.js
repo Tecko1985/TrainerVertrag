@@ -1,22 +1,35 @@
-// Cloudflare Worker: CORS-Proxy für Admin-Zugriff auf Nextcloud-WebDAV.
-// Deployment: dash.cloudflare.com -> Workers & Pages -> Create Worker ->
-// diesen Code einfügen -> Deploy.
+// Cloudflare Worker: WebDAV-Zugang für den Trainerdaten-Admin-Modus (und den
+// IBAN-Lesepfad von Dokumentenvorlagen).
+// Deployment: E:\ToolsUebersicht\deploy-worker.ps1 -Worker trainerdaten -Deploy
 // Worker-Name: trainerdaten (URL: trainerdaten.michel-brunner.workers.dev)
 //
-// Dieser Worker ist für GET/PUT/DELETE/MKCOL des Admin-Zugriffs (volle Lese-/
-// Schreibrechte mit Nextcloud-Zugangsdaten, die der Admin im Connect-Formular
-// eingibt). Seit 1.1 zusätzlich DELETE/MKCOL für Dokument-Uploads (Führerschein/
-// Führungszeugnis) im Admin-Detail — reiner Passthrough, keine Content-Prüfung.
-// Trainer-Einreichungen laufen über submit-worker.js (separater Worker).
+// Seit dem Rechte-Umbau (2026-07-23) ist das App-Passwort im Client abgeschafft:
+// Der Browser schickt den ToolsUebersicht-Login-Token (Bearer). Dieser Worker
+// prüft per Service Binding "landingpage" (Aktion check-edit-permission), ob das
+// Konto Trainerdaten bearbeiten darf (Admin ODER Bearbeiter-Gruppe aus dem
+// Sichtbarkeits-Panel), und spricht Nextcloud mit den eigenen Worker-Secrets
+// NEXTCLOUD_USERNAME/NEXTCLOUD_PASSWORD an. Basic-Auth (das früher durchgereichte
+// geteilte App-Passwort) wird nicht mehr akzeptiert.
+//
+// Ziel-URLs sind auf den Tools-Ordner der Vereins-Nextcloud beschränkt: weil der
+// Worker eigene Zugangsdaten injiziert, wäre das Bearbeiter-Häkchen ohne diese
+// Härtung ein Generalschlüssel für alles, was das Nextcloud-Konto sieht.
+// Trainer-Einreichungen laufen weiterhin über submit-worker.js (separater Worker).
 
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
+  "http://localhost:8789",
   "https://tecko1985.github.io"
 ];
-const ALLOWED_TARGET_PREFIX = "https://nx88695.your-storageshare.de/";
+const ALLOWED_TARGET_HOST = "nx88695.your-storageshare.de";
+// Dekodierter Pfad-Präfix (02_Förderung mit echtem Umlaut): die Ziel-URL kommt
+// je nach Client encoded (%C3%B6) oder roh an — verglichen wird deshalb immer
+// die decodeURIComponent-Form des Pfads (siehe isAllowedTarget).
+const ALLOWED_TARGET_PATH_PREFIX =
+  "/remote.php/dav/files/admin/05_Nachwuchsbereich/02_Förderung/Tools/";
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
     const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
 
@@ -36,13 +49,47 @@ export default {
     }
 
     const targetUrl = new URL(request.url).searchParams.get("url");
-    if (!targetUrl || !targetUrl.startsWith(ALLOWED_TARGET_PREFIX)) {
+    if (!isAllowedTarget(targetUrl)) {
       return new Response("Invalid or missing url parameter", { status: 400, headers: corsHeaders });
     }
 
+    const auth = request.headers.get("Authorization") || "";
+    if (!auth.startsWith("Bearer ")) {
+      // Trifft auch das frühere Basic (App-Passwort): dieser Weg ist abgeschaltet.
+      return new Response("Anmeldung über die Tools-Übersicht erforderlich", { status: 401, headers: corsHeaders });
+    }
+
+    // Session + Bearbeiten-Recht beim Gateway prüfen. Service Binding statt
+    // fetch() auf die workers.dev-URL — Cloudflare blockt Worker-zu-Worker-fetch
+    // auf derselben Subdomain mit Error 1042.
+    let perm;
+    try {
+      const permResp = await env.landingpage.fetch("https://landingpage.internal/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": auth },
+        body: JSON.stringify({ action: "check-edit-permission", app: "trainerdaten" })
+      });
+      if (permResp.status === 401) {
+        return new Response("Sitzung abgelaufen", { status: 401, headers: corsHeaders });
+      }
+      if (!permResp.ok) {
+        return new Response("Rechtepruefung fehlgeschlagen (HTTP " + permResp.status + ")", { status: 502, headers: corsHeaders });
+      }
+      perm = await permResp.json();
+    } catch (_) {
+      return new Response("Rechtepruefung nicht erreichbar", { status: 502, headers: corsHeaders });
+    }
+    if (!perm || perm.canEdit !== true) {
+      return new Response("Kein Bearbeiten-Recht für Trainerdaten", { status: 403, headers: corsHeaders });
+    }
+
+    if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+      return new Response("Worker-Secrets NEXTCLOUD_USERNAME/NEXTCLOUD_PASSWORD fehlen", { status: 500, headers: corsHeaders });
+    }
+
     const init = { method: request.method, headers: {} };
-    const auth = request.headers.get("Authorization");
-    if (auth) init.headers["Authorization"] = auth;
+    init.headers["Authorization"] =
+      "Basic " + btoa(unescape(encodeURIComponent(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD)));
     const contentType = request.headers.get("Content-Type");
     if (contentType) init.headers["Content-Type"] = contentType;
     if (request.method === "PUT") {
@@ -62,3 +109,16 @@ export default {
     });
   }
 };
+
+// Ziel-Prüfung: exakter Host + Pfad unterhalb des Tools-Ordners. Verglichen wird
+// die decodeURIComponent-Form (02_F%C3%B6rderung und 02_Förderung meinen dieselbe
+// Ressource); nicht parse-/dekodierbare URLs fallen durch (fail-closed).
+function isAllowedTarget(targetUrl) {
+  if (!targetUrl) return false;
+  let u;
+  try { u = new URL(targetUrl); } catch (_) { return false; }
+  if (u.protocol !== "https:" || u.hostname !== ALLOWED_TARGET_HOST) return false;
+  let path;
+  try { path = decodeURIComponent(u.pathname); } catch (_) { return false; }
+  return path.startsWith(ALLOWED_TARGET_PATH_PREFIX);
+}

@@ -400,7 +400,8 @@
     <div class="card">
       <h2>Admin-Zugang</h2>
       <p class="muted">
-        Verbinde dich mit Nextcloud, um alle eingereichten Trainer-Daten zu sehen und Verträge zu generieren.
+        Der Admin-Bereich nutzt deine Anmeldung aus der Tools-Übersicht — ein App-Passwort ist nicht mehr nötig.
+        Öffnen kann ihn, wer Admin ist oder in einer Bearbeiter-Gruppe der Trainerdaten steht.
         Benötigt ein <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → App-Passwort).
       </p>
       <form id="admin-connect-form">
@@ -409,17 +410,9 @@
             <label>WebDAV-Adresse der Datei</label>
             <input type="url" id="admin-url" value="https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Trainerdaten/trainerdaten.json" required />
           </div>
-          <div class="form-field">
-            <label>Benutzername</label>
-            <input type="text" id="admin-username" value="admin" required />
-          </div>
-          <div class="form-field">
-            <label>App-Passwort</label>
-            <input type="password" id="admin-password" required />
-          </div>
           <div class="form-field" style="grid-column:1/-1;">
-            <label>CORS-Proxy-URL (optional)</label>
-            <input type="url" id="admin-proxy-url" value="https://trainerdaten.michel-brunner.workers.dev" />
+            <label>Zugangs-Worker (CORS-Proxy)</label>
+            <input type="url" id="admin-proxy-url" value="https://trainerdaten.michel-brunner.workers.dev" required />
           </div>
         </div>
         <p class="error-banner" id="admin-connect-error"></p>
@@ -797,13 +790,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.5"></script>
+<script src="config.js?v=1.6"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
-<script src="db.js?v=1.0"></script>
+<script src="db.js?v=1.1"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.6"></script>
+<script src="app.js?v=1.7"></script>
 </body>
 </html>

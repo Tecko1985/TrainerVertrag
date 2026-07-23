@@ -368,8 +368,31 @@ async function fetchFuehrerscheinFileForOwner(trainerId) {
   return resp.blob();
 }
 
-function davAuthHeader(config) {
-  return "Basic " + btoa(unescape(encodeURIComponent(config.username + ":" + config.password)));
+// Seit dem Rechte-Umbau (2026-07-23) authentifizieren sich alle Admin-WebDAV-
+// Zugriffe mit dem ToolsUebersicht-Login-Token: der CORS-Proxy prüft serverseitig
+// Session + Bearbeiten-Recht (Aktion check-edit-permission beim Gateway) und
+// hält die Nextcloud-Zugangsdaten selbst als Worker-Secrets. Ein App-Passwort
+// gibt es im Client nicht mehr.
+function davAuthHeader() {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  return "Bearer " + token;
+}
+
+// 401/403 stammen vom CORS-Proxy (Session tot bzw. kein Bearbeiten-Recht),
+// nicht von Nextcloud — mit sprechender Meldung statt rohem HTTP-Code.
+function davHttpError(resp, verbLabel) {
+  if (resp.status === 401) return new NotLoggedInError("Sitzung abgelaufen — bitte in der Tools-Übersicht neu anmelden.");
+  if (resp.status === 403) return new Error("Kein Bearbeiten-Recht für Trainerdaten (Bearbeiter-Gruppe in der Tools-Übersicht nötig).");
+  return new Error(`WebDAV-${verbLabel} (HTTP ${resp.status})`);
+}
+
+// Eigenes Bearbeiten-Recht für Trainerdaten — dieselbe Prüfung, die der
+// CORS-Proxy serverseitig für jeden WebDAV-Zugriff macht. Für den
+// Admin-Einstieg (klare Meldung, bevor der erste Datei-Zugriff läuft).
+async function checkTrainerdatenEditPermission() {
+  const body = await gatewayRequest({ action: "check-edit-permission", app: "trainerdaten" });
+  return body.canEdit === true;
 }
 
 function davRequestUrl(config) {
@@ -382,10 +405,10 @@ function davRequestUrl(config) {
 async function davReadFile(config) {
   const resp = await fetch(davRequestUrl(config), {
     method: "GET",
-    headers: { Authorization: davAuthHeader(config) }
+    headers: { Authorization: davAuthHeader() }
   });
   if (resp.status === 404) return null;
-  if (!resp.ok) throw new Error(`WebDAV-Lesefehler (HTTP ${resp.status})`);
+  if (!resp.ok) throw davHttpError(resp, "Lesefehler");
   const text = await resp.text();
   if (!text.trim()) return null;
   return JSON.parse(text);
@@ -395,12 +418,12 @@ async function davWriteFile(config, dataObj) {
   const resp = await fetch(davRequestUrl(config), {
     method: "PUT",
     headers: {
-      Authorization: davAuthHeader(config),
+      Authorization: davAuthHeader(),
       "Content-Type": "application/json"
     },
     body: JSON.stringify(dataObj, null, 2)
   });
-  if (!resp.ok) throw new Error(`WebDAV-Schreibfehler (HTTP ${resp.status})`);
+  if (!resp.ok) throw davHttpError(resp, "Schreibfehler");
 }
 
 // Löscht ein Binärobjekt (z.B. eine ausgelagerte Unterschrift beim Zurücksetzen).
@@ -409,9 +432,9 @@ async function davWriteFile(config, dataObj) {
 async function davDeleteFile(config) {
   const resp = await fetch(davRequestUrl(config), {
     method: "DELETE",
-    headers: { Authorization: davAuthHeader(config) }
+    headers: { Authorization: davAuthHeader() }
   });
-  if (!resp.ok && resp.status !== 404) throw new Error(`WebDAV-Löschfehler (HTTP ${resp.status})`);
+  if (!resp.ok && resp.status !== 404) throw davHttpError(resp, "Löschfehler");
 }
 
 // ─── Binärdateien (Admin: Führerschein/Führungszeugnis ansehen/hochladen) ──────────
@@ -428,10 +451,10 @@ async function davDeleteFile(config) {
 async function davReadBinary(config, contentTypeOverride) {
   const resp = await fetch(davRequestUrl(config), {
     method: "GET",
-    headers: { Authorization: davAuthHeader(config) }
+    headers: { Authorization: davAuthHeader() }
   });
   if (resp.status === 404) return null;
-  if (!resp.ok) throw new Error(`WebDAV-Lesefehler (HTTP ${resp.status})`);
+  if (!resp.ok) throw davHttpError(resp, "Lesefehler");
   if (contentTypeOverride) {
     const buf = await resp.arrayBuffer();
     return new Blob([buf], { type: contentTypeOverride });
@@ -442,7 +465,7 @@ async function davReadBinary(config, contentTypeOverride) {
 async function davWriteBinary(config, blob, contentType) {
   const doPut = () => fetch(davRequestUrl(config), {
     method: "PUT",
-    headers: { Authorization: davAuthHeader(config), "Content-Type": contentType || "application/octet-stream" },
+    headers: { Authorization: davAuthHeader(), "Content-Type": contentType || "application/octet-stream" },
     body: blob
   });
   let resp = await doPut();
@@ -451,12 +474,12 @@ async function davWriteBinary(config, blob, contentType) {
     const dirUrl = config.url.slice(0, config.url.lastIndexOf("/"));
     const mk = await fetch(davRequestUrl({ ...config, url: dirUrl }), {
       method: "MKCOL",
-      headers: { Authorization: davAuthHeader(config) }
+      headers: { Authorization: davAuthHeader() }
     });
     if (mk.status !== 201 && mk.status !== 405 && mk.status !== 409) {
       throw new Error(`Ordner anlegen fehlgeschlagen (MKCOL ${mk.status})`);
     }
     resp = await doPut();
   }
-  if (!resp.ok) throw new Error(`WebDAV-Schreibfehler (HTTP ${resp.status})`);
+  if (!resp.ok) throw davHttpError(resp, "Schreibfehler");
 }

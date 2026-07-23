@@ -1348,17 +1348,24 @@ function _initAdminConnect() {
     btn.disabled = true;
     btn.textContent = "Verbinde …";
 
+    // Kein App-Passwort mehr: der Zugangs-Worker prüft den ToolsUebersicht-Token
+    // + Bearbeiten-Recht serverseitig bei JEDEM Zugriff. Hier vorab dieselbe
+    // Prüfung für eine sprechende Meldung statt eines nackten 401/403.
     davConfig = {
       url:      document.getElementById("admin-url").value.trim(),
-      username: document.getElementById("admin-username").value.trim(),
-      password: document.getElementById("admin-password").value,
       proxyUrl: document.getElementById("admin-proxy-url").value.trim() || null
     };
 
     try {
+      if (!getSessionToken()) {
+        throw new NotLoggedInError("Bitte zuerst in der Tools-Übersicht anmelden (im selben Browser) und diese Seite neu laden.");
+      }
+      if (!(await checkTrainerdatenEditPermission())) {
+        throw new Error("Dein Konto hat kein Bearbeiten-Recht für Trainerdaten. Ein Admin kann es im Sichtbarkeits-Panel der Tools-Übersicht vergeben (Häkchen „bearbeiten“ bei der passenden Gruppe).");
+      }
       const raw = await davReadFile(davConfig);
       appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
-      await FileStore.setWebdavConfig(davConfig);
+      await FileStore.setWebdavConfig(davConfig); // nur url+proxyUrl — keine Zugangsdaten mehr
       _onAdminConnected();
     } catch (err) {
       errEl.textContent = "Verbindungsfehler: " + err.message;
@@ -1374,7 +1381,9 @@ function _initAdminConnect() {
 async function _tryRestoreAdminSession() {
   const saved = await FileStore.getWebdavConfig();
   if (!saved) return;
-  davConfig = saved;
+  // Alt gespeicherte Configs enthalten noch username/password aus der
+  // App-Passwort-Zeit — bewusst nur url/proxyUrl übernehmen (Rest verfällt).
+  davConfig = { url: saved.url, proxyUrl: saved.proxyUrl || null };
   try {
     const raw = await davReadFile(davConfig);
     appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
@@ -1431,7 +1440,6 @@ function _initAdminPanel() {
     appData = { version: 1, trainer: [] };
     document.getElementById("admin-panel").style.display = "none";
     document.getElementById("admin-connect-screen").style.display = "";
-    document.getElementById("admin-password").value = "";
     _updateFileStatus(false);
   });
 

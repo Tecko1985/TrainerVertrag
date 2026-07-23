@@ -161,6 +161,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.3",
+    groups: [
+      {
+        title: "Admin-Zugang",
+        items: [
+          "Der Admin-Bereich braucht kein App-Passwort mehr: Er nutzt die normale Anmeldung aus der Tools-Übersicht. Öffnen und bearbeiten kann, wer Admin ist oder in einer Bearbeiter-Gruppe der Trainerdaten steht (Häkchen „bearbeiten“ im Sichtbarkeits-Panel der Tools-Übersicht) — Zugriff lässt sich damit pro Gruppe vergeben und entziehen, ohne ein geteiltes Passwort weiterzugeben.",
+          "Die Rechteprüfung passiert bei jedem Zugriff auf dem Server (Zugangs-Worker), nicht nur in der Oberfläche. Das bisher geteilte App-Passwort wird nicht mehr verwendet und kann in Nextcloud entwertet werden."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.2",
     groups: [
       {
