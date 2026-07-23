@@ -10,16 +10,28 @@
 <body>
 
 <header>
-  <h1>📄 Trainerdaten <span class="version-badge" id="version-badge"></span></h1>
+  <h1>📄 Trainerdaten <span class="version-badge version-badge-link" id="version-badge" role="button" tabindex="0" title="Versionshistorie ansehen"></span></h1>
   <a href="https://tecko1985.github.io/ToolsUebersicht/" class="back-to-dashboard">← Zurück zum Dashboard</a>
   <div class="header-right">
     <div class="file-status" id="file-status" style="display:none;">
       <span class="dot"></span><span class="label">Nicht verbunden</span>
     </div>
-    <button class="admin-toggle-btn" id="btn-admin-toggle" type="button" style="display:none;">Einstellungen</button>
     <img class="header-logo" src="logo.png" alt="1. SC 1911 e.V. Heilbad Heiligenstadt" />
   </div>
 </header>
+
+<!-- Haupt-Navigation: "Meine Daten" + "Info" für alle; die Verwaltungs-Tabs
+     (Trainer/Import/Einstellungen) blendet _initAdminZugang() nur für
+     Berechtigte ein (Admin oder Bearbeiter-Gruppe der Trainerdaten). -->
+<nav id="main-nav">
+  <button data-tab="meine" class="active" type="button">Meine Daten</button>
+  <button data-tab="liste" class="admin-only-tab" style="display:none;" type="button">Trainer</button>
+  <button data-tab="import" class="admin-only-tab" style="display:none;" type="button">Import</button>
+  <div class="nav-right">
+    <button data-tab="einstellungen" class="admin-only-tab" style="display:none;" type="button">Einstellungen</button>
+    <button data-tab="info" type="button">Info</button>
+  </div>
+</nav>
 
 <!-- ===== TRAINER-FORMULAR (Standard-Ansicht) ===== -->
 <div id="trainer-flow">
@@ -423,16 +435,8 @@
     </div>
   </div>
 
-  <!-- Admin-Panel (nach Login) -->
+  <!-- Admin-Panel (Sections; Tab-Umschaltung über #main-nav / _zeigeTab) -->
   <div id="admin-panel" style="display:none;">
-    <nav>
-      <button data-tab="liste" class="active">Trainer</button>
-      <button data-tab="import">Import</button>
-      <div class="nav-right">
-        <button data-tab="einstellungen">Einstellungen</button>
-        <button data-tab="info">Info</button>
-      </div>
-    </nav>
 
     <main>
 
@@ -790,13 +794,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.7"></script>
+<script src="config.js?v=1.8"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.1"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.8"></script>
+<script src="app.js?v=1.9"></script>
 </body>
 </html>

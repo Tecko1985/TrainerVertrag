@@ -164,10 +164,11 @@ const APP_CHANGELOG = [
     version: "1.4",
     groups: [
       {
-        title: "Kopfzeile",
+        title: "Neue Aufteilung mit Reitern",
         items: [
-          "Der „Admin“-Knopf heißt jetzt „Einstellungen“ und erscheint nur noch für Konten, die den Bereich auch öffnen dürfen (Admin oder Bearbeiter-Gruppe der Trainerdaten) — für alle anderen ist die Kopfzeile aufgeräumt.",
-          "Ein Klick auf „Einstellungen“ öffnet den Bereich direkt, ohne Zwischenschritt „Verbinden“. Auch der Sprung über das Versionskürzel zur Versionshistorie ist nur noch für Berechtigte aktiv."
+          "Der „Admin“-Knopf oben rechts entfällt. Stattdessen gibt es wie in den anderen Tools eine Reiterleiste: „Meine Daten“ (das eigene Formular) und „Info“ (Versionshistorie) sehen alle; wer Trainerdaten verwalten darf (Admin oder Bearbeiter-Gruppe), sieht zusätzlich „Trainer“, „Import“ und „Einstellungen“.",
+          "Die Verwaltung öffnet sich beim Klick direkt, ohne Zwischenschritt „Verbinden“ — die App startet für alle bei „Meine Daten“.",
+          "Die Versionshistorie über das Versionskürzel in der Kopfzeile ist damit wieder für alle erreichbar, nicht nur für Admins."
         ]
       }
     ]

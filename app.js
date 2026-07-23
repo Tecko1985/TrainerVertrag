@@ -5,8 +5,7 @@
 let appData   = { version: 1, trainer: [] }; // Arbeitskopie im Admin-Modus
 let davConfig = null;
 let saveTid   = null;
-let mode      = "trainer"; // "trainer" | "admin"
-let activeAdminTab = "liste";
+let aktiverTab = "meine"; // "meine" | "liste" | "import" | "einstellungen" | "info" — Haupt-Nav, siehe _zeigeTab()
 let currentTrainerId = null;
 
 let trainerSigPad = null;
@@ -54,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerKodex();
   _initTrainerJugendschutz();
   _initTrainerVertrag();
-  _initAdminToggle();
+  _initMainNav();
   _initAdminConnect();
   _initAdminPanel();
   _initImport();
@@ -63,14 +62,13 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerGateway();
 });
 
-// Der Einstellungen-Button (früher "Admin") ist nur sichtbar, wenn das
-// eingeloggte Konto den Bereich auch öffnen darf (Admin oder Bearbeiter-Gruppe
-// der Trainerdaten) — dieselbe Prüfung, die der Zugangs-Worker serverseitig
-// bei jedem Zugriff erzwingt; hier steuert sie nur die Sichtbarkeit. Der
-// Button ist im HTML default versteckt, damit Unberechtigten nie kurz einer
-// aufblitzt; Berechtigte sehen ihn nach der kurzen Gateway-Prüfung. Der
-// Versionsbadge bekommt seine Sprung-Interaktivität (Versionshistorie liegt
-// im Einstellungen-Bereich) aus demselben Grund erst hier.
+// Die Verwaltungs-Tabs (Trainer/Import/Einstellungen) sind nur sichtbar, wenn
+// das eingeloggte Konto den Bereich auch öffnen darf (Admin oder Bearbeiter-
+// Gruppe der Trainerdaten) — dieselbe Prüfung, die der Zugangs-Worker
+// serverseitig bei jedem Zugriff erzwingt; hier steuert sie nur die
+// Sichtbarkeit. Die Buttons sind im HTML default versteckt, damit
+// Unberechtigten nie kurz welche aufblitzen; Berechtigte sehen sie nach der
+// kurzen Gateway-Prüfung.
 async function _initAdminZugang() {
   if (!getSessionToken()) return;
   try {
@@ -79,12 +77,7 @@ async function _initAdminZugang() {
     _adminZugriffErlaubt = false;
   }
   if (!_adminZugriffErlaubt) return;
-  document.getElementById("btn-admin-toggle").style.display = "";
-  const badge = document.getElementById("version-badge");
-  badge.classList.add("version-badge-link");
-  badge.setAttribute("role", "button");
-  badge.setAttribute("tabindex", "0");
-  badge.title = "Versionshistorie ansehen";
+  document.querySelectorAll("#main-nav .admin-only-tab").forEach(b => { b.style.display = ""; });
 }
 
 // Trainer-Modus verlangt seit 1.6 ein Tools-Übersicht-Login (statt eines offenen
@@ -1335,56 +1328,85 @@ async function _exportFuehrerscheinePdf() {
   }
 }
 
-// ─── Admin-Toggle ─────────────────────────────────────────────────────────────
+// ─── Haupt-Navigation ─────────────────────────────────────────────────────────
+// Ersetzt den früheren Admin/Trainer-Moduswechsel per Header-Button: EINE
+// Tab-Leiste für alle. "Meine Daten" + "Info" sieht jeder (Info ist reine
+// Anzeige aus config.js, braucht weder Verbindung noch Recht — damit ist die
+// Versionshistorie wie in den übrigen Apps für alle erreichbar); die drei
+// Verwaltungs-Tabs blendet _initAdminZugang() nur für Berechtigte ein.
 
-function _initAdminToggle() {
-  document.getElementById("btn-admin-toggle").addEventListener("click", () => {
-    if (mode === "trainer") {
-      _openAdminBereich();
-    } else {
-      _switchToTrainer();
-    }
+function _initMainNav() {
+  document.querySelectorAll("#main-nav button[data-tab]").forEach(btn => {
+    btn.addEventListener("click", () => _zeigeTab(btn.dataset.tab));
   });
 }
 
-// Öffnet den Einstellungen-Bereich und verbindet direkt (der Button ist nur
-// für Berechtigte sichtbar — ein Zwischenscreen mit "Verbinden"-Klick wäre
-// ein toter Umweg). Schlägt das Verbinden fehl, bleibt der Connect-Screen
-// als Fallback stehen und zeigt die Meldung im Banner.
-async function _openAdminBereich(tab) {
-  _switchToAdmin();
-  if (tab) _activateAdminTab(tab);
-  if (davConfig) return;
-  const errEl = document.getElementById("admin-connect-error");
-  errEl.style.display = "none";
-  try {
-    await _connectAdminNow();
-  } catch (err) {
-    errEl.textContent = "Verbindungsfehler: " + err.message;
-    errEl.style.display = "block";
-    davConfig = null;
+// Zentraler Tab-Umschalter. Die Verwaltungs-Tabs verbinden bei Bedarf
+// automatisch (Auto-Connect — die Buttons sieht nur, wer das Recht hat, ein
+// Zwischenscreen mit "Verbinden"-Klick wäre ein toter Umweg); der
+// Connect-Screen bleibt nur als Fehler-Fallback mit Banner.
+async function _zeigeTab(tab) {
+  aktiverTab = tab;
+  document.querySelectorAll("#main-nav button[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+
+  const trainerFlow = document.getElementById("trainer-flow");
+  const adminFlow   = document.getElementById("admin-flow");
+  const connect     = document.getElementById("admin-connect-screen");
+  const panel       = document.getElementById("admin-panel");
+
+  if (tab === "meine") {
+    adminFlow.style.display = "none";
+    trainerFlow.style.display = "";
+    document.getElementById("file-status").style.display = "none";
+    return;
   }
-}
 
-function _switchToAdmin() {
-  mode = "admin";
-  document.getElementById("trainer-flow").style.display = "none";
-  document.getElementById("admin-flow").style.display = "";
-  document.getElementById("btn-admin-toggle").textContent = "← Zurück";
+  trainerFlow.style.display = "none";
+  adminFlow.style.display = "";
+
+  if (tab === "info") {
+    connect.style.display = "none";
+    panel.style.display = "";
+    document.getElementById("file-status").style.display = "none";
+    _aktiviereSection("info");
+    return;
+  }
+
+  // Verwaltungs-Tab (liste/import/einstellungen): Verbindung sicherstellen.
+  if (!davConfig) {
+    const errEl = document.getElementById("admin-connect-error");
+    errEl.style.display = "none";
+    connect.style.display = "none";
+    panel.style.display = "none";
+    try {
+      await _connectAdminNow(); // zeigt via _onAdminConnected das Panel
+    } catch (err) {
+      if (aktiverTab !== tab) return; // Nutzer hat inzwischen weitergeklickt
+      errEl.textContent = "Verbindungsfehler: " + err.message;
+      errEl.style.display = "block";
+      davConfig = null;
+      panel.style.display = "none";
+      connect.style.display = "";
+      return;
+    }
+    if (aktiverTab !== tab) return; // Nutzer hat inzwischen weitergeklickt
+  } else {
+    connect.style.display = "none";
+    panel.style.display = "";
+  }
   document.getElementById("file-status").style.display = "";
+  _aktiviereSection(tab);
+  if (tab === "import") _renderImportCurrentStatus();
 }
 
-function _switchToTrainer() {
-  mode = "trainer";
-  document.getElementById("admin-flow").style.display = "none";
-  document.getElementById("trainer-flow").style.display = "";
-  document.getElementById("btn-admin-toggle").textContent = "Einstellungen";
-  document.getElementById("file-status").style.display = "none";
+function _aktiviereSection(tab) {
+  document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
+  document.getElementById("tab-" + tab).classList.add("active");
 }
 
 // ─── Admin-Connect ────────────────────────────────────────────────────────────
 
-// Gemeinsamer Verbindungs-Kern für den Auto-Connect (_openAdminBereich) und
+// Gemeinsamer Verbindungs-Kern für den Auto-Connect (_zeigeTab) und
 // den Fallback-Submit unten. Kein App-Passwort mehr: der Zugangs-Worker prüft
 // den ToolsUebersicht-Token + Bearbeiten-Recht serverseitig bei JEDEM Zugriff;
 // die Vorabprüfung hier liefert nur sprechende Meldungen statt nacktem 401/403
@@ -1438,8 +1460,10 @@ async function _tryRestoreAdminSession() {
   try {
     const raw = await davReadFile(davConfig);
     appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
+    // Nur vorbereiten (Panel/Liste im Hintergrund, Status "Verbunden") — die
+    // App startet für alle auf "Meine Daten", sichtbar wird die Verwaltung
+    // erst über die Tabs.
     _onAdminConnected();
-    if (mode !== "admin") _switchToAdmin();
   } catch (_) {
     davConfig = null;
     await FileStore.clearWebdavConfig();
@@ -1464,27 +1488,14 @@ function _updateFileStatus(connected) {
 
 // ─── Admin-Panel-Nav ──────────────────────────────────────────────────────────
 
-function _activateAdminTab(tab) {
-  activeAdminTab = tab;
-  document.querySelectorAll("nav button[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === activeAdminTab));
-  document.querySelectorAll(".tab-section").forEach(s => s.classList.remove("active"));
-  document.getElementById("tab-" + activeAdminTab).classList.add("active");
-  if (activeAdminTab === "import") _renderImportCurrentStatus();
-}
-
 function _initAdminPanel() {
-  document.querySelectorAll("nav button[data-tab]").forEach(btn => {
-    btn.addEventListener("click", () => _activateAdminTab(btn.dataset.tab));
-  });
-
-  // Header-Versionsbadge springt in den Einstellungen-Bereich zur Versions-
-  // historie — nur für Berechtigte (die Historie liegt hinter demselben Gate
-  // wie der Einstellungen-Button; _initAdminZugang schaltet die Interaktivität
-  // des Badges erst frei, der Guard hier fängt den Rest ab).
+  // Header-Versionsbadge springt zur Versionshistorie (Info-Tab) — die ist
+  // seit der gemeinsamen Tab-Leiste wieder für ALLE erreichbar, wie in den
+  // übrigen Apps der Flotte.
   const versionBadgeHeader = document.getElementById("version-badge");
-  versionBadgeHeader.addEventListener("click", () => { if (_adminZugriffErlaubt) _openAdminBereich("info"); });
+  versionBadgeHeader.addEventListener("click", () => _zeigeTab("info"));
   versionBadgeHeader.addEventListener("keydown", (e) => {
-    if ((e.key === "Enter" || e.key === " ") && _adminZugriffErlaubt) { e.preventDefault(); _openAdminBereich("info"); }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _zeigeTab("info"); }
   });
 
   document.getElementById("btn-disconnect").addEventListener("click", async () => {
@@ -1494,6 +1505,9 @@ function _initAdminPanel() {
     document.getElementById("admin-panel").style.display = "none";
     document.getElementById("admin-connect-screen").style.display = "";
     _updateFileStatus(false);
+    // Ohne Verbindung ist in den Verwaltungs-Tabs nichts mehr zu sehen —
+    // zurück zu "Meine Daten" (der nächste Verwaltungs-Klick verbindet neu).
+    _zeigeTab("meine");
   });
 
   document.getElementById("btn-zurueck-liste").addEventListener("click", _showAdminListe);
