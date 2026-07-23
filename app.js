@@ -1446,7 +1446,11 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
-  document.getElementById("liste-filter-gruppe").addEventListener("change", _renderAdminListe);
+  // Delegation statt Einzel-Listener: die Gruppen-Checkboxen werden bei jedem
+  // Listen-Render neu gebaut (siehe _renderGruppenFilterCheckboxes).
+  document.getElementById("liste-filter-gruppen-row").addEventListener("change", (e) => {
+    if (e.target && e.target.classList.contains("gruppen-filter-cb")) _renderAdminListe();
+  });
   _initExportPanel();
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
@@ -1556,10 +1560,10 @@ function _populateLizenzFilterOptions() {
 }
 
 // Gateway-Gruppen (Aktion "list-groups", Admin-only) für den Gruppen-Filter der
-// Liste — lazy beim ersten Listen-Render, ein Versuch pro Sitzung. Braucht wie
-// das Lizenz-Prefill im Detail ein aktives ToolsUebersicht-Admin-Login im selben
-// Browser; ohne bleibt der Filter sichtbar, aber deaktiviert (mit Hinweis im
-// Tooltip) statt still zu verschwinden. Die zentralen Profile werden mitgeladen,
+// Liste und die Export-Spalte "Gruppen" — lazy beim ersten Listen-Render, ein
+// Versuch pro Sitzung. Braucht wie das Lizenz-Prefill im Detail ein aktives
+// ToolsUebersicht-Admin-Login im selben Browser; ohne zeigt die Zeile einen
+// Hinweis statt still zu verschwinden. Die zentralen Profile werden mitgeladen,
 // damit auch Import-Stubs ohne Konto-Verknüpfung per Namensabgleich ihrer
 // Gruppe zugeordnet werden können (siehe _trainerGatewayUsername).
 async function _ensureFilterGruppen() {
@@ -1577,11 +1581,11 @@ async function _ensureFilterGruppen() {
       name: g.name || "",
       members: new Set(g.memberUsernames || [])
     }));
-    _renderAdminListe(); // befüllt jetzt auch die Gruppen-Optionen (Rekursionsschutz: _filterGruppenVersucht)
+    _renderAdminListe(); // baut jetzt auch die Gruppen-Checkboxen (Rekursionsschutz: _filterGruppenVersucht)
   } catch (_) {
-    const sel = document.getElementById("liste-filter-gruppe");
-    sel.disabled = true;
-    sel.title = "Gruppen nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.";
+    const row = document.getElementById("liste-filter-gruppen-row");
+    row.style.display = "";
+    row.innerHTML = `<span class="muted">Gruppen-Filter nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.</span>`;
   }
 }
 
@@ -1596,15 +1600,18 @@ function _trainerGatewayUsername(t) {
   return profil ? profil.username : null;
 }
 
-// Baut die Gruppen-Filteroptionen analog zum Lizenz-Filter nur aus Gruppen, in
-// denen mindestens eine Person der Liste Mitglied ist (leere Gruppen wären
-// totes Rauschen), plus "Ohne Gruppe" für Einträge ohne Gruppenzuordnung.
-// Erhält die aktuelle Auswahl. Vor dem Laden der Gruppen: no-op, das Select
-// zeigt dann nur "Alle Gruppen".
-function _populateGruppenFilterOptions() {
+// Baut die Gruppen-Checkbox-Zeile unter der Filterleiste: eine Checkbox je
+// Gruppe, in der mindestens eine Person der Liste Mitglied ist (leere Gruppen
+// wären totes Rauschen, analog Lizenz-Filter), plus "Ohne Gruppe" für Einträge
+// ohne Gruppenzuordnung. Mehrfachauswahl = ODER-Verknüpfung; keine angekreuzt
+// = kein Gruppenfilter. Wirkt über _filteredTrainerList() auf Liste UND
+// CSV-Export (Mehrfach-Export ausgewählter Gruppen). Erhält die aktuelle
+// Auswahl über den Neubau hinweg. Vor dem Laden der Gruppen: no-op (bzw. der
+// Fehlerhinweis aus _ensureFilterGruppen bleibt stehen).
+function _renderGruppenFilterCheckboxes() {
   if (!filterGruppen) return;
-  const sel = document.getElementById("liste-filter-gruppe");
-  const current = sel.value;
+  const row = document.getElementById("liste-filter-gruppen-row");
+  const vorher = new Set(Array.from(row.querySelectorAll(".gruppen-filter-cb:checked")).map(cb => cb.dataset.value));
 
   const vertreten = filterGruppen
     .filter(g => appData.trainer.some(t => {
@@ -1613,11 +1620,30 @@ function _populateGruppenFilterOptions() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
 
-  sel.innerHTML = `<option value="">Alle Gruppen</option>` +
-    vertreten.map(g => `<option value="${_esc(g.id)}">${_esc(g.name)}</option>`).join("") +
-    `<option value="__ohne__">Ohne Gruppe</option>`;
+  const cb = (value, label) => `
+    <label style="display:inline-flex; align-items:center; gap:5px; margin-right:14px; cursor:pointer; white-space:nowrap;">
+      <input type="checkbox" class="gruppen-filter-cb" data-value="${_esc(value)}"${vorher.has(value) ? " checked" : ""} /> ${_esc(label)}
+    </label>`;
 
-  if (current === "__ohne__" || vertreten.some(g => g.id === current)) sel.value = current;
+  row.style.display = "";
+  row.innerHTML = `<span class="muted" style="margin-right:10px;">Gruppen:</span>` +
+    vertreten.map(g => cb(g.id, g.name)).join("") +
+    cb("__ohne__", "Ohne Gruppe");
+}
+
+// Namen aller Gruppen, in denen die Person Mitglied ist (kommasepariert,
+// alphabetisch) — Wert der CSV-Export-Spalte "Gruppen". Leer, solange die
+// Gruppen nicht geladen sind (kein Gateway-Admin-Login) oder die Person
+// kein (eindeutiges) Konto hat.
+function _trainerGruppenNamen(t) {
+  if (!filterGruppen) return "";
+  const u = _trainerGatewayUsername(t);
+  if (!u) return "";
+  return filterGruppen
+    .filter(g => g.members.has(u))
+    .map(g => g.name)
+    .sort((a, b) => a.localeCompare(b, "de"))
+    .join(", ");
 }
 
 // Liest die aktuellen Filter/Suchfeld-Werte aus dem DOM und wendet sie auf
@@ -1629,10 +1655,11 @@ function _filteredTrainerList() {
   const statusFilter  = document.getElementById("liste-filter-status").value;
   const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
   const vertragFilter = document.getElementById("liste-filter-vertrag").value;
-  const gruppeFilter  = document.getElementById("liste-filter-gruppe").value;
-  const gewaehlteGruppe = (gruppeFilter && gruppeFilter !== "__ohne__")
-    ? (filterGruppen || []).find(g => g.id === gruppeFilter) || null
-    : null;
+  // Angekreuzte Gruppen-Checkboxen (Mehrfachauswahl, ODER-verknüpft); leer =
+  // kein Gruppenfilter. "__ohne__" steht für Einträge ohne Gruppenzuordnung.
+  const gruppenAuswahl = new Set(
+    Array.from(document.querySelectorAll("#liste-filter-gruppen-row .gruppen-filter-cb:checked")).map(cb => cb.dataset.value)
+  );
 
   return appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
@@ -1640,12 +1667,11 @@ function _filteredTrainerList() {
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
     if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
     if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
-    if (gruppeFilter === "__ohne__") {
+    if (gruppenAuswahl.size) {
       const u = _trainerGatewayUsername(t);
-      if (u && (filterGruppen || []).some(g => g.members.has(u))) return false;
-    } else if (gruppeFilter) {
-      const u = _trainerGatewayUsername(t);
-      if (!gewaehlteGruppe || !u || !gewaehlteGruppe.members.has(u)) return false;
+      const inGewaehlterGruppe = !!u && (filterGruppen || []).some(g => gruppenAuswahl.has(g.id) && g.members.has(u));
+      const ohneGruppe = !u || !(filterGruppen || []).some(g => g.members.has(u));
+      if (!inGewaehlterGruppe && !(gruppenAuswahl.has("__ohne__") && ohneGruppe)) return false;
     }
     return true;
   });
@@ -1664,6 +1690,7 @@ function _renderAdminListe() {
     noMatch.style.display = "none";
     header.style.display = "none";
     filterbar.style.display = "none";
+    document.getElementById("liste-filter-gruppen-row").style.display = "none";
     _updateExportInfoLine();
     return;
   }
@@ -1672,7 +1699,7 @@ function _renderAdminListe() {
   filterbar.style.display = "";
   _populateLizenzFilterOptions();
   _ensureFilterGruppen(); // async, erster Aufruf lädt die Gruppen und rendert danach erneut
-  _populateGruppenFilterOptions();
+  _renderGruppenFilterCheckboxes();
 
   const filtered = _filteredTrainerList();
   _updateExportInfoLine();
@@ -1813,6 +1840,8 @@ function _exportFieldValue(t, f) {
     }
     case "derived-eingereicht":
       return _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "";
+    case "derived-gruppen":
+      return _trainerGruppenNamen(t);
     default:
       return t[f.key] || "";
   }

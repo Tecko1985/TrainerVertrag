@@ -84,7 +84,8 @@ const EXPORT_FIELD_GROUPS = [
       { key: "plz", label: "PLZ" },
       { key: "ort", label: "Ort" },
       { key: "telefon", label: "Telefon" },
-      { key: "email", label: "E-Mail" }
+      { key: "email", label: "E-Mail" },
+      { key: "gruppen", label: "Gruppen", type: "derived-gruppen" }
     ]
   },
   {
@@ -165,7 +166,9 @@ const APP_CHANGELOG = [
       {
         title: "Eingereichte Trainerdaten",
         items: [
-          "Neuer Filter „Alle Gruppen“ in der Filterleiste: zeigt nur Personen, die Mitglied der gewählten Benutzergruppe aus der Tools-Übersicht sind. „Ohne Gruppe“ findet umgekehrt alle Einträge ohne Gruppenzuordnung. Suche, übrige Filter und der CSV-Export berücksichtigen den Gruppen-Filter automatisch mit. Voraussetzung ist ein Admin-Login in der Tools-Übersicht im selben Browser — ohne bleibt der Filter ausgegraut."
+          "Neue Zeile „Gruppen“ unter der Filterleiste: je Benutzergruppe aus der Tools-Übersicht eine Checkbox — mehrere gleichzeitig ankreuzbar, angezeigt werden alle Personen aus mindestens einer der angekreuzten Gruppen. „Ohne Gruppe“ findet Einträge ohne Gruppenzuordnung. Der CSV-Export übernimmt die Auswahl automatisch (Mehrfach-Export ausgewählter Gruppen).",
+          "Neues Exportfeld „Gruppen“ (Stammdaten): die CSV-Spalte listet je Person alle Benutzergruppen, in denen sie Mitglied ist.",
+          "Voraussetzung für beides ist ein Admin-Login in der Tools-Übersicht im selben Browser — ohne erscheint an Stelle der Checkboxen ein Hinweis."
         ]
       }
     ]
