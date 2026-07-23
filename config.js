@@ -168,7 +168,7 @@ const APP_CHANGELOG = [
         items: [
           "Neue Sektion „Gruppen“ im CSV-Export-Panel: je Benutzergruppe aus der Tools-Übersicht eine Checkbox — mehrere gleichzeitig ankreuzbar, exportiert wird, wer in mindestens einer der angekreuzten Gruppen ist (Mehrfach-Export ausgewählter Gruppen). „Ohne Gruppe“ erfasst Einträge ohne Gruppenzuordnung; keine Gruppe angekreuzt = alle exportieren. Die Zeile unter den Feldern zeigt immer die tatsächliche Exportanzahl.",
           "Neues Exportfeld „Gruppen“ (Stammdaten): die CSV-Spalte listet je Person alle Benutzergruppen, in denen sie Mitglied ist.",
-          "Voraussetzung für beides ist ein Admin-Login in der Tools-Übersicht im selben Browser — ohne erscheint an Stelle der Checkboxen ein Hinweis."
+          "Voraussetzung für beides ist ein Login in der Tools-Übersicht im selben Browser mit einem berechtigten Konto: Admin oder Mitglied einer Bearbeiter-Gruppe der Trainerdaten (im Sichtbarkeits-Panel der Tools-Übersicht gepflegt, z.B. Geschäftsstelle). Ohne erscheint an Stelle der Checkboxen ein Hinweis."
         ]
       }
     ]

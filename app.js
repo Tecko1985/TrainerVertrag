@@ -1561,19 +1561,28 @@ function _populateLizenzFilterOptions() {
   if (distinct.includes(current)) sel.value = current;
 }
 
-// Gateway-Gruppen (Aktion "list-groups", Admin-only) für die Gruppen-Auswahl
-// im Export-Panel und die Export-Spalte "Gruppen" — lazy beim ersten
-// Listen-Render, ein Versuch pro Sitzung. Braucht wie das Lizenz-Prefill im
-// Detail ein aktives ToolsUebersicht-Admin-Login im selben Browser; ohne zeigt
-// die Sektion einen Hinweis statt still zu fehlen. Die zentralen Profile werden mitgeladen,
-// damit auch Import-Stubs ohne Konto-Verknüpfung per Namensabgleich ihrer
-// Gruppe zugeordnet werden können (siehe _trainerGatewayUsername).
+// Gateway-Gruppen für die Gruppen-Auswahl im Export-Panel und die Export-
+// Spalte "Gruppen" — lazy beim ersten Listen-Render, ein Versuch pro Sitzung.
+// Primär über die schmale Aktion "trainerdaten-list-groups" (Admin ODER
+// Trainerdaten-Bearbeiter laut Sichtbarkeits-Panel, Mitglieder auf Personal
+// gefiltert); Fallback auf das admin-only "list-groups" für die Übergangszeit,
+// solange der landingpage-Worker die neue Aktion noch nicht kennt. Braucht ein
+// entsprechend berechtigtes ToolsUebersicht-Login im selben Browser; ohne
+// zeigt die Sektion einen Hinweis statt still zu fehlen. Die zentralen Profile
+// werden mitgeladen, damit auch Import-Stubs ohne Konto-Verknüpfung per
+// Namensabgleich ihrer Gruppe zugeordnet werden können (siehe _trainerGatewayUsername).
 async function _ensureFilterGruppen() {
   if (_filterGruppenVersucht) return;
   _filterGruppenVersucht = true;
   try {
     const [data] = await Promise.all([
-      gatewayRequest({ action: "list-groups" }),
+      (async () => {
+        try {
+          return await gatewayRequest({ action: "trainerdaten-list-groups" });
+        } catch (_) {
+          return await gatewayRequest({ action: "list-groups" });
+        }
+      })(),
       (async () => {
         if (trainerProfiles === null) trainerProfiles = await fetchTrainerProfiles().catch(() => []);
       })()
@@ -1590,7 +1599,7 @@ async function _ensureFilterGruppen() {
   } catch (_) {
     document.getElementById("export-gruppen-section").innerHTML =
       `<div class="section-divider" style="margin:14px 0 8px;">Gruppen</div>
-       <p class="muted" style="margin:0;">Gruppen-Auswahl nicht verfügbar — dafür im selben Browser in der Tools-Übersicht als Admin anmelden.</p>`;
+       <p class="muted" style="margin:0;">Gruppen-Auswahl nicht verfügbar — dafür im selben Browser in der Tools-Übersicht mit einem berechtigten Konto anmelden (Admin oder Mitglied einer Bearbeiter-Gruppe der Trainerdaten).</p>`;
   }
 }
 
