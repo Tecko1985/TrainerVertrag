@@ -161,6 +161,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.4",
+    groups: [
+      {
+        title: "Kopfzeile",
+        items: [
+          "Der „Admin“-Knopf heißt jetzt „Einstellungen“ und erscheint nur noch für Konten, die den Bereich auch öffnen dürfen (Admin oder Bearbeiter-Gruppe der Trainerdaten) — für alle anderen ist die Kopfzeile aufgeräumt.",
+          "Ein Klick auf „Einstellungen“ öffnet den Bereich direkt, ohne Zwischenschritt „Verbinden“. Auch der Sprung über das Versionskürzel zur Versionshistorie ist nur noch für Berechtigte aktiv."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.3",
     groups: [
       {

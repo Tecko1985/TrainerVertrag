@@ -39,6 +39,7 @@ let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only
 let myChecklisteStatus = null; // eigener TrainerCheckliste-Eintrag (Trainer-Selbstbedienung, seit 1.8), einmalig geladen in _initTrainerGateway (siehe _renderMyChecklisteStatus)
 let _checklisteDetailOpen = false; // Aufklapp-Zustand der "Öffnen"-Detailansicht, überlebt Re-Render (siehe _showTrainerFormScreen)
 let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
+let _adminZugriffErlaubt = false; // Bearbeiten-Recht des eingeloggten Kontos (siehe _initAdminZugang) — steuert Sichtbarkeit des Einstellungen-Buttons + den Versionsbadge-Sprung
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -57,9 +58,34 @@ document.addEventListener("DOMContentLoaded", () => {
   _initAdminConnect();
   _initAdminPanel();
   _initImport();
+  _initAdminZugang();
   _tryRestoreAdminSession();
   _initTrainerGateway();
 });
+
+// Der Einstellungen-Button (früher "Admin") ist nur sichtbar, wenn das
+// eingeloggte Konto den Bereich auch öffnen darf (Admin oder Bearbeiter-Gruppe
+// der Trainerdaten) — dieselbe Prüfung, die der Zugangs-Worker serverseitig
+// bei jedem Zugriff erzwingt; hier steuert sie nur die Sichtbarkeit. Der
+// Button ist im HTML default versteckt, damit Unberechtigten nie kurz einer
+// aufblitzt; Berechtigte sehen ihn nach der kurzen Gateway-Prüfung. Der
+// Versionsbadge bekommt seine Sprung-Interaktivität (Versionshistorie liegt
+// im Einstellungen-Bereich) aus demselben Grund erst hier.
+async function _initAdminZugang() {
+  if (!getSessionToken()) return;
+  try {
+    _adminZugriffErlaubt = await checkTrainerdatenEditPermission();
+  } catch (_) {
+    _adminZugriffErlaubt = false;
+  }
+  if (!_adminZugriffErlaubt) return;
+  document.getElementById("btn-admin-toggle").style.display = "";
+  const badge = document.getElementById("version-badge");
+  badge.classList.add("version-badge-link");
+  badge.setAttribute("role", "button");
+  badge.setAttribute("tabindex", "0");
+  badge.title = "Versionshistorie ansehen";
+}
 
 // Trainer-Modus verlangt seit 1.6 ein Tools-Übersicht-Login (statt eines offenen
 // No-Login-Formulars) — nur so lässt sich die eigene Einreichung serverseitig per
@@ -1314,11 +1340,30 @@ async function _exportFuehrerscheinePdf() {
 function _initAdminToggle() {
   document.getElementById("btn-admin-toggle").addEventListener("click", () => {
     if (mode === "trainer") {
-      _switchToAdmin();
+      _openAdminBereich();
     } else {
       _switchToTrainer();
     }
   });
+}
+
+// Öffnet den Einstellungen-Bereich und verbindet direkt (der Button ist nur
+// für Berechtigte sichtbar — ein Zwischenscreen mit "Verbinden"-Klick wäre
+// ein toter Umweg). Schlägt das Verbinden fehl, bleibt der Connect-Screen
+// als Fallback stehen und zeigt die Meldung im Banner.
+async function _openAdminBereich(tab) {
+  _switchToAdmin();
+  if (tab) _activateAdminTab(tab);
+  if (davConfig) return;
+  const errEl = document.getElementById("admin-connect-error");
+  errEl.style.display = "none";
+  try {
+    await _connectAdminNow();
+  } catch (err) {
+    errEl.textContent = "Verbindungsfehler: " + err.message;
+    errEl.style.display = "block";
+    davConfig = null;
+  }
 }
 
 function _switchToAdmin() {
@@ -1333,11 +1378,35 @@ function _switchToTrainer() {
   mode = "trainer";
   document.getElementById("admin-flow").style.display = "none";
   document.getElementById("trainer-flow").style.display = "";
-  document.getElementById("btn-admin-toggle").textContent = "Admin";
+  document.getElementById("btn-admin-toggle").textContent = "Einstellungen";
   document.getElementById("file-status").style.display = "none";
 }
 
 // ─── Admin-Connect ────────────────────────────────────────────────────────────
+
+// Gemeinsamer Verbindungs-Kern für den Auto-Connect (_openAdminBereich) und
+// den Fallback-Submit unten. Kein App-Passwort mehr: der Zugangs-Worker prüft
+// den ToolsUebersicht-Token + Bearbeiten-Recht serverseitig bei JEDEM Zugriff;
+// die Vorabprüfung hier liefert nur sprechende Meldungen statt nacktem 401/403
+// und entfällt, wenn _initAdminZugang das Recht schon bestätigt hat.
+async function _connectAdminNow() {
+  davConfig = {
+    url:      document.getElementById("admin-url").value.trim(),
+    proxyUrl: document.getElementById("admin-proxy-url").value.trim() || null
+  };
+  if (!_adminZugriffErlaubt) {
+    if (!getSessionToken()) {
+      throw new NotLoggedInError("Bitte zuerst in der Tools-Übersicht anmelden (im selben Browser) und diese Seite neu laden.");
+    }
+    if (!(await checkTrainerdatenEditPermission())) {
+      throw new Error("Dein Konto hat kein Bearbeiten-Recht für Trainerdaten. Ein Admin kann es im Sichtbarkeits-Panel der Tools-Übersicht vergeben (Häkchen „bearbeiten“ bei der passenden Gruppe).");
+    }
+  }
+  const raw = await davReadFile(davConfig);
+  appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
+  await FileStore.setWebdavConfig(davConfig); // nur url+proxyUrl — keine Zugangsdaten
+  _onAdminConnected();
+}
 
 function _initAdminConnect() {
   document.getElementById("admin-connect-form").addEventListener("submit", async (e) => {
@@ -1347,26 +1416,8 @@ function _initAdminConnect() {
     const btn = document.getElementById("btn-admin-connect");
     btn.disabled = true;
     btn.textContent = "Verbinde …";
-
-    // Kein App-Passwort mehr: der Zugangs-Worker prüft den ToolsUebersicht-Token
-    // + Bearbeiten-Recht serverseitig bei JEDEM Zugriff. Hier vorab dieselbe
-    // Prüfung für eine sprechende Meldung statt eines nackten 401/403.
-    davConfig = {
-      url:      document.getElementById("admin-url").value.trim(),
-      proxyUrl: document.getElementById("admin-proxy-url").value.trim() || null
-    };
-
     try {
-      if (!getSessionToken()) {
-        throw new NotLoggedInError("Bitte zuerst in der Tools-Übersicht anmelden (im selben Browser) und diese Seite neu laden.");
-      }
-      if (!(await checkTrainerdatenEditPermission())) {
-        throw new Error("Dein Konto hat kein Bearbeiten-Recht für Trainerdaten. Ein Admin kann es im Sichtbarkeits-Panel der Tools-Übersicht vergeben (Häkchen „bearbeiten“ bei der passenden Gruppe).");
-      }
-      const raw = await davReadFile(davConfig);
-      appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
-      await FileStore.setWebdavConfig(davConfig); // nur url+proxyUrl — keine Zugangsdaten mehr
-      _onAdminConnected();
+      await _connectAdminNow();
     } catch (err) {
       errEl.textContent = "Verbindungsfehler: " + err.message;
       errEl.style.display = "block";
@@ -1426,12 +1477,14 @@ function _initAdminPanel() {
     btn.addEventListener("click", () => _activateAdminTab(btn.dataset.tab));
   });
 
-  // Header-Versionsbadge (auch im Trainer-Modus sichtbar) springt in den
-  // Admin-Bereich zur Versionshistorie -- entspricht "Admin"-Button + Einstellungen-Tab.
+  // Header-Versionsbadge springt in den Einstellungen-Bereich zur Versions-
+  // historie — nur für Berechtigte (die Historie liegt hinter demselben Gate
+  // wie der Einstellungen-Button; _initAdminZugang schaltet die Interaktivität
+  // des Badges erst frei, der Guard hier fängt den Rest ab).
   const versionBadgeHeader = document.getElementById("version-badge");
-  versionBadgeHeader.addEventListener("click", () => { _switchToAdmin(); _activateAdminTab("info"); });
+  versionBadgeHeader.addEventListener("click", () => { if (_adminZugriffErlaubt) _openAdminBereich("info"); });
   versionBadgeHeader.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _switchToAdmin(); _activateAdminTab("info"); }
+    if ((e.key === "Enter" || e.key === " ") && _adminZugriffErlaubt) { e.preventDefault(); _openAdminBereich("info"); }
   });
 
   document.getElementById("btn-disconnect").addEventListener("click", async () => {
