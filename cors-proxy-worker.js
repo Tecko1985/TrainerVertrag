@@ -6,10 +6,13 @@
 // Seit dem Rechte-Umbau (2026-07-23) ist das App-Passwort im Client abgeschafft:
 // Der Browser schickt den ToolsUebersicht-Login-Token (Bearer). Dieser Worker
 // prüft per Service Binding "landingpage" (Aktion check-edit-permission), ob das
-// Konto Trainerdaten bearbeiten darf (Admin ODER Bearbeiter-Gruppe aus dem
-// Sichtbarkeits-Panel), und spricht Nextcloud mit den eigenen Worker-Secrets
-// NEXTCLOUD_USERNAME/NEXTCLOUD_PASSWORD an. Basic-Auth (das früher durchgereichte
-// geteilte App-Passwort) wird nicht mehr akzeptiert.
+// Konto die Stufe ADMINISTRIEREN für Trainerdaten hat (canAdmin: Admin ODER
+// Administrieren-Gruppe aus dem Sichtbarkeits-Panel — seit der dritten
+// Rechte-Stufe vom 2026-07-24 reicht das Bearbeiten-Häkchen bewusst NICHT mehr,
+// denn hier hängt der Vollzugriff inkl. IBAN dran), und spricht Nextcloud mit
+// den eigenen Worker-Secrets NEXTCLOUD_USERNAME/NEXTCLOUD_PASSWORD an.
+// Basic-Auth (das früher durchgereichte geteilte App-Passwort) wird nicht mehr
+// akzeptiert.
 //
 // Ziel-URLs sind auf den Tools-Ordner der Vereins-Nextcloud beschränkt: weil der
 // Worker eigene Zugangsdaten injiziert, wäre das Bearbeiter-Häkchen ohne diese
@@ -59,7 +62,7 @@ export default {
       return new Response("Anmeldung über die Tools-Übersicht erforderlich", { status: 401, headers: corsHeaders });
     }
 
-    // Session + Bearbeiten-Recht beim Gateway prüfen. Service Binding statt
+    // Session + Administrieren-Stufe beim Gateway prüfen. Service Binding statt
     // fetch() auf die workers.dev-URL — Cloudflare blockt Worker-zu-Worker-fetch
     // auf derselben Subdomain mit Error 1042.
     let perm;
@@ -79,8 +82,8 @@ export default {
     } catch (_) {
       return new Response("Rechtepruefung nicht erreichbar", { status: 502, headers: corsHeaders });
     }
-    if (!perm || perm.canEdit !== true) {
-      return new Response("Kein Bearbeiten-Recht für Trainerdaten", { status: 403, headers: corsHeaders });
+    if (!perm || perm.canAdmin !== true) {
+      return new Response("Kein Administrieren-Recht für Trainerdaten", { status: 403, headers: corsHeaders });
     }
 
     if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {

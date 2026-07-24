@@ -38,7 +38,7 @@ let _trainerchecklisteEintraege = null; // TrainerCheckliste-Rohdaten (read-only
 let myChecklisteStatus = null; // eigener TrainerCheckliste-Eintrag (Trainer-Selbstbedienung, seit 1.8), einmalig geladen in _initTrainerGateway (siehe _renderMyChecklisteStatus)
 let _checklisteDetailOpen = false; // Aufklapp-Zustand der "Öffnen"-Detailansicht, überlebt Re-Render (siehe _showTrainerFormScreen)
 let _statusTouched = false; // Status-Dropdown im Admin-Detail in dieser Sitzung angefasst? (siehe _collectDetailData)
-let _adminZugriffErlaubt = false; // Bearbeiten-Recht des eingeloggten Kontos (siehe _initAdminZugang) — steuert Sichtbarkeit des Einstellungen-Buttons + den Versionsbadge-Sprung
+let _adminZugriffErlaubt = false; // Administrieren-Stufe des eingeloggten Kontos (siehe _initAdminZugang) — steuert Sichtbarkeit des Einstellungen-Buttons + den Versionsbadge-Sprung
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -63,16 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Die Verwaltungs-Tabs (Trainer/Import/Einstellungen) sind nur sichtbar, wenn
-// das eingeloggte Konto den Bereich auch öffnen darf (Admin oder Bearbeiter-
-// Gruppe der Trainerdaten) — dieselbe Prüfung, die der Zugangs-Worker
-// serverseitig bei jedem Zugriff erzwingt; hier steuert sie nur die
-// Sichtbarkeit. Die Buttons sind im HTML default versteckt, damit
-// Unberechtigten nie kurz welche aufblitzen; Berechtigte sehen sie nach der
-// kurzen Gateway-Prüfung.
+// das eingeloggte Konto den Bereich auch öffnen darf (Admin oder Administrieren-
+// Stufe der Trainerdaten — das Bearbeiten-Häkchen reicht seit der dritten
+// Rechte-Stufe bewusst nicht mehr, hier hängt die IBAN-Vollsicht dran) —
+// dieselbe Prüfung, die der Zugangs-Worker serverseitig bei jedem Zugriff
+// erzwingt; hier steuert sie nur die Sichtbarkeit. Die Buttons sind im HTML
+// default versteckt, damit Unberechtigten nie kurz welche aufblitzen;
+// Berechtigte sehen sie nach der kurzen Gateway-Prüfung.
 async function _initAdminZugang() {
   if (!getSessionToken()) return;
   try {
-    _adminZugriffErlaubt = await checkTrainerdatenEditPermission();
+    _adminZugriffErlaubt = await checkTrainerdatenAdminPermission();
   } catch (_) {
     _adminZugriffErlaubt = false;
   }
@@ -1408,9 +1409,9 @@ function _aktiviereSection(tab) {
 
 // Gemeinsamer Verbindungs-Kern für den Auto-Connect (_zeigeTab) und
 // den Fallback-Submit unten. Kein App-Passwort mehr: der Zugangs-Worker prüft
-// den ToolsUebersicht-Token + Bearbeiten-Recht serverseitig bei JEDEM Zugriff;
-// die Vorabprüfung hier liefert nur sprechende Meldungen statt nacktem 401/403
-// und entfällt, wenn _initAdminZugang das Recht schon bestätigt hat.
+// den ToolsUebersicht-Token + Administrieren-Stufe serverseitig bei JEDEM
+// Zugriff; die Vorabprüfung hier liefert nur sprechende Meldungen statt nacktem
+// 401/403 und entfällt, wenn _initAdminZugang das Recht schon bestätigt hat.
 async function _connectAdminNow() {
   davConfig = {
     url:      document.getElementById("admin-url").value.trim(),
@@ -1420,8 +1421,8 @@ async function _connectAdminNow() {
     if (!getSessionToken()) {
       throw new NotLoggedInError("Bitte zuerst in der Tools-Übersicht anmelden (im selben Browser) und diese Seite neu laden.");
     }
-    if (!(await checkTrainerdatenEditPermission())) {
-      throw new Error("Dein Konto hat kein Bearbeiten-Recht für Trainerdaten. Ein Admin kann es im Sichtbarkeits-Panel der Tools-Übersicht vergeben (Häkchen „bearbeiten“ bei der passenden Gruppe).");
+    if (!(await checkTrainerdatenAdminPermission())) {
+      throw new Error("Dein Konto hat kein Administrieren-Recht für Trainerdaten. Ein Admin kann es im Sichtbarkeits-Panel der Tools-Übersicht vergeben (Häkchen „Administrieren“ bei der passenden Gruppe).");
     }
   }
   const raw = await davReadFile(davConfig);
@@ -1674,7 +1675,7 @@ async function _ensureFilterGruppen() {
   } catch (_) {
     document.getElementById("export-gruppen-section").innerHTML =
       `<div class="section-divider" style="margin:14px 0 8px;">Gruppen</div>
-       <p class="muted" style="margin:0;">Gruppen-Auswahl nicht verfügbar — dafür im selben Browser in der Tools-Übersicht mit einem berechtigten Konto anmelden (Admin oder Mitglied einer Bearbeiter-Gruppe der Trainerdaten).</p>`;
+       <p class="muted" style="margin:0;">Gruppen-Auswahl nicht verfügbar — dafür im selben Browser in der Tools-Übersicht mit einem berechtigten Konto anmelden (Admin oder Administrieren-Stufe für Trainerdaten).</p>`;
   }
 }
 

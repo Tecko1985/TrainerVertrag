@@ -370,7 +370,9 @@ async function fetchFuehrerscheinFileForOwner(trainerId) {
 
 // Seit dem Rechte-Umbau (2026-07-23) authentifizieren sich alle Admin-WebDAV-
 // Zugriffe mit dem ToolsUebersicht-Login-Token: der CORS-Proxy prüft serverseitig
-// Session + Bearbeiten-Recht (Aktion check-edit-permission beim Gateway) und
+// Session + Administrieren-Stufe (canAdmin aus der Aktion check-edit-permission
+// beim Gateway — seit der dritten Rechte-Stufe 2026-07-24 reicht das
+// Bearbeiten-Häkchen nicht mehr, hier hängt der Vollzugriff inkl. IBAN dran) und
 // hält die Nextcloud-Zugangsdaten selbst als Worker-Secrets. Ein App-Passwort
 // gibt es im Client nicht mehr.
 function davAuthHeader() {
@@ -379,20 +381,21 @@ function davAuthHeader() {
   return "Bearer " + token;
 }
 
-// 401/403 stammen vom CORS-Proxy (Session tot bzw. kein Bearbeiten-Recht),
+// 401/403 stammen vom CORS-Proxy (Session tot bzw. keine Administrieren-Stufe),
 // nicht von Nextcloud — mit sprechender Meldung statt rohem HTTP-Code.
 function davHttpError(resp, verbLabel) {
   if (resp.status === 401) return new NotLoggedInError("Sitzung abgelaufen — bitte in der Tools-Übersicht neu anmelden.");
-  if (resp.status === 403) return new Error("Kein Bearbeiten-Recht für Trainerdaten (Bearbeiter-Gruppe in der Tools-Übersicht nötig).");
+  if (resp.status === 403) return new Error("Kein Administrieren-Recht für Trainerdaten (Häkchen „Administrieren“ in der Tools-Übersicht nötig).");
   return new Error(`WebDAV-${verbLabel} (HTTP ${resp.status})`);
 }
 
-// Eigenes Bearbeiten-Recht für Trainerdaten — dieselbe Prüfung, die der
-// CORS-Proxy serverseitig für jeden WebDAV-Zugriff macht. Für den
+// Eigene Administrieren-Stufe für Trainerdaten — dieselbe Prüfung, die der
+// CORS-Proxy serverseitig für jeden WebDAV-Zugriff macht (canAdmin, NICHT
+// canEdit: am Admin-Modus hängt der Vollzugriff inkl. IBAN). Für den
 // Admin-Einstieg (klare Meldung, bevor der erste Datei-Zugriff läuft).
-async function checkTrainerdatenEditPermission() {
+async function checkTrainerdatenAdminPermission() {
   const body = await gatewayRequest({ action: "check-edit-permission", app: "trainerdaten" });
-  return body.canEdit === true;
+  return body.canAdmin === true;
 }
 
 function davRequestUrl(config) {

@@ -161,6 +161,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.5",
+    groups: [
+      {
+        title: "Verwaltungs-Zugang über die Stufe „Administrieren“",
+        items: [
+          "Der Verwaltungsbereich (Trainer/Import/Einstellungen — inkl. IBAN-Vollsicht) hängt jetzt an der neuen dritten Rechte-Stufe „Administrieren“ der Tools-Übersicht statt am Häkchen „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne automatisch die Bankdaten aller Trainer zu öffnen.",
+          "Zugang vergeben: Sichtbarkeits-Panel der Tools-Übersicht → Trainerdaten → Häkchen „Administrieren“ bei der passenden Gruppe. Globale Admins haben den Zugang weiterhin automatisch."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.4",
     groups: [
       {

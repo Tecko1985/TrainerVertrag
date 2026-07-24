@@ -22,7 +22,7 @@
 
 <!-- Haupt-Navigation: "Meine Daten" + "Info" für alle; die Verwaltungs-Tabs
      (Trainer/Import/Einstellungen) blendet _initAdminZugang() nur für
-     Berechtigte ein (Admin oder Bearbeiter-Gruppe der Trainerdaten). -->
+     Berechtigte ein (Admin oder Administrieren-Stufe für Trainerdaten). -->
 <nav id="main-nav">
   <button data-tab="meine" class="active" type="button">Meine Daten</button>
   <button data-tab="liste" class="admin-only-tab" style="display:none;" type="button">Trainer</button>
@@ -413,8 +413,8 @@
       <h2>Admin-Zugang</h2>
       <p class="muted">
         Der Admin-Bereich nutzt deine Anmeldung aus der Tools-Übersicht — ein App-Passwort ist nicht mehr nötig.
-        Öffnen kann ihn, wer Admin ist oder in einer Bearbeiter-Gruppe der Trainerdaten steht.
-        Benötigt ein <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → App-Passwort).
+        Öffnen kann ihn, wer Admin ist oder für Trainerdaten die Stufe „Administrieren“ hat
+        (Häkchen im Sichtbarkeits-Panel der Tools-Übersicht).
       </p>
       <form id="admin-connect-form">
         <div class="form-grid">
@@ -794,13 +794,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.8"></script>
+<script src="config.js?v=1.9"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
-<script src="db.js?v=1.1"></script>
+<script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.9"></script>
+<script src="app.js?v=2.0"></script>
 </body>
 </html>
