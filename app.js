@@ -1740,6 +1740,32 @@ function _trainerGruppenNamen(t) {
     .join(", ");
 }
 
+// Zentrales Profil (ToolsUebersicht) zu einem Trainer-Datensatz: erst über das
+// verknüpfte Konto, sonst über den Namensabgleich — gleiche Kette wie
+// _trainerGatewayUsername(), nur mit dem Profil-Objekt statt des Kontonamens.
+function _trainerProfil(t) {
+  const u = t.username || t.linkedUsername;
+  if (u) return (trainerProfiles || []).find(p => p.username === u) || null;
+  return _matchTrainerProfile(((t.vorname || "") + " " + (t.nachname || "")).trim());
+}
+
+// Betreute Mannschaften laut zentralem Profil (kommasepariert, alphabetisch) —
+// Wert der CSV-Export-Spalte "Mannschaft(en)". Gepflegt wird das ausschließlich
+// in der ToolsUebersicht-Nutzerverwaltung, nicht hier; leer, solange die Profile
+// nicht geladen sind (kein Gateway-Login), die Person kein eindeutiges Konto hat
+// oder dort keine Mannschaft hinterlegt ist. Anders als die Gruppen-Spalte hängt
+// das NICHT an einem Admin-/Bearbeiter-Recht — list-trainer-profiles steht jedem
+// eingeloggten Konto offen.
+function _trainerMannschaften(t) {
+  const profil = _trainerProfil(t);
+  if (!profil || !Array.isArray(profil.mannschaften)) return "";
+  return profil.mannschaften
+    .map(m => String(m).trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "de"))
+    .join(", ");
+}
+
 // Liest die aktuellen Filter/Suchfeld-Werte aus dem DOM und wendet sie auf
 // appData.trainer an — Quelle für "was ist gerade sichtbar" (Bildschirmliste).
 // Der CSV-Export nutzt _exportTrainerList(), das diese Menge zusätzlich um die
@@ -1949,6 +1975,8 @@ function _exportFieldValue(t, f) {
       return _eingereichtAm(t) ? _fmtIso(_eingereichtAm(t)) : "";
     case "derived-gruppen":
       return _trainerGruppenNamen(t);
+    case "derived-mannschaften":
+      return _trainerMannschaften(t);
     default:
       return t[f.key] || "";
   }

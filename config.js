@@ -85,7 +85,8 @@ const EXPORT_FIELD_GROUPS = [
       { key: "ort", label: "Ort" },
       { key: "telefon", label: "Telefon" },
       { key: "email", label: "E-Mail" },
-      { key: "gruppen", label: "Gruppen", type: "derived-gruppen" }
+      { key: "gruppen", label: "Gruppen", type: "derived-gruppen" },
+      { key: "mannschaften", label: "Mannschaft(en)", type: "derived-mannschaften" }
     ]
   },
   {
@@ -160,6 +161,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.7",
+    groups: [
+      {
+        title: "CSV-Export",
+        items: [
+          "Neues Exportfeld „Mannschaft(en)“ bei den Stammdaten: exportiert die Mannschaft, für die die Person laut ihrem Profil in der Tools-Übersicht zuständig ist (mehrere durch Komma getrennt).",
+          "Gepflegt wird die Mannschaft weiterhin allein in der Nutzerverwaltung der Tools-Übersicht — steht dort nichts, bleibt die Spalte leer."
+        ]
+      }
+    ]
+  },
   {
     version: "1.6",
     groups: [
