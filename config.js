@@ -214,6 +214,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.10",
+    groups: [
+      {
+        title: "Bank-Export: XML im Aufbau der Vorlage",
+        items: [
+          "Vierter Knopf „XML (Aufbau der Vorlage)“: liefert dieselben Angaben wie der CSV-Export, nur in XML-Form — je Zahlung ein Eintrag mit einem Feld je Spalte der Bank-Vorlage. Gespeist wird er wie die anderen beiden aus der aktuell gefilterten Trainerliste.",
+          "Wichtig zur Einordnung: Das ist kein standardisiertes Zahlungsformat. Für die Einreichung bei der Bank ist weiterhin die SEPA-XML gedacht. Diese Datei ist als Muster zum Abstimmen mit der Bank und zur Weiterverarbeitung in anderen Programmen gedacht.",
+          "Anders als bei der SEPA-Datei bleiben Umlaute erhalten und es werden keine Angaben zum Auftraggeber oder ein Ausführungsdatum verlangt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.9",
     groups: [
       {

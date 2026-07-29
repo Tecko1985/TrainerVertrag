@@ -2002,6 +2002,7 @@ function _initBankExportPanel() {
   });
 
   document.getElementById("btn-bank-export-csv").addEventListener("click", () => _handleBankExport("csv"));
+  document.getElementById("btn-bank-export-vorlage-xml").addEventListener("click", () => _handleBankExport("vorlage-xml"));
   document.getElementById("btn-bank-export-xml").addEventListener("click", () => _handleBankExport("xml"));
   _initBankCsvKonverter();
 }
@@ -2172,6 +2173,17 @@ function _handleBankExport(format) {
     return;
   }
 
+  if (format === "vorlage-xml") {
+    const praefix = document.getElementById("bank-vorlage-praefix").value.trim();
+    const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
+    _downloadBankDatei(
+      _buildVorlagenXml({ zahlbar, praefix, auftraggeberIban, verwendungszweck }),
+      "application/xml;charset=utf-8;",
+      `Ueberweisungen_${datumStempel}.xml`
+    );
+    return;
+  }
+
   // ── SEPA-XML: hier sind die Auftraggeber-Angaben Pflicht ────────────────────
   const auftraggeberName = document.getElementById("bank-auftraggeber-name").value.trim();
   const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
@@ -2200,6 +2212,68 @@ function _handleBankExport(format) {
     "application/xml;charset=utf-8;",
     `Sammelueberweisung_${datumStempel}.xml`
   );
+}
+
+// ─── Vorlagen-XML (seit 1.10) ─────────────────────────────────────────────────
+// Dieselben Werte wie der CSV-Export, nur in XML verpackt: je Zahlung ein
+// <Ueberweisung> mit einem Element je Spalte der Bank-Vorlage.
+//
+// ACHTUNG — das ist KEIN Standard. pain.001 (siehe _buildSepaXml) ist das
+// einzige XML-Format, das Banken übernehmen; diese Datei hier ist eine
+// Eigenkonstruktion aus den Spalten der Vorlagendatei und wird von keinem
+// Banktool automatisch verstanden. Sie existiert als Muster zum Abstimmen mit
+// der Bank und zur Weiterverarbeitung in anderen Systemen. Wenn die Bank ein
+// konkretes XML-Schema nennt, gehört dessen Struktur hierher — dann ist diese
+// Funktion die Stelle zum Umbauen, nicht _buildSepaXml.
+//
+// Elementnamen werden aus BANK_EXPORT_CSV_SPALTEN abgeleitet, damit CSV und XML
+// nie auseinanderlaufen: eine geänderte Spalte wirkt automatisch in beiden.
+function _xmlTagName(spaltenname) {
+  const ascii = String(spaltenname)
+    .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")
+    .replace(/Ä/g, "Ae").replace(/Ö/g, "Oe").replace(/Ü/g, "Ue").replace(/ß/g, "ss");
+  return ascii
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map(wort => wort.charAt(0).toUpperCase() + wort.slice(1))
+    .join("");
+}
+
+function _buildVorlagenXml(o) {
+  const summe = o.zahlbar.reduce((s, k) => s + k.betrag, 0);
+  const tags = BANK_EXPORT_CSV_SPALTEN.map(_xmlTagName);
+
+  const eintraege = o.zahlbar.map(k => {
+    const t = k.trainer;
+    const name = `${t.vorname || ""} ${t.nachname || ""}`.trim();
+    // Reihenfolge und Werte exakt wie eine Zeile des CSV-Exports — Betrag
+    // deshalb auch hier mit Komma. Umlaute bleiben erhalten (kein SEPA-
+    // Zeichensatz, die Datei geht nicht als Zahlungsauftrag an die Bank).
+    const werte = [
+      o.auftraggeberIban,
+      [o.praefix, name].filter(Boolean).join(" "),
+      name,
+      k.iban,
+      (t.bic || "").trim().toUpperCase(),
+      (t.bankname || "").trim(),
+      _fmtBetrag(k.betrag, ","),
+      k.zweck || o.verwendungszweck || "",
+      "", "", "", ""
+    ];
+    const zeilen = tags.map((tag, i) => `      <${tag}>${_xmlEsc(werte[i])}</${tag}>`);
+    return `    <Ueberweisung>\n${zeilen.join("\n")}\n    </Ueberweisung>`;
+  }).join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Überweisungsliste aus Trainerdaten, Feldaufbau nach der CSV-Vorlage der Bank.
+  Hinweis: Dies ist KEIN standardisiertes Zahlungsformat. Für eine Einreichung
+  bei der Bank ist die SEPA-Datei nach pain.001.001.03 vorgesehen.
+-->
+<Ueberweisungen anzahl="${o.zahlbar.length}" summe="${_fmtBetrag(summe, ",")}" waehrung="EUR" erstellt="${_heuteIsoDatum()}">
+${eintraege}
+</Ueberweisungen>
+`;
 }
 
 // SEPA Credit Transfer Initiation, Schema pain.001.001.03 — das in Deutschland
