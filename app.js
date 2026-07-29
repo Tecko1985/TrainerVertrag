@@ -2003,6 +2003,7 @@ function _initBankExportPanel() {
 
   document.getElementById("btn-bank-export-csv").addEventListener("click", () => _handleBankExport("csv"));
   document.getElementById("btn-bank-export-xml").addEventListener("click", () => _handleBankExport("xml"));
+  _initBankCsvKonverter();
 }
 
 function _ladeBankExportEinstellungen() {
@@ -2225,7 +2226,9 @@ function _buildSepaXml(o) {
     const t = k.trainer;
     const name = _sepaText(`${t.vorname || ""} ${t.nachname || ""}`.trim(), SEPA_MAX_NAME);
     const bic  = (t.bic || "").trim().toUpperCase();
-    const zweck = _sepaText(o.verwendungszweck, SEPA_MAX_VERWENDUNGSZWECK);
+    // Zweck je Zahlung schlägt den gemeinsamen: aus der Trainerliste kommt nur
+    // der gemeinsame, eine eingelesene CSV kann pro Zeile einen eigenen haben.
+    const zweck = _sepaText(k.zweck || o.verwendungszweck, SEPA_MAX_VERWENDUNGSZWECK);
     return `      <CdtTrfTxInf>
         <PmtId><EndToEndId>${_xmlEsc(`${lfdId}-${i + 1}`.slice(0, 35))}</EndToEndId></PmtId>
         <Amt><InstdAmt Ccy="EUR">${_fmtBetrag(k.betrag, ".")}</InstdAmt></Amt>
@@ -2263,6 +2266,270 @@ ${transaktionen}
   </CstmrCdtTrfInitn>
 </Document>
 `;
+}
+
+// ─── CSV-Datei → SEPA-XML (dritter Weg, seit 1.9) ─────────────────────────────
+// Arbeitet NICHT auf der Trainerliste, sondern auf einer vom Nutzer gewählten
+// CSV im Format der Bank-Vorlage: exportierte Liste von Hand angepasst (Beträge
+// geändert, Zeilen gelöscht, jemand ergänzt) und daraus die Zahlungsdatei bauen.
+// Auftraggeber/Ausführungsdatum kommen weiter aus den Panel-Feldern — die stehen
+// in der Vorlage nicht bzw. nur als optionale Auftraggeber-IBAN drin.
+
+// Zeichenweiser CSV-Parser (RFC-4180-Regeln: "" ist ein escaptes Anführungszeichen,
+// Trennzeichen und Zeilenumbrüche innerhalb von Anführungszeichen zählen nicht).
+// Ein simples split(";") würde an jedem Verwendungszweck mit Semikolon scheitern.
+// Liefert je Zeile {nr, felder} — `nr` ist die Zeilennummer in der DATEI (1-basiert,
+// wie Excel sie anzeigt). Sie wird mitgeführt statt nachträglich gezählt, weil
+// Leerzeilen herausfallen und eine spätere Zählung sonst verrutscht: genau das
+// passiert bei einer von Hand bearbeiteten Datei, wo Zeilen gelöscht wurden.
+function _parseCsvText(text) {
+  const roh = text.replace(/^﻿/, "");            // BOM aus unserem eigenen Export
+  const kopfzeile = roh.split(/\r?\n/)[0] || "";
+  // Trennzeichen aus der Kopfzeile ableiten: deutsche Exporte nutzen Semikolon,
+  // internationale Komma. Tabulator kommt bei Excel-Umwegen ebenfalls vor.
+  const trenner = [";", ",", "\t"]
+    .map(z => ({ z, anzahl: kopfzeile.split(z).length - 1 }))
+    .sort((a, b) => b.anzahl - a.anzahl)[0].z;
+
+  const zeilen = [];
+  let feld = "", zeile = [], inQuotes = false, nr = 1;
+
+  for (let i = 0; i < roh.length; i++) {
+    const z = roh[i];
+    if (inQuotes) {
+      if (z === '"') {
+        if (roh[i + 1] === '"') { feld += '"'; i++; }   // escaptes Anführungszeichen
+        else inQuotes = false;
+      } else feld += z;
+      continue;
+    }
+    if (z === '"') { inQuotes = true; continue; }
+    if (z === trenner) { zeile.push(feld); feld = ""; continue; }
+    if (z === "\r") continue;
+    if (z === "\n") {
+      zeile.push(feld);
+      zeilen.push({ nr, felder: zeile });
+      zeile = []; feld = ""; nr++;
+      continue;
+    }
+    feld += z;
+  }
+  if (feld !== "" || zeile.length) { zeile.push(feld); zeilen.push({ nr, felder: zeile }); }
+
+  // Leerzeilen entfernen — die mitgeführte `nr` bleibt dadurch unberührt.
+  return zeilen.filter(z => z.felder.some(f => f.trim() !== ""));
+}
+
+// Ordnet die Spalten über die Kopfzeile zu, nicht über feste Positionen — der
+// Banker könnte Spalten verschoben haben. Nur wenn keine Kopfzeile erkennbar
+// ist, gilt die Reihenfolge aus BANK_EXPORT_CSV_SPALTEN.
+const BANK_CSV_SPALTEN_ALIAS = {
+  auftraggeberIban:  ["ibandesauftraggebers", "auftraggeberiban"],
+  empfaenger:        ["empfaenger", "empfangername", "name", "beguenstigter"],
+  iban:              ["ibandesempfaengers", "empfaengeriban", "iban"],
+  bic:               ["bic", "bicdesempfaengers", "swift"],
+  betrag:            ["betrag", "betragineur", "summe"],
+  verwendungszweck:  ["verwendungszweck", "zweck"]
+};
+
+function _normalisiereSpaltenname(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function _ermittleCsvSpalten(kopfzeile) {
+  const normalisiert = kopfzeile.map(_normalisiereSpaltenname);
+  const zuordnung = {};
+
+  Object.keys(BANK_CSV_SPALTEN_ALIAS).forEach(feld => {
+    // Exakter Treffer zuerst: "ibandesauftraggebers" und "ibandesempfaengers"
+    // enthalten beide "iban", ein Teilstring-Match würde sie vertauschen.
+    for (const alias of BANK_CSV_SPALTEN_ALIAS[feld]) {
+      const idx = normalisiert.indexOf(alias);
+      if (idx !== -1) { zuordnung[feld] = idx; return; }
+    }
+  });
+
+  // Als Kopfzeile gilt sie nur, wenn die beiden Pflichtspalten gefunden wurden.
+  const erkannt = zuordnung.iban != null && zuordnung.betrag != null;
+  if (erkannt) return { zuordnung, istKopfzeile: true };
+
+  // Fallback: feste Reihenfolge der Vorlage.
+  return {
+    zuordnung: { auftraggeberIban: 0, empfaenger: 2, iban: 3, bic: 4, betrag: 6, verwendungszweck: 7 },
+    istKopfzeile: false
+  };
+}
+
+// Liest die geparsten Zeilen in dieselbe Struktur, die _buildSepaXml erwartet
+// ({trainer:{vorname,nachname,bic}, iban, betrag}) — so teilen beide Wege den
+// gesamten XML-Erzeuger inklusive Zeichensatz- und BIC-Behandlung.
+function _csvZeilenZuZahlungen(zeilen) {
+  const { zuordnung, istKopfzeile } = _ermittleCsvSpalten((zeilen[0] || {}).felder || []);
+  const datenzeilen = istKopfzeile ? zeilen.slice(1) : zeilen;
+
+  const zahlbar = [];
+  const uebersprungen = [];
+  let auftraggeberIbanAusDatei = "";
+
+  const hole = (zeile, feld) => {
+    const idx = zuordnung[feld];
+    return idx == null ? "" : String(zeile.felder[idx] == null ? "" : zeile.felder[idx]).trim();
+  };
+
+  datenzeilen.forEach(zeile => {
+    const zeilennummer = zeile.nr;   // echte Zeile in der Datei, Leerzeilen mitgezählt
+    const name   = hole(zeile, "empfaenger");
+    const iban   = hole(zeile, "iban").replace(/\s+/g, "").toUpperCase();
+    const bic    = hole(zeile, "bic").toUpperCase();
+    const betrag = _parseBetrag(hole(zeile, "betrag"));
+    const zweck  = hole(zeile, "verwendungszweck");
+
+    if (!auftraggeberIbanAusDatei) {
+      auftraggeberIbanAusDatei = hole(zeile, "auftraggeberIban").replace(/\s+/g, "").toUpperCase();
+    }
+
+    const gruende = [];
+    if (!name) gruende.push("kein Empfänger");
+    if (!iban) gruende.push("keine IBAN");
+    else if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) gruende.push(`IBAN „${iban}“ ist ungültig`);
+    if (betrag == null) gruende.push("kein lesbarer Betrag");
+    else if (betrag <= 0) gruende.push("Betrag ist 0 oder negativ");
+
+    if (gruende.length) {
+      uebersprungen.push({ zeilennummer, name, grund: gruende.join(", ") });
+      return;
+    }
+
+    // _buildSepaXml erwartet vorname/nachname getrennt und setzt sie wieder
+    // zusammen — der Empfängername steht in der CSV aber als ein Feld. Deshalb
+    // komplett in vorname, nachname leer: das ergibt exakt denselben Namen.
+    zahlbar.push({ trainer: { vorname: name, nachname: "", bic }, iban, betrag, zweckAusDatei: zweck });
+  });
+
+  return { zahlbar, uebersprungen, auftraggeberIbanAusDatei };
+}
+
+function _initBankCsvKonverter() {
+  const input = document.getElementById("bank-csv-input");
+
+  document.getElementById("btn-bank-csv-zu-xml").addEventListener("click", () => {
+    _setBankExportError("");
+    document.getElementById("bank-csv-bericht").innerHTML = "";
+    input.click();
+  });
+
+  input.addEventListener("change", async (e) => {
+    const datei = e.target.files[0];
+    e.target.value = "";                     // gleiche Datei erneut wählbar
+    if (!datei) return;
+    try {
+      await _konvertiereCsvZuXml(datei);
+    } catch (fehler) {
+      _setBankExportError(`Die CSV-Datei konnte nicht gelesen werden: ${fehler.message}`);
+    }
+  });
+}
+
+async function _konvertiereCsvZuXml(datei) {
+  const berichtEl = document.getElementById("bank-csv-bericht");
+  berichtEl.innerHTML = "";
+
+  const text = await _leseCsvDatei(datei);
+  const zeilen = _parseCsvText(text);
+  if (!zeilen.length) {
+    _setBankExportError("Die Datei enthält keine Zeilen.");
+    return;
+  }
+
+  const { zahlbar, uebersprungen, auftraggeberIbanAusDatei } = _csvZeilenZuZahlungen(zeilen);
+
+  if (!zahlbar.length) {
+    _setBankExportError("Keine einzige Zeile der Datei ergibt eine gültige Zahlung. Stimmen die Spalten mit der Bank-Vorlage überein?");
+    _zeigeCsvBericht(berichtEl, 0, uebersprungen, datei.name);
+    return;
+  }
+
+  // Auftraggeber: Name und Datum stehen nie in der Vorlage, die IBAN optional.
+  // Steht sie in der Datei, hat sie Vorrang vor dem Panel-Feld — sie gehört zu
+  // genau dieser Liste. Sonst gilt die Eingabe oben.
+  const auftraggeberName = document.getElementById("bank-auftraggeber-name").value.trim();
+  const auftraggeberIbanPanel = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
+  const auftraggeberIban = auftraggeberIbanAusDatei || auftraggeberIbanPanel;
+  const auftraggeberBic  = document.getElementById("bank-auftraggeber-bic").value.trim().toUpperCase();
+  const ausfuehrungsdatum = document.getElementById("bank-ausfuehrungsdatum").value;
+
+  const fehlt = [];
+  if (!auftraggeberName) fehlt.push("Auftraggeber (Kontoinhaber)");
+  if (!auftraggeberIban) fehlt.push("IBAN des Auftraggebers (steht auch nicht in der Datei)");
+  if (!ausfuehrungsdatum) fehlt.push("Ausführungsdatum");
+  if (fehlt.length) {
+    _setBankExportError(`Für die SEPA-XML-Datei fehlt noch: ${fehlt.join(", ")}. Die Felder oben ausfüllen und die Datei erneut wählen.`);
+    _zeigeCsvBericht(berichtEl, zahlbar.length, uebersprungen, datei.name);
+    return;
+  }
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(auftraggeberIban)) {
+    _setBankExportError("Die IBAN des Auftraggebers scheint ungültig zu sein. Bitte prüfen.");
+    return;
+  }
+  if (ausfuehrungsdatum < _heuteIsoDatum()) {
+    _setBankExportError("Das Ausführungsdatum liegt in der Vergangenheit — die Bank würde den Auftrag abweisen.");
+    return;
+  }
+
+  // Verwendungszweck je Zeile aus der Datei, sonst der aus dem Panel. Steht in
+  // beiden nichts, bleibt das Feld in der XML weg (es ist optional). Eine Datei
+  // darf dadurch problemlos verschiedene Zwecke enthalten.
+  const zweckPanel = document.getElementById("bank-verwendungszweck").value.trim();
+  zahlbar.forEach(z => { z.zweck = z.zweckAusDatei || zweckPanel; });
+
+  const xml = _buildSepaXml({
+    zahlbar, auftraggeberName, auftraggeberIban, auftraggeberBic, ausfuehrungsdatum,
+    verwendungszweck: zweckPanel
+  });
+
+  _downloadBankDatei(xml, "application/xml;charset=utf-8;", `Sammelueberweisung_${_heuteIsoDatum()}.xml`);
+  _zeigeCsvBericht(berichtEl, zahlbar.length, uebersprungen, datei.name);
+}
+
+// Datei mit der richtigen Kodierung lesen: unser eigener Export ist UTF-8 (mit
+// BOM), eine in Excel bearbeitete und neu gespeicherte Datei aber oft Windows-1252.
+// Ohne BOM und mit kaputten Umlauten wird deshalb ein zweiter Versuch gemacht —
+// sonst steht "Hnermund" mit Ersetzungszeichen in der Zahlung.
+function _leseCsvDatei(datei) {
+  return new Promise((erfuellen, ablehnen) => {
+    const leser = new FileReader();
+    leser.onerror = () => ablehnen(new Error("Datei nicht lesbar."));
+    leser.onload = () => {
+      const alsUtf8 = leser.result;
+      if (!alsUtf8.includes("�")) return erfuellen(alsUtf8);
+
+      const zweiterLeser = new FileReader();
+      zweiterLeser.onerror = () => erfuellen(alsUtf8);   // dann eben mit Ersetzungszeichen
+      zweiterLeser.onload = () => erfuellen(zweiterLeser.result);
+      zweiterLeser.readAsText(datei, "windows-1252");
+    };
+    leser.readAsText(datei, "utf-8");
+  });
+}
+
+function _zeigeCsvBericht(el, anzahlZahlungen, uebersprungen, dateiname) {
+  const uebersprungenBlock = uebersprungen.length ? `
+    <div class="error-banner visible" style="margin:10px 0 0;">
+      <strong>${uebersprungen.length} ${uebersprungen.length === 1 ? "Zeile wurde" : "Zeilen wurden"} übergangen:</strong>
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        ${uebersprungen.map(u => `<li>Zeile ${u.zeilennummer}${u.name ? ` (${_esc(u.name)})` : ""} — ${_esc(u.grund)}</li>`).join("")}
+      </ul>
+    </div>` : "";
+
+  el.innerHTML = `
+    <p class="muted" style="margin:0;">
+      <strong>${_esc(dateiname)}</strong> gelesen:
+      ${anzahlZahlungen} ${anzahlZahlungen === 1 ? "Zahlung" : "Zahlungen"} in die XML-Datei übernommen.
+    </p>
+    ${uebersprungenBlock}`;
 }
 
 function _downloadBankDatei(inhalt, mimeType, dateiname) {

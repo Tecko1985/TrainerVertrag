@@ -551,6 +551,22 @@
                 <button type="button" class="btn success small" id="btn-bank-export-csv">CSV (Vorlage der Bank)</button>
                 <button type="button" class="btn success small" id="btn-bank-export-xml">SEPA-XML (pain.001)</button>
               </div>
+
+              <!-- Dritter Weg: arbeitet NICHT auf der Trainerliste, sondern auf
+                   einer ausgewählten CSV-Datei. Deshalb optisch abgesetzt, sonst
+                   liest man ihn als dritte Variante derselben Quelle. -->
+              <div class="section-divider" style="margin:18px 0 8px;">Aus einer vorhandenen CSV-Datei</div>
+              <p class="muted" style="margin:0 0 10px; font-size:13px;">
+                Wandelt eine bereits vorhandene CSV im Format der Bank-Vorlage in eine SEPA-XML um —
+                etwa die oben exportierte Datei, nachdem Beträge von Hand angepasst oder Zeilen
+                gelöscht wurden. Die Trainerliste spielt dabei keine Rolle; Auftraggeber und
+                Ausführungsdatum werden aus den Feldern oben übernommen.
+              </p>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn secondary small" id="btn-bank-csv-zu-xml">CSV-Datei wählen → SEPA-XML</button>
+              </div>
+              <input type="file" id="bank-csv-input" accept=".csv,text/csv" style="display:none;" />
+              <div id="bank-csv-bericht" style="margin-top:12px;"></div>
               <div class="error-banner" id="bank-export-error" style="margin:12px 0 0;"></div>
             </div>
             <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
@@ -852,13 +868,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.12"></script>
+<script src="config.js?v=1.13"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=2.2"></script>
+<script src="app.js?v=2.3"></script>
 </body>
 </html>

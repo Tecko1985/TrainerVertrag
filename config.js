@@ -214,6 +214,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.9",
+    groups: [
+      {
+        title: "Bank-Export: vorhandene CSV in eine SEPA-XML umwandeln",
+        items: [
+          "Dritter Knopf im Bank-Export: „CSV-Datei wählen → SEPA-XML“. Damit lässt sich eine bereits vorhandene CSV im Format der Bank-Vorlage in eine Sammelüberweisung umwandeln — etwa die zuvor exportierte Datei, nachdem Beträge von Hand angepasst oder Zeilen gelöscht wurden.",
+          "Die Trainerliste spielt dabei keine Rolle; die Zahlungen kommen ausschließlich aus der gewählten Datei. Auftraggeber und Ausführungsdatum werden aus den Feldern darüber übernommen — steht in der Datei eine Auftraggeber-IBAN, hat diese Vorrang.",
+          "Die Spalten werden über die Kopfzeile erkannt, verschobene Spalten sind also unkritisch. Fehlt eine Kopfzeile, gilt die Reihenfolge der Bank-Vorlage.",
+          "Zeilen ohne Empfänger, ohne gültige IBAN oder ohne lesbaren Betrag landen nicht in der Zahlungsdatei. Sie werden mit Zeilennummer und Grund aufgelistet, damit nichts unbemerkt fehlt.",
+          "In Excel bearbeitete und neu gespeicherte Dateien werden ebenfalls gelesen: erkennt die App zerschossene Umlaute, liest sie die Datei automatisch ein zweites Mal in der älteren Windows-Zeichenkodierung."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.8",
     groups: [
       {
