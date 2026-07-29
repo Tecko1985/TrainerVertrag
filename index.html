@@ -450,6 +450,7 @@
               <h2 style="margin-bottom:0;">Eingereichte Trainerdaten</h2>
               <div class="btn-row" style="align-items:center; gap:10px;">
                 <button type="button" class="btn secondary small" id="btn-export-toggle">CSV-Export…</button>
+                <button type="button" class="btn secondary small" id="btn-bank-export-toggle">Bank-Export…</button>
                 <button type="button" class="btn secondary small" id="btn-alle-pdf-zip">Alle als PDF-ZIP</button>
                 <span class="muted" id="zip-export-status" style="font-size:12px;"></span>
               </div>
@@ -494,6 +495,63 @@
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn success small" id="btn-export-csv">CSV exportieren</button>
               </div>
+            </div>
+            <!-- Bank-Export: eigenes Panel neben dem konfigurierbaren CSV-Export.
+                 Andere Zielgruppe (die Bank statt der Geschäftsstelle), andere
+                 Spalten (vom Banktool vorgegeben) und zusätzliche Eingaben, die
+                 im Trainer-Datensatz nicht vorkommen — deshalb bewusst nicht in
+                 das bestehende Export-Panel gemischt. -->
+            <div id="bank-export-panel" style="display:none; background:var(--gray); border-radius:8px; padding:16px 18px; margin-bottom:16px;">
+              <div class="detail-header" style="margin-bottom:0;">
+                <h3 style="margin-bottom:0;">Bank-Export – Überweisungsliste</h3>
+              </div>
+              <p class="muted" style="margin:6px 0 14px;">
+                Erzeugt aus den aktuell gefilterten Trainern eine Zahlungsdatei für die Bank:
+                Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.
+              </p>
+
+              <div class="section-divider" style="margin:0 0 8px;">Für beide Formate</div>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="bank-verwendungszweck">Verwendungszweck</label>
+                  <input type="text" id="bank-verwendungszweck" maxlength="140" placeholder="z.B. Uebungsleiterpauschale August 2026" />
+                </div>
+                <div class="form-field">
+                  <label for="bank-vorlage-praefix">Vorlagenbezeichnung (Präfix, nur CSV)</label>
+                  <input type="text" id="bank-vorlage-praefix" placeholder="z.B. Pauschale" />
+                </div>
+              </div>
+
+              <div class="section-divider" style="margin:14px 0 8px;">Nur für SEPA-XML nötig</div>
+              <p class="muted" style="margin:0 0 10px; font-size:13px;">
+                Diese Angaben stehen nicht im Trainer-Datensatz. Sie werden in diesem Browser
+                gespeichert und müssen nur einmal eingetragen werden.
+              </p>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="bank-auftraggeber-name">Auftraggeber (Kontoinhaber)</label>
+                  <input type="text" id="bank-auftraggeber-name" maxlength="70" placeholder="z.B. SC 1911 Heiligenstadt e.V." />
+                </div>
+                <div class="form-field">
+                  <label for="bank-auftraggeber-iban">IBAN des Auftraggebers</label>
+                  <input type="text" id="bank-auftraggeber-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="form-field">
+                  <label for="bank-auftraggeber-bic">BIC des Auftraggebers (optional)</label>
+                  <input type="text" id="bank-auftraggeber-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" />
+                </div>
+                <div class="form-field">
+                  <label for="bank-ausfuehrungsdatum">Ausführungsdatum</label>
+                  <input type="date" id="bank-ausfuehrungsdatum" />
+                </div>
+              </div>
+
+              <div id="bank-export-info" style="margin:14px 0;"></div>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn success small" id="btn-bank-export-csv">CSV (Vorlage der Bank)</button>
+                <button type="button" class="btn success small" id="btn-bank-export-xml">SEPA-XML (pain.001)</button>
+              </div>
+              <div class="error-banner" id="bank-export-error" style="margin:12px 0 0;"></div>
             </div>
             <div class="empty-state" id="admin-liste-empty" style="display:none;">Noch keine Einträge vorhanden.</div>
             <div class="empty-state" id="admin-liste-no-match" style="display:none;">Keine Treffer für diese Filter.</div>
@@ -794,13 +852,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.11"></script>
+<script src="config.js?v=1.12"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=2.1"></script>
+<script src="app.js?v=2.2"></script>
 </body>
 </html>

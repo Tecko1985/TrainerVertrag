@@ -123,6 +123,58 @@ const EXPORT_FIELD_GROUPS = [
   }
 ];
 
+// ─── Bank-Export (Überweisungsliste für die Bank) ─────────────────────────────
+// Zweiter, vom konfigurierbaren CSV-Export getrennter Export: erzeugt aus den
+// Trainern der aktuellen Liste eine Zahlungsdatei (Empfänger + IBAN + BIC +
+// Pauschale als Betrag) in zwei Formaten, siehe _initBankExportPanel in app.js.
+//
+// 1) CSV: exakt die Spalten der Vorlage-Datei der Bank ("Vorlage_IBAN.csv") —
+//    Reihenfolge und Schreibweise sind vom Banktool vorgegeben und dürfen NICHT
+//    umsortiert/umbenannt werden, sonst weist der Import die Datei ab. Pflicht
+//    laut Vorlage sind nur Empfänger, IBAN des Empfängers, BIC und Betrag; die
+//    übrigen Spalten müssen zwar vorhanden, dürfen aber leer sein.
+// 2) SEPA-XML nach pain.001.001.03 (Sammelüberweisung) — braucht zusätzlich
+//    Auftraggeber (Name/IBAN) und ein Ausführungsdatum, die es im Trainer-
+//    Datensatz nicht gibt und die deshalb im Panel eingegeben werden.
+const BANK_EXPORT_CSV_SPALTEN = [
+  "IBAN des Auftraggebers",
+  "Vorlagenbezeichnung",
+  "Empfänger",
+  "IBAN des Empfängers",
+  "BIC",
+  "Kreditinstitut",
+  "Betrag",
+  "Verwendungszweck",
+  "Kundenreferenz",
+  "Verwendungsschlüssel",
+  "Bezeichnung des Verwendungsschlüssels",
+  "Abweichender Auftraggeber"
+];
+
+// Der SEPA-Zeichensatz kennt keine Umlaute. Ein Umlaut im Empfängernamen führt
+// zur Abweisung der ganzen Datei durch die Bank, deshalb werden sie hier lesbar
+// transliteriert (Hünermund -> Huenermund) statt gelöscht. Alles, was danach
+// immer noch außerhalb des erlaubten Zeichensatzes liegt, ersetzt _sepaText()
+// in app.js pauschal durch ein Leerzeichen — diese Map ist also nur die
+// lesbarkeitserhaltende Vorstufe, nicht die Absicherung.
+// ACHTUNG beim Bearbeiten dieser Map: die typografischen Anführungszeichen sind
+// hier Objektschlüssel. Wird eines davon versehentlich zu einem geraden " , ist
+// die Datei ein lautloser SyntaxError und die ganze App startet nicht mehr —
+// nach jeder Änderung hier `node --check config.js` laufen lassen.
+const SEPA_UMLAUT_MAP = {
+  "ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss",
+  "á": "a", "à": "a", "â": "a", "é": "e", "è": "e", "ê": "e", "í": "i", "ì": "i",
+  "ó": "o", "ò": "o", "ô": "o", "ú": "u", "ù": "u", "û": "u", "ç": "c", "ñ": "n",
+  "&": "+",
+  "„": "'", "“": "'", "”": "'", "‘": "'", "’": "'",
+  "–": "-", "—": "-", "…": "."
+};
+
+// Längenbegrenzungen aus dem SEPA-Regelwerk (pain.001) — längere Werte werden
+// beim Export gekürzt statt die Datei ungültig zu machen.
+const SEPA_MAX_NAME = 70;
+const SEPA_MAX_VERWENDUNGSZWECK = 140;
+
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
 // angepasst werden. Bis dahin greift der Fallback-PDF-Pfad in pdf-utils.js.
@@ -161,6 +213,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.8",
+    groups: [
+      {
+        title: "Bank-Export: Überweisungsliste auf Knopfdruck",
+        items: [
+          "Neuer Knopf „Bank-Export…“ über der Trainerliste: erzeugt aus den aktuell gefilterten Trainern eine fertige Überweisungsliste für die Bank — Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.",
+          "Zwei Formate zur Auswahl: „CSV (Vorlage der Bank)“ mit genau den Spalten der Vorlagendatei zum Einlesen als Überweisungsvorlagen, und „SEPA-XML“ (pain.001.001.03) als fertige Sammelüberweisung.",
+          "Für die XML-Datei werden Auftraggeber (Name und IBAN des Vereinskontos) und das gewünschte Ausführungsdatum im Panel abgefragt — diese Angaben stehen nicht im Trainer-Datensatz. Sie bleiben im Browser gespeichert und müssen nur einmal eingetragen werden.",
+          "Trainer ohne IBAN oder ohne Pauschale können nicht überwiesen werden. Sie werden nicht still weggelassen, sondern namentlich im Panel aufgeführt, damit nichts unbemerkt fehlt.",
+          "Umlaute in Namen und Verwendungszweck werden für die XML-Datei automatisch umgeschrieben (Hünermund wird zu Huenermund) — der SEPA-Standard erlaubt keine Umlaute und die Bank würde die Datei sonst komplett abweisen."
+        ]
+      }
+    ]
+  },
   {
     version: "1.7",
     groups: [

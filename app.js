@@ -1527,9 +1527,13 @@ function _initAdminPanel() {
   // Sie wirken nur auf die Exportmenge, nicht auf die Bildschirmliste — deshalb
   // genügt es, die Info-Zeile zu aktualisieren.
   document.getElementById("export-gruppen-section").addEventListener("change", (e) => {
-    if (e.target && e.target.classList.contains("export-gruppen-cb")) _updateExportInfoLine();
+    if (e.target && e.target.classList.contains("export-gruppen-cb")) {
+      _updateExportInfoLine();
+      _updateBankExportInfo(); // Gruppen-Auswahl verengt auch die Bank-Exportmenge
+    }
   });
   _initExportPanel();
+  _initBankExportPanel();
 
   // Dokumente (Admin-Detail) — einmalig verdrahtet, nicht pro _openAdminDetail-Aufruf
   // (die Buttons werden anders als die Autosave-Felder nicht per cloneNode ersetzt).
@@ -1819,6 +1823,7 @@ function _renderAdminListe() {
     header.style.display = "none";
     filterbar.style.display = "none";
     _updateExportInfoLine();
+    _updateBankExportInfo();
     return;
   }
   empty.style.display = "none";
@@ -1830,6 +1835,7 @@ function _renderAdminListe() {
 
   const filtered = _filteredTrainerList();
   _updateExportInfoLine();
+  _updateBankExportInfo();
 
   if (!filtered.length) {
     rows.innerHTML = "";
@@ -1957,6 +1963,316 @@ function _handleExportCsv() {
 function _csvCell(value) {
   const s = value == null ? "" : String(value);
   return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// ─── Bank-Export (Überweisungsliste, seit 1.8) ────────────────────────────────
+// Zweiter Exportweg neben dem konfigurierbaren CSV-Export, Ziel ist das Banktool:
+// je Trainer eine Zahlung über die hinterlegte Pauschale. Zwei Formate, gleiche
+// Datenbasis (_bankExportKandidaten):
+//   CSV — exakt die Spalten der Vorlagendatei der Bank (BANK_EXPORT_CSV_SPALTEN
+//         in config.js), zum Einlesen als Überweisungsvorlagen. Braucht keine
+//         Auftraggeber-Angaben, die wählt der Banker beim Import selbst.
+//   XML — SEPA-Sammelüberweisung pain.001.001.03, also ein fertiger Auftrag.
+//         Braucht deshalb zwingend Auftraggeber-Name, -IBAN und Ausführungsdatum.
+// Rein clientseitig wie der CSV-Export, kein Worker-Redeploy.
+
+// Auftraggeber/Verwendungszweck stehen bewusst NICHT in der trainerdaten.json:
+// das ist Konfiguration des Exports, kein Trainer-Datum, und die Vereins-IBAN
+// hat in einem öffentlichen Repo nichts verloren. localStorage reicht — die
+// Angaben müssen einmal pro Gerät eingetragen werden und bleiben dann stehen.
+const BANK_EXPORT_LS_KEY = "trainerdaten_bank_export";
+const BANK_EXPORT_FELDER = [
+  "bank-verwendungszweck", "bank-vorlage-praefix",
+  "bank-auftraggeber-name", "bank-auftraggeber-iban", "bank-auftraggeber-bic",
+  "bank-ausfuehrungsdatum"
+];
+
+function _initBankExportPanel() {
+  _ladeBankExportEinstellungen();
+
+  document.getElementById("btn-bank-export-toggle").addEventListener("click", () => {
+    const panel = document.getElementById("bank-export-panel");
+    const willOpen = panel.style.display === "none";
+    panel.style.display = willOpen ? "" : "none";
+    if (willOpen) _updateBankExportInfo();
+  });
+
+  BANK_EXPORT_FELDER.forEach(id => {
+    document.getElementById(id).addEventListener("input", _speichereBankExportEinstellungen);
+  });
+
+  document.getElementById("btn-bank-export-csv").addEventListener("click", () => _handleBankExport("csv"));
+  document.getElementById("btn-bank-export-xml").addEventListener("click", () => _handleBankExport("xml"));
+}
+
+function _ladeBankExportEinstellungen() {
+  let gespeichert = {};
+  try { gespeichert = JSON.parse(localStorage.getItem(BANK_EXPORT_LS_KEY) || "{}") || {}; } catch (_) {}
+  BANK_EXPORT_FELDER.forEach(id => {
+    if (typeof gespeichert[id] === "string") document.getElementById(id).value = gespeichert[id];
+  });
+  // Ausführungsdatum bewusst nicht aus dem Speicher vorbelegen, wenn es in der
+  // Vergangenheit liegt — ein altes Datum würde die Bank abweisen.
+  const datumEl = document.getElementById("bank-ausfuehrungsdatum");
+  const heute = _heuteIsoDatum();
+  if (!datumEl.value || datumEl.value < heute) datumEl.value = heute;
+}
+
+function _speichereBankExportEinstellungen() {
+  const werte = {};
+  BANK_EXPORT_FELDER.forEach(id => { werte[id] = document.getElementById(id).value; });
+  try { localStorage.setItem(BANK_EXPORT_LS_KEY, JSON.stringify(werte)); } catch (_) {}
+  _updateBankExportInfo();
+}
+
+function _heuteIsoDatum() {
+  const d = new Date();
+  // Lokales Datum, nicht toISOString() — das rechnet nach UTC um und liefert in
+  // deutscher Sommerzeit vor 02:00 Uhr den Vortag.
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Teilt die aktuelle Exportmenge in überweisbare Trainer und solche, bei denen
+// eine Zahlung nicht möglich ist. Die zweite Gruppe wird NICHT still verworfen,
+// sondern im Panel namentlich ausgewiesen — sonst fehlt jemand in der Zahlung,
+// ohne dass es irgendwo auffällt.
+function _bankExportKandidaten() {
+  const zahlbar = [];
+  const uebersprungen = [];
+
+  _exportTrainerList().slice().sort((a, b) =>
+    ((a.nachname || "") + (a.vorname || "")).localeCompare((b.nachname || "") + (b.vorname || ""), "de")
+  ).forEach(t => {
+    const iban   = (t.iban || "").replace(/\s+/g, "").toUpperCase();
+    const betrag = _parseBetrag(t.pauschale);
+    const gruende = [];
+    if (!iban) gruende.push("keine IBAN");
+    if (betrag == null || betrag <= 0) gruende.push("keine Pauschale");
+
+    if (gruende.length) uebersprungen.push({ trainer: t, grund: gruende.join(" und ") });
+    else zahlbar.push({ trainer: t, iban, betrag });
+  });
+
+  return { zahlbar, uebersprungen };
+}
+
+// Die Pauschale ist ein freies Textfeld (manuell getippt oder aus Personalkosten
+// via _fmtPauschale, also deutsches Format). Akzeptiert "125", "125,50",
+// "1.250,50" und "125.50" — bei einem Komma gelten Punkte als Tausendertrenner,
+// ohne Komma wird ein einzelner Punkt mit 1-2 Nachkommastellen als Dezimalpunkt
+// gelesen. Gibt null zurück, wenn nichts Verwertbares drinsteht.
+function _parseBetrag(roh) {
+  let s = String(roh == null ? "" : roh).replace(/[€\s]/g, "").trim();
+  if (!s) return null;
+
+  if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (!/^\d+\.\d{1,2}$/.test(s)) {
+    s = s.replace(/\./g, "");
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Betrag für die Datei: XML verlangt einen Punkt als Dezimaltrennzeichen, die
+// deutsche CSV ein Komma. Immer zwei Nachkommastellen.
+function _fmtBetrag(n, trenner) {
+  return n.toFixed(2).replace(".", trenner);
+}
+
+// Bringt Text in den SEPA-Zeichensatz: erst die lesbare Transliteration aus
+// SEPA_UMLAUT_MAP (ü -> ue), danach alles Verbliebene außerhalb des erlaubten
+// Vorrats auf ein Leerzeichen. Zum Schluss auf die erlaubte Länge kürzen.
+function _sepaText(roh, maxLaenge) {
+  const s = String(roh == null ? "" : roh)
+    .split("")
+    .map(z => (Object.prototype.hasOwnProperty.call(SEPA_UMLAUT_MAP, z) ? SEPA_UMLAUT_MAP[z] : z))
+    .join("")
+    .replace(/[^A-Za-z0-9/\-?:().,'+ ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return maxLaenge ? s.slice(0, maxLaenge) : s;
+}
+
+function _xmlEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function _updateBankExportInfo() {
+  const el = document.getElementById("bank-export-info");
+  if (!el) return;
+
+  if (!appData.trainer.length) { el.innerHTML = ""; return; }
+
+  const { zahlbar, uebersprungen } = _bankExportKandidaten();
+  const summe = zahlbar.reduce((s, k) => s + k.betrag, 0);
+
+  const uebersprungenBlock = uebersprungen.length ? `
+    <div class="error-banner visible" style="margin:10px 0 0;">
+      <strong>${uebersprungen.length} Trainer ${uebersprungen.length === 1 ? "kann" : "können"} nicht überwiesen werden</strong>
+      und ${uebersprungen.length === 1 ? "fehlt" : "fehlen"} in der Datei:
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        ${uebersprungen.map(u => `<li>${_esc(u.trainer.nachname)}, ${_esc(u.trainer.vorname)} — ${_esc(u.grund)}</li>`).join("")}
+      </ul>
+    </div>` : "";
+
+  el.innerHTML = `
+    <p class="muted" style="margin:0;">
+      <strong>${zahlbar.length}</strong> ${zahlbar.length === 1 ? "Zahlung" : "Zahlungen"} über zusammen
+      <strong>${_fmtBetrag(summe, ",")} €</strong> (aktuelle Filterung/Suche + Gruppen-Auswahl).
+    </p>
+    ${uebersprungenBlock}`;
+}
+
+function _setBankExportError(text) {
+  const el = document.getElementById("bank-export-error");
+  el.textContent = text || "";
+  el.classList.toggle("visible", !!text);
+}
+
+function _handleBankExport(format) {
+  _setBankExportError("");
+
+  const { zahlbar } = _bankExportKandidaten();
+  if (!zahlbar.length) {
+    _setBankExportError("Kein Trainer der aktuellen Auswahl hat sowohl eine IBAN als auch eine Pauschale — es gibt nichts zu überweisen.");
+    return;
+  }
+
+  const verwendungszweck = document.getElementById("bank-verwendungszweck").value.trim();
+  const datumStempel = _heuteIsoDatum();
+
+  if (format === "csv") {
+    const praefix = document.getElementById("bank-vorlage-praefix").value.trim();
+    const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
+
+    const zeilen = [BANK_EXPORT_CSV_SPALTEN, ...zahlbar.map(k => {
+      const t = k.trainer;
+      const name = `${t.vorname || ""} ${t.nachname || ""}`.trim();
+      return [
+        auftraggeberIban,                                   // IBAN des Auftraggebers (laut Vorlage optional)
+        [praefix, name].filter(Boolean).join(" "),          // Vorlagenbezeichnung
+        name,                                               // Empfänger
+        k.iban,                                             // IBAN des Empfängers
+        (t.bic || "").trim().toUpperCase(),                 // BIC
+        (t.bankname || "").trim(),                          // Kreditinstitut
+        _fmtBetrag(k.betrag, ","),                          // Betrag
+        verwendungszweck,                                   // Verwendungszweck
+        "", "", "", ""                                      // Kundenreferenz / Verwendungsschlüssel / dessen Bezeichnung / Abweichender Auftraggeber
+      ];
+    })];
+
+    // Semikolon + UTF-8-BOM wie beim bestehenden CSV-Export.
+    const csv = String.fromCharCode(0xFEFF) + zeilen.map(z => z.map(_csvCell).join(";")).join("\r\n");
+    _downloadBankDatei(csv, "text/csv;charset=utf-8;", `Ueberweisungen_${datumStempel}.csv`);
+    return;
+  }
+
+  // ── SEPA-XML: hier sind die Auftraggeber-Angaben Pflicht ────────────────────
+  const auftraggeberName = document.getElementById("bank-auftraggeber-name").value.trim();
+  const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
+  const auftraggeberBic  = document.getElementById("bank-auftraggeber-bic").value.trim().toUpperCase();
+  const ausfuehrungsdatum = document.getElementById("bank-ausfuehrungsdatum").value;
+
+  const fehlt = [];
+  if (!auftraggeberName) fehlt.push("Auftraggeber (Kontoinhaber)");
+  if (!auftraggeberIban) fehlt.push("IBAN des Auftraggebers");
+  if (!ausfuehrungsdatum) fehlt.push("Ausführungsdatum");
+  if (fehlt.length) {
+    _setBankExportError(`Für die SEPA-XML-Datei fehlt noch: ${fehlt.join(", ")}. (Für den CSV-Export der Bank-Vorlage sind diese Angaben nicht nötig.)`);
+    return;
+  }
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(auftraggeberIban)) {
+    _setBankExportError("Die IBAN des Auftraggebers scheint ungültig zu sein. Bitte prüfen.");
+    return;
+  }
+  if (ausfuehrungsdatum < _heuteIsoDatum()) {
+    _setBankExportError("Das Ausführungsdatum liegt in der Vergangenheit — die Bank würde den Auftrag abweisen.");
+    return;
+  }
+
+  _downloadBankDatei(
+    _buildSepaXml({ zahlbar, auftraggeberName, auftraggeberIban, auftraggeberBic, ausfuehrungsdatum, verwendungszweck }),
+    "application/xml;charset=utf-8;",
+    `Sammelueberweisung_${datumStempel}.xml`
+  );
+}
+
+// SEPA Credit Transfer Initiation, Schema pain.001.001.03 — das in Deutschland
+// von den Banking-Programmen breitest unterstützte Format für Sammelüberweisungen.
+// Alle Freitexte laufen durch _sepaText() (Zeichensatz) und danach durch _xmlEsc().
+function _buildSepaXml(o) {
+  const summe = o.zahlbar.reduce((s, k) => s + k.betrag, 0);
+  const jetzt = new Date();
+  // Zeitstempel ohne Millisekunden und ohne Zeitzonen-Umrechnung (lokale Zeit,
+  // wie es die deutschen Banking-Programme erwarten).
+  const p2 = n => String(n).padStart(2, "0");
+  const creDtTm = `${jetzt.getFullYear()}-${p2(jetzt.getMonth() + 1)}-${p2(jetzt.getDate())}` +
+                  `T${p2(jetzt.getHours())}:${p2(jetzt.getMinutes())}:${p2(jetzt.getSeconds())}`;
+  // MsgId/PmtInfId: max. 35 Zeichen, muss je Einreichung eindeutig sein.
+  const lfdId = `SC1911-${creDtTm.replace(/[-:T]/g, "")}`.slice(0, 35);
+
+  // Ohne BIC verlangt das Schema den ausdrücklichen Vermerk "NOTPROVIDED" —
+  // ein leeres BIC-Element wäre ungültig. Bei Inlands-SEPA ist das der Normalfall.
+  const agent = (bic) => bic
+    ? `<FinInstnId><BIC>${_xmlEsc(bic)}</BIC></FinInstnId>`
+    : `<FinInstnId><Othr><Id>NOTPROVIDED</Id></Othr></FinInstnId>`;
+
+  const transaktionen = o.zahlbar.map((k, i) => {
+    const t = k.trainer;
+    const name = _sepaText(`${t.vorname || ""} ${t.nachname || ""}`.trim(), SEPA_MAX_NAME);
+    const bic  = (t.bic || "").trim().toUpperCase();
+    const zweck = _sepaText(o.verwendungszweck, SEPA_MAX_VERWENDUNGSZWECK);
+    return `      <CdtTrfTxInf>
+        <PmtId><EndToEndId>${_xmlEsc(`${lfdId}-${i + 1}`.slice(0, 35))}</EndToEndId></PmtId>
+        <Amt><InstdAmt Ccy="EUR">${_fmtBetrag(k.betrag, ".")}</InstdAmt></Amt>
+        <CdtrAgt>${agent(bic)}</CdtrAgt>
+        <Cdtr><Nm>${_xmlEsc(name)}</Nm></Cdtr>
+        <CdtrAcct><Id><IBAN>${_xmlEsc(k.iban)}</IBAN></Id></CdtrAcct>${zweck ? `
+        <RmtInf><Ustrd>${_xmlEsc(zweck)}</Ustrd></RmtInf>` : ""}
+      </CdtTrfTxInf>`;
+  }).join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>${_xmlEsc(lfdId)}</MsgId>
+      <CreDtTm>${creDtTm}</CreDtTm>
+      <NbOfTxs>${o.zahlbar.length}</NbOfTxs>
+      <CtrlSum>${_fmtBetrag(summe, ".")}</CtrlSum>
+      <InitgPty><Nm>${_xmlEsc(_sepaText(o.auftraggeberName, SEPA_MAX_NAME))}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>${_xmlEsc(lfdId)}</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <BtchBookg>true</BtchBookg>
+      <NbOfTxs>${o.zahlbar.length}</NbOfTxs>
+      <CtrlSum>${_fmtBetrag(summe, ".")}</CtrlSum>
+      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
+      <ReqdExctnDt>${_xmlEsc(o.ausfuehrungsdatum)}</ReqdExctnDt>
+      <Dbtr><Nm>${_xmlEsc(_sepaText(o.auftraggeberName, SEPA_MAX_NAME))}</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${_xmlEsc(o.auftraggeberIban)}</IBAN></Id></DbtrAcct>
+      <DbtrAgt>${agent(o.auftraggeberBic)}</DbtrAgt>
+      <ChrgBr>SLEV</ChrgBr>
+${transaktionen}
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>
+`;
+}
+
+function _downloadBankDatei(inhalt, mimeType, dateiname) {
+  const blob = new Blob([inhalt], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = dateiname;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
 function _exportFieldValue(t, f) {
