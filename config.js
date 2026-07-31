@@ -126,14 +126,22 @@ const EXPORT_FIELD_GROUPS = [
 // ─── Bank-Export (Überweisungsliste für die Bank) ─────────────────────────────
 // Zweiter, vom konfigurierbaren CSV-Export getrennter Export: erzeugt aus den
 // Trainern der aktuellen Liste eine Zahlungsdatei (Empfänger + IBAN + BIC +
-// Pauschale als Betrag) in zwei Formaten, siehe _initBankExportPanel in app.js.
+// Pauschale als Betrag) in vier Formaten, siehe _initBankExportPanel in app.js.
+//
+// Die folgende Spaltenliste ist die Grundlage von dreien davon: CSV, Excel-Mappe
+// und Vorlagen-XML zeigen dieselbe Tabelle in unterschiedlicher Verpackung.
 //
 // 1) CSV: exakt die Spalten der Vorlage-Datei der Bank ("Vorlage_IBAN.csv") —
 //    Reihenfolge und Schreibweise sind vom Banktool vorgegeben und dürfen NICHT
 //    umsortiert/umbenannt werden, sonst weist der Import die Datei ab. Pflicht
 //    laut Vorlage sind nur Empfänger, IBAN des Empfängers, BIC und Betrag; die
 //    übrigen Spalten müssen zwar vorhanden, dürfen aber leer sein.
-// 2) SEPA-XML nach pain.001.001.03 (Sammelüberweisung) — braucht zusätzlich
+// 2) Excel-Mappe (.xlsx) nach der Muster-Datei des Bankers: dieselben Spalten
+//    auf einem Blatt namens "in", Betrag als echte Zahl. Siehe
+//    _buildVorlagenXlsx in app.js.
+// 3) XML im Aufbau der Vorlage — dieselben Spalten als XML-Elemente. Kein
+//    standardisiertes Zahlungsformat, sondern ein Muster zum Abstimmen.
+// 4) SEPA-XML nach pain.001.001.03 (Sammelüberweisung) — braucht zusätzlich
 //    Auftraggeber (Name/IBAN) und ein Ausführungsdatum, die es im Trainer-
 //    Datensatz nicht gibt und die deshalb im Panel eingegeben werden.
 const BANK_EXPORT_CSV_SPALTEN = [
