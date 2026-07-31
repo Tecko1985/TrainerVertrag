@@ -1967,13 +1967,16 @@ function _csvCell(value) {
 
 // ─── Bank-Export (Überweisungsliste, seit 1.8) ────────────────────────────────
 // Zweiter Exportweg neben dem konfigurierbaren CSV-Export, Ziel ist das Banktool:
-// je Trainer eine Zahlung über die hinterlegte Pauschale. Zwei Formate, gleiche
+// je Trainer eine Zahlung über die hinterlegte Pauschale. Vier Formate, gleiche
 // Datenbasis (_bankExportKandidaten):
-//   CSV — exakt die Spalten der Vorlagendatei der Bank (BANK_EXPORT_CSV_SPALTEN
-//         in config.js), zum Einlesen als Überweisungsvorlagen. Braucht keine
-//         Auftraggeber-Angaben, die wählt der Banker beim Import selbst.
-//   XML — SEPA-Sammelüberweisung pain.001.001.03, also ein fertiger Auftrag.
-//         Braucht deshalb zwingend Auftraggeber-Name, -IBAN und Ausführungsdatum.
+//   CSV   — exakt die Spalten der Vorlagendatei der Bank (BANK_EXPORT_CSV_SPALTEN
+//           in config.js), zum Einlesen als Überweisungsvorlagen. Braucht keine
+//           Auftraggeber-Angaben, die wählt der Banker beim Import selbst.
+//   XLSX  — dieselbe Tabelle als Excel-Mappe, im Aufbau der Muster-Datei des
+//           Bankers (Blatt "in", Betrag als Zahl). Siehe _buildVorlagenXlsx.
+//   XML   — dieselben Spalten in XML-Form, Eigenkonstruktion ohne Standard.
+//   SEPA  — Sammelüberweisung pain.001.001.03, also ein fertiger Auftrag.
+//           Braucht deshalb zwingend Auftraggeber-Name, -IBAN und Ausführungsdatum.
 // Rein clientseitig wie der CSV-Export, kein Worker-Redeploy.
 
 // Auftraggeber/Verwendungszweck stehen bewusst NICHT in der trainerdaten.json:
@@ -2002,6 +2005,7 @@ function _initBankExportPanel() {
   });
 
   document.getElementById("btn-bank-export-csv").addEventListener("click", () => _handleBankExport("csv"));
+  document.getElementById("btn-bank-export-xlsx").addEventListener("click", () => _handleBankExport("xlsx"));
   document.getElementById("btn-bank-export-vorlage-xml").addEventListener("click", () => _handleBankExport("vorlage-xml"));
   document.getElementById("btn-bank-export-xml").addEventListener("click", () => _handleBankExport("xml"));
   _initBankCsvKonverter();
@@ -2147,37 +2151,28 @@ function _handleBankExport(format) {
   const verwendungszweck = document.getElementById("bank-verwendungszweck").value.trim();
   const datumStempel = _heuteIsoDatum();
 
-  if (format === "csv") {
-    const praefix = document.getElementById("bank-vorlage-praefix").value.trim();
-    const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
+  // Die drei Wege aus der Bank-Vorlage (CSV, Excel, XML) teilen sich Datenbasis
+  // und Zeilenaufbau — sie unterscheiden sich nur in der Verpackung.
+  if (format === "csv" || format === "xlsx" || format === "vorlage-xml") {
+    const o = _bankVorlagenOptionen(zahlbar, verwendungszweck);
 
-    const zeilen = [BANK_EXPORT_CSV_SPALTEN, ...zahlbar.map(k => {
-      const t = k.trainer;
-      const name = `${t.vorname || ""} ${t.nachname || ""}`.trim();
-      return [
-        auftraggeberIban,                                   // IBAN des Auftraggebers (laut Vorlage optional)
-        [praefix, name].filter(Boolean).join(" "),          // Vorlagenbezeichnung
-        name,                                               // Empfänger
-        k.iban,                                             // IBAN des Empfängers
-        (t.bic || "").trim().toUpperCase(),                 // BIC
-        (t.bankname || "").trim(),                          // Kreditinstitut
-        _fmtBetrag(k.betrag, ","),                          // Betrag
-        verwendungszweck,                                   // Verwendungszweck
-        "", "", "", ""                                      // Kundenreferenz / Verwendungsschlüssel / dessen Bezeichnung / Abweichender Auftraggeber
-      ];
-    })];
+    if (format === "csv") {
+      const zeilen = [BANK_EXPORT_CSV_SPALTEN, ...zahlbar.map(k => _bankVorlagenWerte(k, o, n => _fmtBetrag(n, ",")))];
+      // Semikolon + UTF-8-BOM wie beim bestehenden CSV-Export.
+      const csv = String.fromCharCode(0xFEFF) + zeilen.map(z => z.map(_csvCell).join(";")).join("\r\n");
+      _downloadBankDatei(csv, "text/csv;charset=utf-8;", `Ueberweisungen_${datumStempel}.csv`);
+      return;
+    }
 
-    // Semikolon + UTF-8-BOM wie beim bestehenden CSV-Export.
-    const csv = String.fromCharCode(0xFEFF) + zeilen.map(z => z.map(_csvCell).join(";")).join("\r\n");
-    _downloadBankDatei(csv, "text/csv;charset=utf-8;", `Ueberweisungen_${datumStempel}.csv`);
-    return;
-  }
+    // Als einziger der drei Wege asynchron (ZIP-Erzeugung) — Fehler landen
+    // deshalb erst im Panel, wenn die Datei wirklich fertig gepackt ist.
+    if (format === "xlsx") {
+      _handleBankExportXlsx(o, datumStempel);
+      return;
+    }
 
-  if (format === "vorlage-xml") {
-    const praefix = document.getElementById("bank-vorlage-praefix").value.trim();
-    const auftraggeberIban = document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase();
     _downloadBankDatei(
-      _buildVorlagenXml({ zahlbar, praefix, auftraggeberIban, verwendungszweck }),
+      _buildVorlagenXml(o),
       "application/xml;charset=utf-8;",
       `Ueberweisungen_${datumStempel}.xml`
     );
@@ -2214,6 +2209,42 @@ function _handleBankExport(format) {
   );
 }
 
+// ─── Gemeinsame Zeile der Bank-Vorlage ────────────────────────────────────────
+// CSV, Excel und Vorlagen-XML zeigen dieselbe Tabelle in drei Verpackungen. Der
+// Zeilenaufbau steht deshalb nur an dieser einen Stelle — sonst driften die
+// Formate auseinander, sobald eine Spalte anders befüllt wird.
+//
+// Der Betrag ist der einzige Wert, der je Format anders aussieht (Komma in CSV
+// und XML, echte Zahl in der Excel-Mappe). Er kommt deshalb durch `betragWert`
+// herein, statt hier fest formatiert zu werden.
+function _bankVorlagenOptionen(zahlbar, verwendungszweck) {
+  return {
+    zahlbar,
+    verwendungszweck,
+    praefix: document.getElementById("bank-vorlage-praefix").value.trim(),
+    auftraggeberIban: document.getElementById("bank-auftraggeber-iban").value.replace(/\s+/g, "").toUpperCase()
+  };
+}
+
+function _bankVorlagenWerte(k, o, betragWert) {
+  const t = k.trainer;
+  const name = `${t.vorname || ""} ${t.nachname || ""}`.trim();
+  // Reihenfolge exakt wie BANK_EXPORT_CSV_SPALTEN. Umlaute bleiben erhalten —
+  // kein SEPA-Zeichensatz, keine dieser drei Dateien geht als Zahlungsauftrag
+  // an die Bank (das tut allein die pain.001 aus _buildSepaXml).
+  return [
+    o.auftraggeberIban,                        // IBAN des Auftraggebers (laut Vorlage optional)
+    [o.praefix, name].filter(Boolean).join(" "), // Vorlagenbezeichnung
+    name,                                      // Empfänger
+    k.iban,                                    // IBAN des Empfängers
+    (t.bic || "").trim().toUpperCase(),        // BIC
+    (t.bankname || "").trim(),                 // Kreditinstitut
+    betragWert(k.betrag),                      // Betrag
+    k.zweck || o.verwendungszweck || "",       // Verwendungszweck
+    "", "", "", ""                             // Kundenreferenz / Verwendungsschlüssel / dessen Bezeichnung / Abweichender Auftraggeber
+  ];
+}
+
 // ─── Vorlagen-XML (seit 1.10) ─────────────────────────────────────────────────
 // Dieselben Werte wie der CSV-Export, nur in XML verpackt: je Zahlung ein
 // <Ueberweisung> mit einem Element je Spalte der Bank-Vorlage.
@@ -2244,22 +2275,8 @@ function _buildVorlagenXml(o) {
   const tags = BANK_EXPORT_CSV_SPALTEN.map(_xmlTagName);
 
   const eintraege = o.zahlbar.map(k => {
-    const t = k.trainer;
-    const name = `${t.vorname || ""} ${t.nachname || ""}`.trim();
-    // Reihenfolge und Werte exakt wie eine Zeile des CSV-Exports — Betrag
-    // deshalb auch hier mit Komma. Umlaute bleiben erhalten (kein SEPA-
-    // Zeichensatz, die Datei geht nicht als Zahlungsauftrag an die Bank).
-    const werte = [
-      o.auftraggeberIban,
-      [o.praefix, name].filter(Boolean).join(" "),
-      name,
-      k.iban,
-      (t.bic || "").trim().toUpperCase(),
-      (t.bankname || "").trim(),
-      _fmtBetrag(k.betrag, ","),
-      k.zweck || o.verwendungszweck || "",
-      "", "", "", ""
-    ];
+    // Gleiche Zeile wie CSV und Excel, Betrag hier mit Komma wie in der CSV.
+    const werte = _bankVorlagenWerte(k, o, n => _fmtBetrag(n, ","));
     const zeilen = tags.map((tag, i) => `      <${tag}>${_xmlEsc(werte[i])}</${tag}>`);
     return `    <Ueberweisung>\n${zeilen.join("\n")}\n    </Ueberweisung>`;
   }).join("\n");
@@ -2274,6 +2291,158 @@ function _buildVorlagenXml(o) {
 ${eintraege}
 </Ueberweisungen>
 `;
+}
+
+// ─── Excel-Mappe im Aufbau der Bank-Vorlage (seit 1.11) ───────────────────────
+// Der Banker hat eine Muster-Arbeitsmappe geschickt (Überweisungsvorlagen_Muster):
+// ein einziges Blatt namens "in", in Zeile 1 exakt die zwölf Spalten der
+// CSV-Vorlage, ab Zeile 2 je Zahlung eine Zeile — der Betrag dort als echte Zahl
+// im Format #,##0.00, nicht als Text. Genau diesen Aufbau erzeugt der Export.
+//
+// Geschrieben wird die Datei von Hand über JSZip (für die Word-Verträge ohnehin
+// geladen), bewusst ohne zusätzliche Tabellen-Bibliothek: eine .xlsx ist ein ZIP
+// aus wenigen XML-Teilen, und für ein Blatt ohne Formatierung ist das
+// überschaubar. Aufbau und Reihenfolge folgen der Muster-Datei, damit ein
+// strenger Import nichts Ungewohntes vorfindet — Texte deshalb über
+// sharedStrings (so schreibt Excel selbst) und leere Zellen gar nicht erst.
+//
+// GOTCHA — der Blattname "in" stammt aus der Muster-Datei und ist sehr
+// wahrscheinlich der Anker, an dem das Banktool sein Import-Blatt erkennt.
+// Nicht umbenennen, ohne das mit dem Banker geklärt zu haben.
+const BANK_XLSX_BLATTNAME = "in";
+const BANK_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+async function _handleBankExportXlsx(o, datumStempel) {
+  try {
+    const blob = await _buildVorlagenXlsx(o);
+    _downloadBankDatei(blob, BANK_XLSX_MIME, `Ueberweisungen_${datumStempel}.xlsx`);
+  } catch (e) {
+    _setBankExportError("Die Excel-Datei konnte nicht erzeugt werden: " + ((e && e.message) || e));
+  }
+}
+
+// 0 -> A, 25 -> Z, 26 -> AA. Die Vorlage hat zwölf Spalten; die Schleife hält
+// aber auch, falls BANK_EXPORT_CSV_SPALTEN irgendwann über Z hinauswächst.
+function _xlsxSpaltenName(index) {
+  let n = index;
+  let name = "";
+  do {
+    name = String.fromCharCode(65 + (n % 26)) + name;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return name;
+}
+
+// XML kennt keine Steuerzeichen — ein einziges davon macht die ganze Mappe
+// unlesbar (Excel bietet dann nur noch "Reparieren" an). Tabulator und
+// Zeilenumbruch sind erlaubt und bleiben deshalb stehen.
+function _xlsxText(roh) {
+  return String(roh == null ? "" : roh).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+}
+
+async function _buildVorlagenXlsx(o) {
+  if (typeof JSZip === "undefined") throw new Error("JSZip ist nicht geladen — bitte die Seite neu laden.");
+
+  // Kopfzeile + je Zahlung eine Zeile. Der Betrag bleibt hier eine echte Zahl:
+  // als Text ("125,00") würde das Banktool ihn beim Import nicht als Betrag
+  // erkennen — genau deshalb steht er auch in der Muster-Datei als Zahl.
+  const zeilen = [BANK_EXPORT_CSV_SPALTEN, ...o.zahlbar.map(k => _bankVorlagenWerte(k, o, n => n))];
+  const letzteSpalte = _xlsxSpaltenName(BANK_EXPORT_CSV_SPALTEN.length - 1);
+
+  // sharedStrings: jeder Text steht einmal in der Tabelle, die Zellen verweisen
+  // nur per Index darauf. count = alle Text-Zellen, uniqueCount = die Tabelle.
+  const texte = [];
+  const textIndex = new Map();
+  let textZellen = 0;
+  const textId = (text) => {
+    if (!textIndex.has(text)) { textIndex.set(text, texte.length); texte.push(text); }
+    return textIndex.get(text);
+  };
+
+  const zeilenXml = zeilen.map((werte, r) => {
+    const zellen = werte.map((wert, c) => {
+      const ref = _xlsxSpaltenName(c) + (r + 1);
+      if (typeof wert === "number") {
+        if (!Number.isFinite(wert)) return "";
+        // s="1" = der unten definierte Betragsstil #,##0.00. Der Wert selbst
+        // steht immer mit Punkt in der Datei, unabhängig von der Anzeige.
+        return `<c r="${ref}" s="1"><v>${wert.toFixed(2)}</v></c>`;
+      }
+      const text = _xlsxText(wert);
+      if (!text) return "";  // leere Zellen lässt auch die Muster-Datei weg
+      textZellen++;
+      return `<c r="${ref}" t="s"><v>${textId(text)}</v></c>`;
+    }).filter(Boolean).join("");
+    return `<row r="${r + 1}" spans="1:${werte.length}">${zellen}</row>`;
+  }).join("");
+
+  const kopf = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+  const NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const teile = {
+    "[Content_Types].xml": kopf +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' +
+      '</Types>',
+
+    "_rels/.rels": kopf +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      `<Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/>` +
+      '</Relationships>',
+
+    "xl/workbook.xml": kopf +
+      `<workbook xmlns="${NS}" xmlns:r="${NS_REL}">` +
+      `<sheets><sheet name="${_xmlEsc(BANK_XLSX_BLATTNAME)}" sheetId="1" r:id="rId1"/></sheets>` +
+      '</workbook>',
+
+    "xl/_rels/workbook.xml.rels": kopf +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      `<Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/>` +
+      `<Relationship Id="rId2" Type="${NS_REL}/styles" Target="styles.xml"/>` +
+      `<Relationship Id="rId3" Type="${NS_REL}/sharedStrings" Target="sharedStrings.xml"/>` +
+      '</Relationships>',
+
+    // Minimale Stiltabelle mit genau einem eigenen Format: dem Betrag.
+    // Eigene numFmtId ab 164 — darunter liegen die von Excel fest vergebenen.
+    // Die zwei fills (none + gray125) erwartet Excel unabhängig davon, ob sie
+    // benutzt werden; mit nur einem meldet es eine beschädigte Datei.
+    "xl/styles.xml": kopf +
+      `<styleSheet xmlns="${NS}">` +
+      '<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts>' +
+      '<fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font></fonts>' +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="2">' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '</cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
+      '</styleSheet>',
+
+    "xl/sharedStrings.xml": kopf +
+      `<sst xmlns="${NS}" count="${textZellen}" uniqueCount="${texte.length}">` +
+      texte.map(t => `<si><t xml:space="preserve">${_xmlEsc(t)}</t></si>`).join("") +
+      '</sst>',
+
+    "xl/worksheets/sheet1.xml": kopf +
+      `<worksheet xmlns="${NS}" xmlns:r="${NS_REL}">` +
+      `<dimension ref="A1:${letzteSpalte}${zeilen.length}"/>` +
+      '<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>' +
+      '<sheetFormatPr baseColWidth="10" defaultRowHeight="15"/>' +
+      `<sheetData>${zeilenXml}</sheetData>` +
+      '<pageMargins left="0.7" right="0.7" top="0.787" bottom="0.787" header="0.3" footer="0.3"/>' +
+      '</worksheet>'
+  };
+
+  const zip = new JSZip();
+  Object.keys(teile).forEach(pfad => zip.file(pfad, teile[pfad]));
+  return zip.generateAsync({ type: "blob", mimeType: BANK_XLSX_MIME, compression: "DEFLATE" });
 }
 
 // SEPA Credit Transfer Initiation, Schema pain.001.001.03 — das in Deutschland

@@ -214,6 +214,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.11",
+    groups: [
+      {
+        title: "Bank-Export: Überweisungsliste als Excel-Datei",
+        items: [
+          "Neuer Knopf „Excel (Vorlage der Bank)“: erzeugt die Überweisungsliste als echte Excel-Mappe im Aufbau der Muster-Datei des Bankers — ein Blatt namens „in“, in der ersten Zeile die zwölf Spalten der Bank-Vorlage, darunter je Trainer eine Zahlung.",
+          "Der Betrag steht darin als Zahl im Format 1.234,56 und nicht als Text, damit das Banktool ihn beim Import als Betrag erkennt und in Excel damit gerechnet werden kann.",
+          "Datenbasis, Spalten und Werte sind identisch zum CSV-Export — es ist dieselbe Tabelle, nur als Arbeitsmappe statt als Textdatei. Auftraggeber-Angaben und Ausführungsdatum verlangt auch dieser Weg nicht.",
+          "Welches der vier Formate das Banktool wirklich einliest, ist weiterhin nicht bestätigt. Da die Excel-Datei dem gelieferten Muster entspricht, ist sie derzeit der aussichtsreichste Kandidat für einen Testimport."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.10",
     groups: [
       {

@@ -510,14 +510,14 @@
                 Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.
               </p>
 
-              <div class="section-divider" style="margin:0 0 8px;">Für beide Formate</div>
+              <div class="section-divider" style="margin:0 0 8px;">Für alle Formate</div>
               <div class="form-grid">
                 <div class="form-field">
                   <label for="bank-verwendungszweck">Verwendungszweck</label>
                   <input type="text" id="bank-verwendungszweck" maxlength="140" placeholder="z.B. Uebungsleiterpauschale August 2026" />
                 </div>
                 <div class="form-field">
-                  <label for="bank-vorlage-praefix">Vorlagenbezeichnung (Präfix, nur CSV)</label>
+                  <label for="bank-vorlage-praefix">Vorlagenbezeichnung (Präfix, nicht bei SEPA-XML)</label>
                   <input type="text" id="bank-vorlage-praefix" placeholder="z.B. Pauschale" />
                 </div>
               </div>
@@ -549,12 +549,15 @@
               <div id="bank-export-info" style="margin:14px 0;"></div>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn success small" id="btn-bank-export-csv">CSV (Vorlage der Bank)</button>
+                <button type="button" class="btn success small" id="btn-bank-export-xlsx">Excel (Vorlage der Bank)</button>
                 <button type="button" class="btn success small" id="btn-bank-export-vorlage-xml">XML (Aufbau der Vorlage)</button>
                 <button type="button" class="btn success small" id="btn-bank-export-xml">SEPA-XML (pain.001)</button>
               </div>
               <p class="muted" style="margin:8px 0 0; font-size:12px;">
+                <strong>CSV</strong> und <strong>Excel</strong> enthalten dieselbe Tabelle in den zwölf Spalten
+                der Bank-Vorlage; die Excel-Mappe entspricht dem Muster des Bankers (Blatt „in“, Betrag als Zahl).
                 Für die Einreichung bei der Bank ist die <strong>SEPA-XML</strong> gedacht. Die
-                <strong>XML im Aufbau der Vorlage</strong> enthält dieselben Angaben wie die CSV, nur in
+                <strong>XML im Aufbau der Vorlage</strong> enthält ebenfalls dieselben Angaben, nur in
                 XML-Form — ein Muster zum Abstimmen mit der Bank, kein standardisiertes Zahlungsformat.
               </p>
 
@@ -874,13 +877,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.14"></script>
+<script src="config.js?v=1.15"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.2"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=2.4"></script>
+<script src="app.js?v=2.5"></script>
 </body>
 </html>
