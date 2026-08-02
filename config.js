@@ -222,249 +222,147 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
-    version: "1.11",
-    groups: [
-      {
-        title: "Bank-Export: Überweisungsliste als Excel-Datei",
-        items: [
-          "Neuer Knopf „Excel (Vorlage der Bank)“: erzeugt die Überweisungsliste als echte Excel-Mappe im Aufbau der Muster-Datei des Bankers — ein Blatt namens „in“, in der ersten Zeile die zwölf Spalten der Bank-Vorlage, darunter je Trainer eine Zahlung.",
-          "Der Betrag steht darin als Zahl im Format 1.234,56 und nicht als Text, damit das Banktool ihn beim Import als Betrag erkennt und in Excel damit gerechnet werden kann.",
-          "Datenbasis, Spalten und Werte sind identisch zum CSV-Export — es ist dieselbe Tabelle, nur als Arbeitsmappe statt als Textdatei. Auftraggeber-Angaben und Ausführungsdatum verlangt auch dieser Weg nicht.",
-          "Welches der vier Formate das Banktool wirklich einliest, ist weiterhin nicht bestätigt. Da die Excel-Datei dem gelieferten Muster entspricht, ist sie derzeit der aussichtsreichste Kandidat für einen Testimport."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.10",
-    groups: [
-      {
-        title: "Bank-Export: XML im Aufbau der Vorlage",
-        items: [
-          "Vierter Knopf „XML (Aufbau der Vorlage)“: liefert dieselben Angaben wie der CSV-Export, nur in XML-Form — je Zahlung ein Eintrag mit einem Feld je Spalte der Bank-Vorlage. Gespeist wird er wie die anderen beiden aus der aktuell gefilterten Trainerliste.",
-          "Wichtig zur Einordnung: Das ist kein standardisiertes Zahlungsformat. Für die Einreichung bei der Bank ist weiterhin die SEPA-XML gedacht. Diese Datei ist als Muster zum Abstimmen mit der Bank und zur Weiterverarbeitung in anderen Programmen gedacht.",
-          "Anders als bei der SEPA-Datei bleiben Umlaute erhalten und es werden keine Angaben zum Auftraggeber oder ein Ausführungsdatum verlangt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.9",
-    groups: [
-      {
-        title: "Bank-Export: vorhandene CSV in eine SEPA-XML umwandeln",
-        items: [
-          "Dritter Knopf im Bank-Export: „CSV-Datei wählen → SEPA-XML“. Damit lässt sich eine bereits vorhandene CSV im Format der Bank-Vorlage in eine Sammelüberweisung umwandeln — etwa die zuvor exportierte Datei, nachdem Beträge von Hand angepasst oder Zeilen gelöscht wurden.",
-          "Die Trainerliste spielt dabei keine Rolle; die Zahlungen kommen ausschließlich aus der gewählten Datei. Auftraggeber und Ausführungsdatum werden aus den Feldern darüber übernommen — steht in der Datei eine Auftraggeber-IBAN, hat diese Vorrang.",
-          "Die Spalten werden über die Kopfzeile erkannt, verschobene Spalten sind also unkritisch. Fehlt eine Kopfzeile, gilt die Reihenfolge der Bank-Vorlage.",
-          "Zeilen ohne Empfänger, ohne gültige IBAN oder ohne lesbaren Betrag landen nicht in der Zahlungsdatei. Sie werden mit Zeilennummer und Grund aufgelistet, damit nichts unbemerkt fehlt.",
-          "In Excel bearbeitete und neu gespeicherte Dateien werden ebenfalls gelesen: erkennt die App zerschossene Umlaute, liest sie die Datei automatisch ein zweites Mal in der älteren Windows-Zeichenkodierung."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.8",
-    groups: [
-      {
-        title: "Bank-Export: Überweisungsliste auf Knopfdruck",
-        items: [
-          "Neuer Knopf „Bank-Export…“ über der Trainerliste: erzeugt aus den aktuell gefilterten Trainern eine fertige Überweisungsliste für die Bank — Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.",
-          "Zwei Formate zur Auswahl: „CSV (Vorlage der Bank)“ mit genau den Spalten der Vorlagendatei zum Einlesen als Überweisungsvorlagen, und „SEPA-XML“ (pain.001.001.03) als fertige Sammelüberweisung.",
-          "Für die XML-Datei werden Auftraggeber (Name und IBAN des Vereinskontos) und das gewünschte Ausführungsdatum im Panel abgefragt — diese Angaben stehen nicht im Trainer-Datensatz. Sie bleiben im Browser gespeichert und müssen nur einmal eingetragen werden.",
-          "Trainer ohne IBAN oder ohne Pauschale können nicht überwiesen werden. Sie werden nicht still weggelassen, sondern namentlich im Panel aufgeführt, damit nichts unbemerkt fehlt.",
-          "Umlaute in Namen und Verwendungszweck werden für die XML-Datei automatisch umgeschrieben (Hünermund wird zu Huenermund) — der SEPA-Standard erlaubt keine Umlaute und die Bank würde die Datei sonst komplett abweisen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.7",
-    groups: [
-      {
-        title: "CSV-Export",
-        items: [
-          "Neues Exportfeld „Mannschaft(en)“ bei den Stammdaten: exportiert die Mannschaft, für die die Person laut ihrem Profil in der Tools-Übersicht zuständig ist (mehrere durch Komma getrennt).",
-          "Gepflegt wird die Mannschaft weiterhin allein in der Nutzerverwaltung der Tools-Übersicht — steht dort nichts, bleibt die Spalte leer."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.6",
-    groups: [
-      {
-        title: "Bedienung am Handy",
-        items: [
-          "Die Tab-Leiste bricht am Handy jetzt um, statt seitlich aus dem Bild zu laufen. Vorher waren die hinteren Tabs auf schmalen Bildschirmen nicht erreichbar.",
-          "Eingabefelder sind am Handy mindestens 16 Pixel groß. Dadurch zoomt der iPhone-Browser beim Antippen eines Feldes nicht mehr ungefragt in die Seite hinein und bleibt danach verschoben stehen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.5",
-    groups: [
-      {
-        title: "Verwaltungs-Zugang über die Stufe „Administrieren“",
-        items: [
-          "Der Verwaltungsbereich (Trainer/Import/Einstellungen — inkl. IBAN-Vollsicht) hängt jetzt an der neuen dritten Rechte-Stufe „Administrieren“ der Tools-Übersicht statt am Häkchen „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne automatisch die Bankdaten aller Trainer zu öffnen.",
-          "Zugang vergeben: Sichtbarkeits-Panel der Tools-Übersicht → Trainerdaten → Häkchen „Administrieren“ bei der passenden Gruppe. Globale Admins haben den Zugang weiterhin automatisch."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.4",
-    groups: [
-      {
-        title: "Neue Aufteilung mit Reitern",
-        items: [
-          "Der „Admin“-Knopf oben rechts entfällt. Stattdessen gibt es wie in den anderen Tools eine Reiterleiste: „Meine Daten“ (das eigene Formular) und „Info“ (Versionshistorie) sehen alle; wer Trainerdaten verwalten darf (Admin oder Bearbeiter-Gruppe), sieht zusätzlich „Trainer“, „Import“ und „Einstellungen“.",
-          "Die Verwaltung öffnet sich beim Klick direkt, ohne Zwischenschritt „Verbinden“ — die App startet für alle bei „Meine Daten“.",
-          "Die Versionshistorie über das Versionskürzel in der Kopfzeile ist damit wieder für alle erreichbar, nicht nur für Admins."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.3",
-    groups: [
-      {
-        title: "Admin-Zugang",
-        items: [
-          "Der Admin-Bereich braucht kein App-Passwort mehr: Er nutzt die normale Anmeldung aus der Tools-Übersicht. Öffnen und bearbeiten kann, wer Admin ist oder in einer Bearbeiter-Gruppe der Trainerdaten steht (Häkchen „bearbeiten“ im Sichtbarkeits-Panel der Tools-Übersicht) — Zugriff lässt sich damit pro Gruppe vergeben und entziehen, ohne ein geteiltes Passwort weiterzugeben.",
-          "Die Rechteprüfung passiert bei jedem Zugriff auf dem Server (Zugangs-Worker), nicht nur in der Oberfläche. Das bisher geteilte App-Passwort wird nicht mehr verwendet und kann in Nextcloud entwertet werden."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.2",
-    groups: [
-      {
-        title: "Eingereichte Trainerdaten",
-        items: [
-          "Neue Sektion „Gruppen“ im CSV-Export-Panel: je Benutzergruppe aus der Tools-Übersicht eine Checkbox — mehrere gleichzeitig ankreuzbar, exportiert wird, wer in mindestens einer der angekreuzten Gruppen ist (Mehrfach-Export ausgewählter Gruppen). „Ohne Gruppe“ erfasst Einträge ohne Gruppenzuordnung; keine Gruppe angekreuzt = alle exportieren. Die Zeile unter den Feldern zeigt immer die tatsächliche Exportanzahl.",
-          "Neues Exportfeld „Gruppen“ (Stammdaten): die CSV-Spalte listet je Person alle Benutzergruppen, in denen sie Mitglied ist.",
-          "Voraussetzung für beides ist ein Login in der Tools-Übersicht im selben Browser mit einem berechtigten Konto: Admin oder Mitglied einer Bearbeiter-Gruppe der Trainerdaten (im Sichtbarkeits-Panel der Tools-Übersicht gepflegt, z.B. Geschäftsstelle). Ohne erscheint an Stelle der Checkboxen ein Hinweis."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.1",
-    groups: [
-      {
-        title: "Führerschein-Register",
-        items: [
-          "PDF-Export: Name, Upload-Datum und Gültigkeit stehen jetzt auf derselben Seite wie das zugehörige Führerschein-Foto. Vorher kam das Foto immer auf einer eigenen Folgeseite — das PDF war dadurch doppelt so lang und wirkte halb leer."
-        ]
-      }
-    ]
-  },
-  {
     version: "1.0",
     groups: [
       {
-        title: "Trainer-Dateneingabe",
+        title: "Aufbau",
         items: [
-          "Formular für Trainer: Stammdaten (Name, Adresse, Geburtsdatum, Telefon, E-Mail) und Bankdaten (IBAN, BIC, Bank) + digitale Unterschrift.",
-          "Anmeldung über das zentrale Tools-Übersicht-Konto ist Pflicht: die eigene Einreichung wird eindeutig dem Konto zugeordnet und auf jedem Gerät wiedererkannt; pro Konto gibt es genau eine Einreichung, erneutes Absenden aktualisiert sie.",
-          "Bestätigungs-Screen zeigt die übermittelten Daten samt Unterschrift zur Selbstkontrolle — mit „Bearbeiten“-Button und Link zurück zur Tools-Übersicht.",
-          "Daten werden über einen Cloudflare Worker sicher auf dem vereinseigenen Nextcloud-Server gespeichert; die Zugangsdaten liegen ausschließlich auf dem Server, nie im Browser."
+          "Die Reiterleiste zeigt jedem „Meine Daten“ mit dem eigenen Formular und „Info“. Wer die Trainerdaten verwalten darf, sieht zusätzlich „Trainer“, „Import“ und „Einstellungen“.",
+          "Die Verwaltung öffnet sich beim Klick direkt, ohne Zwischenschritt. Die App startet für alle bei „Meine Daten“."
         ]
       },
       {
-        title: "Übersichtliche Darstellung im Trainerbereich",
+        title: "Die eigenen Daten",
         items: [
-          "Persönliche Daten, Bankverbindung, Erklärung Nebentätigkeit und Unterschrift sowie Trainervertrag, Checkliste Trainerzu-/-abgang, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich jeweils einzeln auf-/zuklappen — die Seite bleibt dadurch deutlich kompakter.",
-          "Jede Karte zeigt direkt im Titel ein Häkchen (erledigt), Kreuz (noch offen) oder einen Strich (aktuell nicht zutreffend), aktualisiert live beim Tippen. Beim ersten Laden starten offene Punkte automatisch ausgeklappt, erledigte eingeklappt."
+          "Formular für Stammdaten — Name, Adresse, Geburtsdatum, Telefon, E-Mail — sowie Bankdaten mit IBAN, BIC und Bank, dazu die digitale Unterschrift.",
+          "Die Anmeldung über das zentrale Konto ist Pflicht: die eigene Einreichung wird dem Konto eindeutig zugeordnet und auf jedem Gerät wiedererkannt. Pro Konto gibt es genau eine Einreichung; erneutes Absenden aktualisiert sie.",
+          "Ein Bestätigungsbild zeigt die übermittelten Angaben samt Unterschrift zur Selbstkontrolle, mit Knopf zum Bearbeiten und Weg zurück zur Tools-Übersicht.",
+          "Persönliche Daten, Bankverbindung, Erklärung zur Nebentätigkeit und Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich einzeln auf- und zuklappen.",
+          "Jede Karte trägt im Titel ein Häkchen für erledigt, ein Kreuz für offen oder einen Strich für nicht zutreffend — aktualisiert schon beim Tippen. Beim ersten Laden stehen offene Punkte aufgeklappt, erledigte zugeklappt."
         ]
       },
       {
-        title: "Konten ohne Trainervertrag: nur noch Kontaktdaten",
+        title: "Konten ohne Trainervertrag",
         items: [
-          "Wer keinen Trainervertrag bekommt (z. B. Geschäftsstelle/Geschäftsführung), sieht im Formular nur noch die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail. Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept entfallen für diese Konten komplett.",
-          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ ODER individuell als „Vertrag benötigt“ markiert. An der Ansicht von Trainern ändert sich dadurch nichts.",
-          "Die E-Mail-Adresse ist für diese Konten Pflichtfeld — sie ist der Grund für den Eintrag. In der Admin-Liste erscheinen solche Einträge als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
+          "Wer keinen Trainervertrag bekommt, etwa in Geschäftsstelle oder Geschäftsführung, sieht nur die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail.",
+          "Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift und sämtliche Dokumentenkarten entfallen für diese Konten.",
+          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ oder einzeln als „Vertrag benötigt“ markiert.",
+          "Die E-Mail-Adresse ist für diese Konten Pflicht — sie ist der Grund für den Eintrag. In der Verwaltungsliste erscheinen sie als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
         ]
       },
       {
-        title: "Trainervertrag ansehen & digital unterschreiben",
+        title: "Trainervertrag",
         items: [
-          "Sobald der Vertrag bereitgestellt wurde, im Trainerbereich direkt ansehen und digital unterschreiben. Die Unterschrift wird zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gestempelt — er sieht damit auch an den gewohnten Stellen unterschrieben aus.",
-          "Der unterschriebene Vertrag ist jederzeit wieder einsehbar; unterschriebene und bereitgestellte Verträge werden in der Cloud nach Jahr und Trainername abgelegt statt unter technischen IDs.",
-          "Admin-Detail: Original- und unterschriebenen Vertrag ansehen sowie den Unterschrift-Status je Trainer; die Unterschrift lässt sich bei Bedarf zurücksetzen (erneutes Unterschreiben möglich, Original-Vertrag bleibt unangetastet), oder die komplette Vertragszuweisung eines Trainers zurücksetzen (inkl. Unterschrift und Dateien), damit beim nächsten Lauf von generate-pdfs.ps1 -Zuweisen ein neuer Vertrag ausgestellt wird."
+          "Sobald der Vertrag bereitsteht, lässt er sich im eigenen Bereich ansehen und digital unterschreiben.",
+          "Die Unterschrift wird zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gesetzt — er sieht damit auch an den gewohnten Stellen unterschrieben aus.",
+          "Der unterschriebene Vertrag bleibt jederzeit einsehbar. Verträge werden in der Cloud nach Jahr und Trainername abgelegt, nicht unter technischen Kennungen.",
+          "Der Word-Vertrag entsteht aus der Originalvorlage und übernimmt Layout und Trainerdaten.",
+          "Die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG wird im Formular abgefragt und im Vertrag automatisch angekreuzt und mit Betrag gefüllt.",
+          "In der Verwaltung lassen sich Original und unterschriebene Fassung ansehen, die Unterschrift zurücksetzen oder die komplette Vertragszuweisung zurücknehmen, damit beim nächsten Lauf ein neuer Vertrag ausgestellt wird."
         ]
       },
       {
-        title: "Vertragsgenerierung",
+        title: "Trainerlizenz, Führerschein und Führungszeugnis",
         items: [
-          "Word-Vertrag generieren — befüllt das Original-Vertragstemplate mit den Trainerdaten, originalgetreues Layout, inkl. digitaler Unterschrift.",
-          "Erklärung zur Übungsleiterpauschale (Anlage 1, § 3 Nr. 26 EStG) wird im Formular abgefragt und im Word-Vertrag automatisch angekreuzt bzw. mit Betrag befüllt — nicht mehr von Hand nötig.",
-          "PDF-Datenblatt herunterladen — einzeln oder als ZIP für alle Trainer auf einmal (namensgleiche Trainer werden automatisch nummeriert)."
+          "Alle drei Dokumente lassen sich direkt hochladen, per Kamera oder als Datei. Die eigene Datei ist jederzeit selbst einsehbar; fremde Führungszeugnisse bleiben aus Datenschutzgründen den Administratoren vorbehalten.",
+          "Führerschein mit „gültig bis“ und Erinnerung, ihn alle sechs Monate erneut einzureichen. Für Administratoren und die Gruppe „Führerschein Einsicht“ gibt es ein eigenes Register samt Sammel-PDF aller Kopien. Darin steht der Name mit Upload-Datum und Gültigkeit auf derselben Seite wie das Foto.",
+          "Trainerlizenz mit Lizenzart zur Auswahl — C, B, A, DFB-Basis, Elite-Jugend, Fußball-Lehrer und weitere — und Datum „gültig bis“ mit automatischer Anzeige, ob sie gilt oder abgelaufen ist. Ein Häkchen „Ich habe keine Trainerlizenz“ verhindert, dass der Status dauerhaft als offen erscheint.",
+          "Administratoren können alle drei Dokumente auch für Trainer ohne eigenen Zugang hochladen, ansehen und ersetzen, unter anderem direkt aus der Personalakte.",
+          "Ein unbrauchbares Dokument lässt sich löschen — unscharfes Foto, falsche Datei. Es steht danach beim Trainer wieder als offen. Lizenzart, Gültigkeit und das Häkchen bleiben davon unberührt."
         ]
       },
       {
-        title: "Dokumente: Trainerlizenz, Führerschein & Führungszeugnis",
+        title: "Trainerkodex und Jugendschutzkonzept",
         items: [
-          "Trainerlizenz, Führerschein und erweitertes Führungszeugnis direkt hochladen (Kamera oder Datei/PDF), an derselben Stelle im Trainerbereich — die eigene Datei ist jederzeit selbst einsehbar; fremde Führungszeugnisse bleiben aus Datenschutzgründen nur für Admins sichtbar.",
-          "Führerschein: „Gültig bis …“ mit Erinnerung, alle 6 Monate erneut einzureichen. Eigenes Register für Admin und die Gruppe „Führerschein Einsicht“ inklusive Sammel-PDF-Export aller eingereichten Kopien.",
-          "Trainerlizenz: Lizenzart per Dropdown (C-/B-/A-Lizenz, DFB-Basis-/Elite-Jugend-/Fußball-Lehrer-Lizenz u. a.) und Datum „gültig bis“ mit automatischer Gültig/Abgelaufen-Anzeige, sobald eine Datei hochgeladen ist; Checkbox „Ich habe keine Trainerlizenz“ für alle, damit der Status nicht dauerhaft als ausstehend erscheint.",
-          "Admin kann alle drei Dokumente im Detailbereich auch für Trainer ohne eigenen Login hochladen/ansehen/ersetzen (u. a. direkt aus der Personalakte) — ein hinterlegtes Dokument öffnet sich dabei im Browser statt herunterzuladen.",
-          "Löschen-Button je Dokument für den Fall, dass das Hinterlegte unbrauchbar ist (unscharfes Foto, falsche Datei) — danach steht es beim Trainer wieder als offen da und kann neu hochgeladen werden; Lizenzart, „gültig bis“ und die Checkbox „Keine Trainerlizenz“ bleiben davon unberührt."
+          "Beide lassen sich lesen und mit Unterschrift bestätigen, im eigenen Bereich über denselben Zugang.",
+          "Die Bestätigung ist jeweils alle sechs Monate erneut fällig; abgelaufene werden markiert.",
+          "Ist das Jugendschutzkonzept abgelaufen, zählt das zum Gesamtstatus und erscheint als rotes Kreuz auf der Kachel im Dashboard.",
+          "Die Verwaltung zeigt Bestätigungsdatum, Gültigkeit und Unterschrift und kann eine Bestätigung zurücksetzen."
         ]
       },
       {
-        title: "Trainerkodex",
+        title: "Checkliste Trainerzu- und -abgang",
         items: [
-          "Verhaltenskodex lesen und mit Unterschrift bestätigen, direkt im Trainerbereich über denselben zentralen Login.",
-          "Die Bestätigung ist alle 6 Monate erneut fällig — abgelaufene Bestätigungen werden entsprechend markiert.",
-          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+          "Eine eigene Karte zeigt, ob der eigene Zugang laut Geschäftsstelle abgeschlossen ist.",
+          "„Öffnen“ zeigt die komplette Checkliste zum Nachlesen: alle abgehakten Punkte, Bemerkungen und die Unterschriften von Trainer und Geschäftsstelle — rein zur Information.",
+          "Die Verwaltung sieht zusätzlich, ob Zugang und Abgang in der TrainerCheckliste abgeschlossen sind."
         ]
       },
       {
-        title: "Jugendschutzkonzept",
+        title: "Verwaltung",
         items: [
-          "Kinder- und Jugendschutzkonzept lesen und mit Unterschrift bestätigen — gleiches Prinzip wie beim Trainerkodex, unabhängig davon geführt.",
-          "Die Bestätigung ist ebenfalls alle 6 Monate erneut fällig; ist sie abgelaufen, zählt das mit zum Gesamtstatus (rotes Kreuz auf der Dashboard-Kachel, Eingabe erforderlich).",
-          "Admin-Detail zeigt Bestätigungsdatum, Gültigkeit und Unterschrift, mit der Möglichkeit, eine Bestätigung zurückzusetzen."
+          "Übersicht aller eingereichten Einträge mit Status — unvollständig, ausstehend oder Vertrag generiert —, Lizenz und Pauschale direkt in der Liste.",
+          "Suchfeld nach Namen sowie Filter nach Status, Lizenz und Vertragsunterschrift.",
+          "Daten bearbeiten und speichern; gespeichert wird laufend, zusätzlich gibt es einen Knopf für sofortiges sichtbares Sichern. Einträge lassen sich mit Rückfrage löschen.",
+          "Während einer laufenden Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
+          "Der Status lässt sich von Hand umstellen, wird bei einer erneuten Einreichung aber zurückgesetzt — ein bereits erzeugter Vertrag fällt so wieder als veraltet auf.",
+          "Die Lizenz wird beim Öffnen aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist."
         ]
       },
       {
-        title: "Checkliste Trainerzu-/-abgang im Trainerdaten-Tab",
+        title: "Export der Trainerliste",
         items: [
-          "Eigene Karte direkt im Trainerbereich: zeigt an, ob der eigene Zugang (Onboarding) laut Geschäftsstelle abgeschlossen ist. „Öffnen“ zeigt die komplette Checkliste zum Nachlesen — alle abgehakten Punkte, Bemerkungen sowie die Unterschriften von Trainer/Betreuer und Geschäftsstelle, rein informativ.",
-          "Admin-Detail zeigt zusätzlich, ob für den Trainer in TrainerCheckliste Zugang bzw. Abgang abgeschlossen sind."
+          "CSV-Export, frei zusammenstellbar: Stammdaten, Bankverbindung, Vertrag und Status sowie Dokumente sind einzeln wählbar. Der Export übernimmt Suche und Filter.",
+          "Exportfeld „Mannschaft(en)“: die Mannschaft laut Profil in der Tools-Übersicht, mehrere durch Komma getrennt. Gepflegt wird sie allein dort — steht dort nichts, bleibt die Spalte leer.",
+          "Exportfeld „Gruppen“: alle Benutzergruppen, in denen die Person Mitglied ist.",
+          "Im Export-Bereich lässt sich zusätzlich nach Gruppen einschränken: je Gruppe ein Kästchen, mehrere gleichzeitig möglich. Exportiert wird, wer in mindestens einer angekreuzten Gruppe ist. „Ohne Gruppe“ erfasst Einträge ohne Zuordnung, kein Kästchen bedeutet alle. Die Zeile darunter zeigt immer die tatsächliche Anzahl."
         ]
       },
       {
-        title: "Admin-Ansicht",
+        title: "Bank-Export",
         items: [
-          "Übersicht aller eingereichten Trainer-Einträge mit Status (Unvollständig / Ausstehend / Vertrag generiert), Lizenz und Pauschale direkt in der Liste.",
-          "Suchfeld (nach Name) sowie Filter nach Status, Lizenz und Vertragsunterschrift.",
-          "Trainer-Daten bearbeiten und speichern (automatisches Speichern, zusätzlich ein „Speichern“-Button für sofortiges, sichtbares Sichern); Eintrag löschen mit Sicherheitsabfrage.",
-          "Während einer Admin-Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
-          "Status im Detail ist manuell umstellbar, wird bei einer erneuten Einreichung des Trainers aber automatisch zurückgesetzt (ein bereits generierter Vertrag fällt so wieder als veraltet auf).",
-          "Lizenz wird beim Öffnen eines Trainer-Details automatisch aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist.",
-          "Konfigurierbarer CSV-Export der Liste „Eingereichte Trainerdaten“ — jedes Feld (Stammdaten, Bankverbindung, Vertrag & Status, Dokumente) einzeln per Checkbox an-/abwählbar; berücksichtigt die aktuelle Such-/Filter-Einstellung."
+          "Der Knopf „Bank-Export“ über der Trainerliste erzeugt aus den gerade gefilterten Trainern eine fertige Überweisungsliste: Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.",
+          "Vier Formate stehen zur Wahl. CSV im Aufbau der Bank-Vorlage, eine Excel-Mappe im Aufbau derselben Vorlage, eine SEPA-XML als fertige Sammelüberweisung und eine XML im Aufbau der Vorlage.",
+          "Die Excel-Mappe trägt ein Blatt namens „in“, in der ersten Zeile die zwölf Spalten der Bank-Vorlage, darunter je Trainer eine Zahlung. Der Betrag steht darin als echte Zahl und nicht als Text, damit das Banktool ihn als Betrag erkennt.",
+          "Für die SEPA-Datei werden Auftraggeber — Name und IBAN des Vereinskontos — sowie das gewünschte Ausführungsdatum abgefragt; diese Angaben stehen in keinem Trainer-Datensatz. Sie bleiben im Browser gespeichert und müssen nur einmal eingetragen werden.",
+          "Umlaute werden für die SEPA-Datei automatisch umgeschrieben, aus Hünermund wird Huenermund. Der Standard erlaubt keine Umlaute, und die Bank würde die Datei sonst vollständig abweisen. In den übrigen drei Formaten bleiben Umlaute erhalten.",
+          "Trainer ohne IBAN oder ohne Pauschale lassen sich nicht überweisen. Sie werden nicht stillschweigend weggelassen, sondern namentlich aufgeführt.",
+          "„CSV-Datei wählen → SEPA-XML“ wandelt eine bereits vorhandene Liste im Format der Bank-Vorlage in eine Sammelüberweisung um — etwa die zuvor exportierte Datei, nachdem Beträge angepasst oder Zeilen gelöscht wurden. Die Trainerliste spielt dabei keine Rolle.",
+          "Die Spalten werden über die Kopfzeile erkannt, verschobene Spalten sind also unkritisch. Fehlt die Kopfzeile, gilt die Reihenfolge der Vorlage. Zeilen ohne Empfänger, ohne gültige IBAN oder ohne lesbaren Betrag landen nicht in der Datei, sondern mit Zeilennummer und Grund in einer Liste.",
+          "In Excel bearbeitete Dateien werden ebenfalls gelesen: erkennt die App zerschossene Umlaute, liest sie die Datei automatisch ein zweites Mal in der älteren Windows-Zeichenkodierung.",
+          "Welches Format das Banktool wirklich einliest, ist noch nicht bestätigt. Da die Excel-Datei dem gelieferten Muster entspricht, ist sie der aussichtsreichste Kandidat für einen Testimport."
         ]
       },
       {
-        title: "Datenimport",
+        title: "Datenimport aus den Personalkosten",
         items: [
-          "„Von Personalkosten laden“ holt Lizenz und monatliche Pauschale aller Trainer der aktuellen Saison direkt aus der Personalkosten-App (Namensabgleich) — Personalkosten ist damit die einzige Pflegestelle für diese Werte.",
-          "Vorschau zeigt alle geladenen Zeilen mit automatischer Trainer-Zuordnung; jede Zeile hat einen eigenen Import-Button, um einzelne Trainer unabhängig vom Sammel-Import zu übernehmen.",
-          "Ein neuer Trainer-Eintrag wird nur angelegt, wenn die Person Mitglied der Gruppe „Trainer“ ist ODER individuell als „Vertrag benötigt“ markiert wurde — verhindert Einträge für Personen ohne Trainer-Rolle. Namen ohne bestehenden Trainer werden als „Unvollständig“ markiert und automatisch vervollständigt, sobald sich die Person selbst über das Trainer-Formular anmeldet.",
-          "Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer aktuell hinterlegten Lizenz und Pauschale (bzw. „fehlt“), aktualisiert sich nach jedem Import."
+          "„Von Personalkosten laden“ holt Lizenz und monatliche Pauschale aller Trainer der laufenden Saison über einen Namensabgleich. Damit bleiben die Personalkosten die einzige Pflegestelle für diese Werte.",
+          "Die Vorschau zeigt alle geladenen Zeilen mit ihrer Zuordnung. Jede Zeile hat einen eigenen Knopf, um einzelne Trainer unabhängig vom Sammelimport zu übernehmen.",
+          "Ein neuer Eintrag entsteht nur, wenn die Person in der Gruppe „Trainer“ ist oder einzeln als „Vertrag benötigt“ markiert wurde. Namen ohne bestehenden Eintrag werden als unvollständig geführt und ergänzen sich, sobald die Person sich selbst anmeldet.",
+          "Der Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer hinterlegten Lizenz und Pauschale und aktualisiert sich nach jedem Import."
         ]
       },
       {
-        title: "Lokaler Stapel-Export",
+        title: "Verträge im Stapel erzeugen",
         items: [
-          "generate-pdfs.ps1 erzeugt PDFs für alle Trainer auf einmal im Original-Vertragslayout (lokal über Microsoft Word, IBANs verlassen den Rechner nicht). Verarbeitet dabei nur Trainer mit Status „Ausstehend“ — unvollständige (Stub ohne Anmeldung) und bereits generierte Verträge werden automatisch übersprungen.",
-          "Skript und Vertragsvorlage lassen sich im Einstellungen-Tab (Admin) direkt herunterladen, inklusive zweier Doppelklick-Starter (nur lokal erzeugen, oder erzeugen und den Trainern zuweisen) — umgeht die Windows-Blockade für heruntergeladene PowerShell-Skripte."
+          "Ein beiliegendes Skript erzeugt die PDFs für alle Trainer auf einmal im Original-Layout — lokal über Microsoft Word, die IBANs verlassen den Rechner nicht.",
+          "Verarbeitet werden nur Trainer mit Status „ausstehend“; unvollständige und bereits erzeugte Verträge werden übersprungen.",
+          "Skript und Vertragsvorlage lassen sich im Reiter „Einstellungen“ herunterladen, dazu zwei Doppelklick-Starter — einer nur zum Erzeugen, einer zum Erzeugen und Zuweisen. Sie umgehen die Windows-Sperre für heruntergeladene Skripte."
+        ]
+      },
+      {
+        title: "Wer darf was",
+        items: [
+          "Jeder angemeldete Nutzer pflegt seine eigenen Daten und Dokumente.",
+          "Der gesamte Verwaltungsbereich — Trainerliste, Import, Einstellungen und damit die volle Sicht auf die Bankverbindungen — hängt an der Stufe „Administrieren“, nicht an „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne die Bankdaten aller Trainer zu öffnen.",
+          "Vergeben wird das im Sichtbarkeits-Panel der Tools-Übersicht.",
+          "Geprüft wird bei jedem Zugriff auf dem Server, nicht nur in der Oberfläche. Ein geteiltes Passwort gibt es dafür nicht mehr.",
+          "Der Reiter „Info“ ist für alle sichtbar."
+        ]
+      },
+      {
+        title: "Bedienung am Handy",
+        items: [
+          "Die Reiterleiste bricht am Handy um, statt seitlich aus dem Bild zu laufen — auch die hinteren Reiter sind auf schmalen Bildschirmen erreichbar.",
+          "Eingabefelder sind mindestens 16 Pixel groß, damit der iPhone-Browser beim Antippen nicht ungefragt in die Seite hineinzoomt und verschoben stehen bleibt.",
+          "Unterschreiben und Dokumente per Kamera hochladen funktionieren am Handy."
+        ]
+      },
+      {
+        title: "Daten & Speicherung",
+        items: [
+          "Die Daten liegen auf dem vereinseigenen Nextcloud-Server. Der Zugriff läuft über einen eigenen Server-Dienst; die Zugangsdaten dazu liegen ausschließlich dort und nie im Browser.",
+          "Wegen der Bankverbindungen läuft dieses Werkzeug bewusst nicht über den allgemeinen Datenweg der übrigen Apps."
         ]
       }
     ]
