@@ -346,7 +346,7 @@ const APP_CHANGELOG = [
           "Jeder angemeldete Nutzer pflegt seine eigenen Daten und Dokumente.",
           "Der gesamte Verwaltungsbereich — Trainerliste, Import, Einstellungen und damit die volle Sicht auf die Bankverbindungen — hängt an der Stufe „Administrieren“, nicht an „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne die Bankdaten aller Trainer zu öffnen.",
           "Vergeben wird das im Sichtbarkeits-Panel der Tools-Übersicht.",
-          "Geprüft wird bei jedem Zugriff auf dem Server, nicht nur in der Oberfläche. Ein geteiltes Passwort gibt es dafür nicht mehr.",
+          "Geprüft wird bei jedem Zugriff auf dem Server, nicht nur in der Oberfläche. Ein geteiltes Passwort braucht es dafür nicht.",
           "Der Reiter „Info“ ist für alle sichtbar."
         ]
       },
