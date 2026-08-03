@@ -219,8 +219,6 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
   border-radius: 999px;
   padding: 2px 9px;
 }
-.version-badge-link { cursor: pointer; }
-.version-badge-link:hover, .version-badge-link:focus-visible { background: rgba(255, 255, 255, 0.32); }
 
 /* Signatur */
 .signature-box { margin-top: 10px; }

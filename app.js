@@ -43,8 +43,6 @@ let _adminZugriffErlaubt = false; // Administrieren-Stufe des eingeloggten Konto
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("version-badge").textContent = "v" + APP_VERSION;
-
   _renderChangelog();
   _populateLizenzArtSelect("tf-tl-art");
   _populateLizenzArtSelect("d-tl-art");
@@ -1493,12 +1491,6 @@ function _initAdminPanel() {
   // Header-Versionsbadge springt zur Versionshistorie (Info-Tab) — die ist
   // seit der gemeinsamen Tab-Leiste wieder für ALLE erreichbar, wie in den
   // übrigen Apps der Flotte.
-  const versionBadgeHeader = document.getElementById("version-badge");
-  versionBadgeHeader.addEventListener("click", () => _zeigeTab("info"));
-  versionBadgeHeader.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _zeigeTab("info"); }
-  });
-
   document.getElementById("btn-disconnect").addEventListener("click", async () => {
     await FileStore.clearWebdavConfig();
     davConfig = null;
