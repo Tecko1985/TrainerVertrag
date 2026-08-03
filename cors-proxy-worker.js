@@ -22,7 +22,8 @@
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
   "http://localhost:8789",
-  "https://tecko1985.github.io"
+  "https://sc1911heiligenstadt.github.io",
+  "https://tecko1985.github.io" // alte Adresse bis 2026-08: PWAs mit eigenem SW-Cache laufen dort noch
 ];
 const ALLOWED_TARGET_HOST = "nx88695.your-storageshare.de";
 // Dekodierter Pfad-Präfix (02_Förderung mit echtem Umlaut): die Ziel-URL kommt

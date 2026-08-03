@@ -2,7 +2,7 @@
 
 Web-App zur Erfassung von Trainer-Stammdaten und zur automatischen Befüllung von Trainerverträgen als Word- und PDF-Dokument.
 
-**Live:** https://tecko1985.github.io/Trainerdaten/
+**Live:** https://sc1911heiligenstadt.github.io/Trainerdaten/
 
 ---
 
@@ -74,7 +74,7 @@ Voraussetzung: Microsoft Word muss installiert sein.
 | Persistenz | Nextcloud via WebDAV |
 | CORS-Proxy (Admin) | Cloudflare Worker (`cors-proxy-worker.js`) |
 | Trainer-Einreichung | Cloudflare Worker (`submit-worker.js`), Login-Token-Prüfung via Service Binding |
-| Trainer-Login | zentrales Konto der [Tools-Übersicht](https://tecko1985.github.io/ToolsUebersicht/) |
+| Trainer-Login | zentrales Konto der [Tools-Übersicht](https://sc1911heiligenstadt.github.io/ToolsUebersicht/) |
 | DOCX-Generierung | JSZip (CDN) — Platzhalter-Ersetzung in `word/document.xml` |
 | PDF-Export (Stapel) | Microsoft Word COM-Automation (`generate-pdfs.ps1`) |
 | Deployment | GitHub Pages (auto-rebuild bei Push auf `master`) |

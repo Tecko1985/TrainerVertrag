@@ -111,7 +111,8 @@
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
   "http://localhost:8783", // Personalakte (Dev-Server) -- ruft fuehrerschein-/fuehrungszeugnis-file-for-owner direkt hier ab
-  "https://tecko1985.github.io"
+  "https://sc1911heiligenstadt.github.io",
+  "https://tecko1985.github.io" // alte Adresse bis 2026-08: PWAs mit eigenem SW-Cache laufen dort noch
 ];
 
 // Dokument-Uploads (seit 1.1, Führerschein migriert aus Fahrtenbuch + neu Führungszeugnis):

@@ -54,7 +54,7 @@ const FileStore = (() => {
 // ─── ToolsUebersicht-Login-Gateway (Trainer-Modus) ─────────────────────────────
 // Trainer melden sich seit 1.6 über das zentrale ToolsUebersicht-Konto an (statt
 // eines anonymen No-Login-Formulars). Gleiches Token-Muster wie bei Trainerkodex/
-// TrainerCheckliste — Token liegt im localStorage der Origin tecko1985.github.io
+// TrainerCheckliste — Token liegt im localStorage der Origin sc1911heiligenstadt.github.io
 // und wird hier nur gelesen, nicht selbst per Login-Formular gesetzt (Login läuft
 // komplett über die ToolsUebersicht-Seite selbst, siehe Connect-Screen in app.js).
 const GATEWAY_URL = "https://landingpage.michel-brunner.workers.dev";
