@@ -2001,6 +2001,7 @@ function _initBankExportPanel() {
   document.getElementById("btn-bank-export-vorlage-xml").addEventListener("click", () => _handleBankExport("vorlage-xml"));
   document.getElementById("btn-bank-export-xml").addEventListener("click", () => _handleBankExport("xml"));
   _initBankCsvKonverter();
+  _initBankCamtAbgleich();
 }
 
 function _ladeBankExportEinstellungen() {
@@ -2449,7 +2450,7 @@ function _buildSepaXml(o) {
   const creDtTm = `${jetzt.getFullYear()}-${p2(jetzt.getMonth() + 1)}-${p2(jetzt.getDate())}` +
                   `T${p2(jetzt.getHours())}:${p2(jetzt.getMinutes())}:${p2(jetzt.getSeconds())}`;
   // MsgId/PmtInfId: max. 35 Zeichen, muss je Einreichung eindeutig sein.
-  const lfdId = `SC1911-${creDtTm.replace(/[-:T]/g, "")}`.slice(0, 35);
+  const lfdId = `${SEPA_MSG_PRAEFIX}-${creDtTm.replace(/[-:T]/g, "")}`.slice(0, 35);
 
   // Ohne BIC verlangt das Schema den ausdrücklichen Vermerk "NOTPROVIDED" —
   // ein leeres BIC-Element wäre ungültig. Bei Inlands-SEPA ist das der Normalfall.
@@ -2775,6 +2776,513 @@ function _downloadBankDatei(inhalt, mimeType, dateiname) {
   a.download = dateiname;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+// ─── Kontoauszug prüfen: CAMT-Abgleich (seit 1.1) ─────────────────────────────
+// Der Rückweg zum Bank-Export: die Zahlungsdatei geht an die Bank, der
+// Kontoauszug kommt zurück. Beantwortet die eine Frage, die danach offen ist —
+// ist das Geld bei jedem Trainer wirklich angekommen?
+//
+// BEWUSST OHNE SPEICHERUNG: die gelesenen Umsätze landen weder in der
+// trainerdaten.json noch sonstwo. Eine Umsatztabelle gehört in die Buchhaltung
+// der Vereinsverwaltung (dort liegt die Datenbank), nicht in eine Personendatei;
+// hier ist nur die Kontrollansicht. Wer die Bewegungen weiterverarbeiten will,
+// nimmt den CSV-Knopf. Rein clientseitig, kein Worker-Redeploy.
+//
+// Gelesen werden alle drei Auszugsformate der ISO-20022-Familie, weil die Banken
+// unterschiedlich liefern: camt.053 (Tagesauszug, <Stmt>), camt.052 (untertägig,
+// <Rpt>) und camt.054 (Einzelavis, <Ntfctn>). Der Aufbau darunter ist gleich.
+
+// Letzter eingelesener Stand — nur damit der CSV-Knopf dieselbe Datei nicht ein
+// zweites Mal einlesen muss. Wird bei jedem neuen Auszug ersetzt.
+let _camtStand = null;
+
+function _initBankCamtAbgleich() {
+  const input = document.getElementById("bank-camt-input");
+
+  document.getElementById("btn-bank-camt").addEventListener("click", () => {
+    _setBankExportError("");
+    document.getElementById("bank-camt-bericht").innerHTML = "";
+    input.click();
+  });
+
+  input.addEventListener("change", async (e) => {
+    const datei = e.target.files[0];
+    e.target.value = "";                     // gleiche Datei erneut wählbar
+    if (!datei) return;
+    try {
+      await _pruefeKontoauszug(datei);
+    } catch (fehler) {
+      _setBankExportError(`Der Kontoauszug konnte nicht gelesen werden: ${fehler.message}`);
+    }
+  });
+
+  document.getElementById("btn-bank-camt-csv").addEventListener("click", _exportiereCamtUmsaetze);
+}
+
+// ─── Namespace-tolerante DOM-Helfer ───────────────────────────────────────────
+// Die Auszüge kommen je nach Bank als camt.053.001.02 oder .001.08, mal mit,
+// mal ohne Namespace-Präfix am Tag. Verglichen wird deshalb immer der lokale
+// Name (`localName`), nie der vollständige Tagname.
+function _camtKinder(el, name) {
+  if (!el) return [];
+  return Array.prototype.filter.call(el.children, k => k.localName === name);
+}
+
+function _camtKind(el, ...pfad) {
+  let aktuell = el;
+  for (const name of pfad) {
+    aktuell = _camtKinder(aktuell, name)[0];
+    if (!aktuell) return null;
+  }
+  return aktuell;
+}
+
+function _camtText(el, ...pfad) {
+  const k = pfad.length ? _camtKind(el, ...pfad) : el;
+  return k ? (k.textContent || "").trim() : "";
+}
+
+// Erstes Element mit diesem lokalen Namen irgendwo im Teilbaum. Nötig, weil
+// einige Felder je Schema-Version unterschiedlich tief hängen: der Empfängername
+// steht in .02 als <Cdtr><Nm>, ab .08 als <Cdtr><Pty><Nm>.
+function _camtTiefe(el, ...namen) {
+  if (!el) return null;
+  const alle = el.getElementsByTagName("*");
+  for (let i = 0; i < alle.length; i++) {
+    if (namen.includes(alle[i].localName)) return alle[i];
+  }
+  return null;
+}
+
+// Alle Texte eines Feldnamens im Teilbaum — <Ustrd> darf mehrfach vorkommen und
+// enthält dann die Fortsetzung desselben Verwendungszwecks.
+function _camtTexteTief(el, name) {
+  if (!el) return [];
+  const werte = [];
+  const alle = el.getElementsByTagName("*");
+  for (let i = 0; i < alle.length; i++) {
+    if (alle[i].localName === name) werte.push((alle[i].textContent || "").trim());
+  }
+  return werte.filter(Boolean);
+}
+
+// <BookgDt>/<ValDt> tragen entweder <Dt> (nur Datum) oder <DtTm> (mit Uhrzeit).
+function _camtDatum(el, name) {
+  const knoten = _camtKind(el, name);
+  if (!knoten) return "";
+  return (_camtText(knoten, "Dt") || _camtText(knoten, "DtTm")).slice(0, 10);
+}
+
+// ISO 20022 schreibt den Punkt als Dezimaltrennzeichen vor und kennt keine
+// Tausendertrenner. Hier bewusst NICHT _parseBetrag verwenden — das ist für das
+// freie deutsche Pauschale-Feld gebaut und läse "1.250" als 1250.
+function _camtBetrag(text) {
+  const roh = String(text || "").trim();
+  if (!roh) return null;
+  const n = Number(roh);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Beträge immer in Cent vergleichen — 0.1 + 0.2 !== 0.3 gilt auch für Euro.
+function _cent(n) {
+  return Math.round(Number(n || 0) * 100);
+}
+
+// ─── Parser ───────────────────────────────────────────────────────────────────
+function _parseCamt(text) {
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length || !doc.documentElement) {
+    throw new Error("Die Datei ist keine gültige XML-Datei.");
+  }
+
+  const alleElemente = doc.documentElement.getElementsByTagName("*");
+  const auszuege = [];
+  for (let i = 0; i < alleElemente.length; i++) {
+    const lokal = alleElemente[i].localName;
+    if (lokal === "Stmt" || lokal === "Rpt" || lokal === "Ntfctn") auszuege.push(alleElemente[i]);
+  }
+  if (!auszuege.length) {
+    throw new Error("Die Datei enthält keinen Kontoauszug — erwartet wird CAMT.053, .052 oder .054.");
+  }
+
+  const konten = [];
+  const umsaetze = [];
+
+  auszuege.forEach(auszug => {
+    const kontoIban = _camtText(_camtKind(auszug, "Acct", "Id"), "IBAN");
+
+    // Anfangs- und Endsaldo stehen als <Bal> mit Typ-Code: OPBD/PRCD ist der
+    // Eröffnungssaldo, CLBD der Schlusssaldo. DBIT heißt hier "Konto im Minus".
+    const salden = {};
+    _camtKinder(auszug, "Bal").forEach(bal => {
+      const code   = _camtText(_camtKind(bal, "Tp", "CdOrPrtry"), "Cd");
+      const betrag = _camtBetrag(_camtText(bal, "Amt"));
+      if (betrag == null) return;
+      const wert = _camtText(bal, "CdtDbtInd") === "DBIT" ? -betrag : betrag;
+      if (code === "OPBD" || code === "PRCD") salden.anfang = wert;
+      if (code === "CLBD") salden.ende = wert;
+    });
+
+    const frToDt = _camtKind(auszug, "FrToDt");
+    konten.push({
+      iban: kontoIban,
+      nummer: _camtText(auszug, "ElctrncSeqNb") || _camtText(auszug, "LglSeqNb"),
+      von: frToDt ? _camtText(frToDt, "FrDtTm").slice(0, 10) : "",
+      bis: frToDt ? _camtText(frToDt, "ToDtTm").slice(0, 10) : "",
+      saldoAnfang: salden.anfang,
+      saldoEnde: salden.ende
+    });
+
+    _camtKinder(auszug, "Ntry").forEach(ntry => {
+      const gemeinsam = {
+        ntry,
+        kontoIban,
+        buchung: _camtDatum(ntry, "BookgDt"),
+        wert: _camtDatum(ntry, "ValDt"),
+        // <Sts> ist in .02 direkter Text ("BOOK"), ab .08 <Sts><Cd>BOOK</Cd> —
+        // textContent liefert in beiden Fällen dasselbe.
+        status: _camtText(ntry, "Sts"),
+        richtung: _camtText(ntry, "CdtDbtInd"),
+        betrag: _camtBetrag(_camtText(ntry, "Amt"))
+      };
+
+      // Eine Sammelbuchung kann mehrere <TxDtls> tragen. Fehlen sie ganz, ist
+      // der <Ntry> selbst der Umsatz — so bucht die Bank Einzelposten, aber
+      // eben auch eine nicht aufgeschlüsselte Sammelüberweisung.
+      const details = [];
+      _camtKinder(ntry, "NtryDtls").forEach(nd => {
+        _camtKinder(nd, "TxDtls").forEach(td => details.push(td));
+      });
+
+      if (!details.length) {
+        const btch = _camtTiefe(ntry, "Btch");
+        const anzahl = btch ? parseInt(_camtText(btch, "NbOfTxs"), 10) : 0;
+        umsaetze.push(_camtUmsatz(Object.assign({}, gemeinsam, {
+          el: ntry,
+          sammelAnzahl: Number.isFinite(anzahl) ? anzahl : 0
+        })));
+        return;
+      }
+
+      details.forEach(td => {
+        const betrag = _camtBetrag(_camtText(td, "Amt"));
+        umsaetze.push(_camtUmsatz(Object.assign({}, gemeinsam, {
+          el: td,
+          richtung: _camtText(td, "CdtDbtInd") || gemeinsam.richtung,
+          betrag: betrag == null ? gemeinsam.betrag : betrag,
+          sammelAnzahl: 0
+        })));
+      });
+    });
+  });
+
+  return { konten, umsaetze };
+}
+
+function _camtUmsatz(o) {
+  const istBelastung = o.richtung === "DBIT";
+
+  // Die Gegenpartei ist bei einer Belastung der Empfänger (Cdtr), bei einer
+  // Gutschrift der Zahler (Dbtr) — sonst steht bei jeder Gutschrift der Verein
+  // selbst als Gegenpartei da.
+  const parteien = _camtTiefe(o.el, "RltdPties");
+  const partei   = parteien ? _camtKind(parteien, istBelastung ? "Cdtr" : "Dbtr") : null;
+  const konto    = parteien ? _camtKind(parteien, istBelastung ? "CdtrAcct" : "DbtrAcct") : null;
+  const agenten  = _camtTiefe(o.el, "RltdAgts");
+  const agent    = agenten ? _camtKind(agenten, istBelastung ? "CdtrAgt" : "DbtrAgt") : null;
+
+  const nameEl = partei ? _camtTiefe(partei, "Nm") : null;
+  const ibanEl = konto ? _camtTiefe(konto, "IBAN") : null;
+  const bicEl  = agent ? _camtTiefe(agent, "BIC", "BICFI") : null;   // .08 nennt es BICFI
+
+  // Verwendungszweck: strukturierte und unstrukturierte Angabe, sonst der
+  // Freitext der Buchungszeile.
+  const zweck = _camtTexteTief(_camtTiefe(o.el, "RmtInf"), "Ustrd").join(" ")
+    || _camtText(o.ntry, "AddtlNtryInf");
+
+  // "NOTPROVIDED" ist der Platzhalter für "keine Referenz vergeben" und als
+  // Kennung wertlos.
+  const endToEnd = _camtText(_camtTiefe(o.el, "Refs"), "EndToEndId");
+
+  return {
+    buchung: o.buchung,
+    wert: o.wert,
+    status: o.status,
+    betrag: o.betrag,
+    richtung: o.richtung,
+    istBelastung,
+    kontoIban: o.kontoIban,
+    name: nameEl ? (nameEl.textContent || "").trim() : "",
+    iban: ibanEl ? (ibanEl.textContent || "").replace(/\s+/g, "").toUpperCase() : "",
+    bic: bicEl ? (bicEl.textContent || "").trim().toUpperCase() : "",
+    zweck,
+    endToEnd: endToEnd === "NOTPROVIDED" ? "" : endToEnd,
+    ausUnseremExport: endToEnd.startsWith(SEPA_MSG_PRAEFIX + "-"),
+    sammelAnzahl: o.sammelAnzahl || 0,
+    zugeordnetZu: ""
+  };
+}
+
+// ─── Abgleich ─────────────────────────────────────────────────────────────────
+// Schlüssel für den Ersatz-Abgleich über den Namen: der Auszug führt die
+// Gegenpartei als EINEN String, mal „Max Mustermann“, mal „Mustermann Max“ —
+// verglichen wird deshalb die sortierte Wortmenge. Die Umlaute laufen durch
+// dieselbe Transliteration wie der SEPA-Export, denn genau dessen Schreibweise
+// (Hünermund → Huenermund) steht anschließend im Auszug.
+function _camtNameKey(name) {
+  return _sepaText(name)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+}
+
+function _camtAbgleich(umsaetze, zahlbar) {
+  // Jede erwartete Zahlung bekommt höchstens einen Umsatz und jeder Umsatz
+  // höchstens eine Zahlung. Ohne diese Sperre beanspruchen zwei Trainer mit
+  // derselben IBAN (gemeinsames Konto) dieselbe Buchung, und der Bericht meldet
+  // beide als bezahlt, obwohl nur einer sein Geld hat.
+  const posten = zahlbar.map(k => ({
+    kandidat: k,
+    name: `${k.trainer.vorname || ""} ${k.trainer.nachname || ""}`.trim(),
+    umsatz: null,
+    ueberName: false
+  }));
+
+  const nachIban = new Map();
+  const nachName = new Map();
+  const eintragen = (map, schluessel, p) => {
+    if (!schluessel) return;
+    if (!map.has(schluessel)) map.set(schluessel, []);
+    map.get(schluessel).push(p);
+  };
+  posten.forEach(p => {
+    eintragen(nachIban, p.kandidat.iban, p);
+    eintragen(nachName, _camtNameKey(p.name), p);
+  });
+
+  const belastungen = umsaetze.filter(u => u.istBelastung);
+  const nichtZugeordnet = [];
+
+  belastungen.forEach(u => {
+    u.zugeordnetZu = "";                       // Vorlauf zurücksetzen (Datei erneut geprüft)
+
+    // IBAN zuerst — sie ist eindeutig. Der Name ist nur der Notnagel für
+    // Auszüge, die keine Empfänger-IBAN mitliefern.
+    let kandidaten = (u.iban && nachIban.get(u.iban)) || [];
+    let ueberName = false;
+    if (!kandidaten.length) {
+      kandidaten = nachName.get(_camtNameKey(u.name)) || [];
+      ueberName = kandidaten.length > 0;
+    }
+
+    const frei = kandidaten.filter(p => !p.umsatz);
+    if (!frei.length) { nichtZugeordnet.push(u); return; }
+
+    // Bei mehreren freien Kandidaten gewinnt der mit exakt passendem Betrag —
+    // sonst schnappt der erste sich die Buchung und für den zweiten meldet der
+    // Bericht eine Abweichung, die es gar nicht gibt.
+    const treffer = frei.find(p => _cent(p.kandidat.betrag) === _cent(u.betrag)) || frei[0];
+    treffer.umsatz = u;
+    treffer.ueberName = ueberName;
+    u.zugeordnetZu = treffer.name;
+  });
+
+  const bezahlt = [], abweichend = [], offen = [];
+  posten.forEach(p => {
+    if (!p.umsatz) offen.push(p);
+    else if (_cent(p.umsatz.betrag) === _cent(p.kandidat.betrag)) bezahlt.push(p);
+    else abweichend.push(p);
+  });
+
+  return { bezahlt, abweichend, offen, nichtZugeordnet, anzahlBelastungen: belastungen.length };
+}
+
+// Bucht die Bank die Sammelüberweisung als EINE Zeile ohne Einzelposten, findet
+// der Abgleich naturgemäß keine einzige Zahlung wieder und meldete sonst
+// wahrheitswidrig „alle fehlen“. Erkennbar ist der Fall an einer nicht
+// zugeordneten Belastung, die entweder ausdrücklich als Sammelposten
+// ausgewiesen ist oder exakt der Summe der vermissten Zahlungen entspricht.
+function _camtSammelbuchung(nichtZugeordnet, offen) {
+  const summeOffen = _cent(offen.reduce((s, p) => s + p.kandidat.betrag, 0));
+  return nichtZugeordnet.find(u =>
+    u.sammelAnzahl > 1 || (summeOffen > 0 && _cent(u.betrag) === summeOffen)
+  ) || null;
+}
+
+// ─── Ablauf ───────────────────────────────────────────────────────────────────
+async function _pruefeKontoauszug(datei) {
+  const berichtEl = document.getElementById("bank-camt-bericht");
+  berichtEl.innerHTML = "";
+  _camtStand = null;
+  _setCamtCsvKnopf(false);
+
+  const { konten, umsaetze } = _parseCamt(await _leseXmlDatei(datei));
+  if (!umsaetze.length) {
+    _setBankExportError("Der Kontoauszug enthält keine Umsätze.");
+    return;
+  }
+
+  // Abgeglichen wird gegen dieselbe Menge, aus der auch die Zahlungsdatei
+  // entsteht — also inklusive Suche, Filter und Gruppen-Auswahl.
+  const { zahlbar } = _bankExportKandidaten();
+  const abgleich = _camtAbgleich(umsaetze, zahlbar);
+
+  _camtStand = { dateiname: datei.name, konten, umsaetze };
+  _setCamtCsvKnopf(true);
+  _zeigeCamtBericht(berichtEl, datei.name, konten, umsaetze, abgleich, zahlbar.length);
+}
+
+function _setCamtCsvKnopf(aktiv) {
+  const btn = document.getElementById("btn-bank-camt-csv");
+  if (btn) btn.disabled = !aktiv;
+}
+
+// Wie _leseCsvDatei, aber die Kodierung steht bei XML in der Datei selbst.
+// Deshalb erst als UTF-8 lesen, die Deklaration auswerten und nur bei einer
+// abweichenden Angabe ein zweites Mal lesen — Auszüge älterer Banksoftware
+// kommen durchaus als ISO-8859-1.
+function _leseXmlDatei(datei) {
+  return new Promise((erfuellen, ablehnen) => {
+    const leser = new FileReader();
+    leser.onerror = () => ablehnen(new Error("Datei nicht lesbar."));
+    leser.onload = () => {
+      const alsUtf8 = leser.result;
+      const deklariert = (/<\?xml[^>]*encoding=["']([^"']+)["']/i.exec(alsUtf8 || "") || [])[1];
+      const kodierung = (deklariert || "utf-8").toLowerCase();
+      if (kodierung === "utf-8" || kodierung === "utf8") return erfuellen(alsUtf8);
+
+      const zweiterLeser = new FileReader();
+      zweiterLeser.onerror = () => erfuellen(alsUtf8);          // dann eben als UTF-8
+      zweiterLeser.onload = () => erfuellen(zweiterLeser.result);
+      zweiterLeser.readAsText(datei, kodierung);
+    };
+    leser.readAsText(datei, "utf-8");
+  });
+}
+
+// ─── Bericht ──────────────────────────────────────────────────────────────────
+function _zeigeCamtBericht(el, dateiname, konten, umsaetze, abgleich, anzahlErwartet) {
+  const { bezahlt, abweichend, offen, nichtZugeordnet } = abgleich;
+  const summeBezahlt = bezahlt.reduce((s, p) => s + p.umsatz.betrag, 0);
+  const gutschriften = umsaetze.length - abgleich.anzahlBelastungen;
+
+  const kontoZeilen = konten.map(k => {
+    const teile = [];
+    if (k.iban) teile.push(`Konto <strong>${_esc(k.iban)}</strong>`);
+    if (k.nummer) teile.push(`Auszug Nr. ${_esc(k.nummer)}`);
+    if (k.von || k.bis) teile.push(`${_fmtDateOnly(k.von) || "?"} – ${_fmtDateOnly(k.bis) || "?"}`);
+    if (k.saldoAnfang != null) teile.push(`Anfangssaldo ${_fmtBetrag(k.saldoAnfang, ",")} €`);
+    if (k.saldoEnde != null) teile.push(`Endsaldo ${_fmtBetrag(k.saldoEnde, ",")} €`);
+    return `<li>${teile.join(" · ")}</li>`;
+  }).join("");
+
+  const liste = (eintraege) =>
+    `<ul style="margin:6px 0 0; padding-left:20px;">${eintraege.join("")}</ul>`;
+
+  // Ein zugeordneter Umsatz ohne IBAN-Treffer ist nur wahrscheinlich richtig —
+  // das wird ausgewiesen, statt es als sichere Zahlung auszugeben.
+  const ueberNamen = bezahlt.filter(p => p.ueberName).length;
+
+  // Ohne erwartete Zahlungen gibt es nichts abzugleichen — dann wäre „0 von 0
+  // wiedergefunden“ eine Aussage, die nach einem Ergebnis klingt und keines ist.
+  const bezahltBlock = anzahlErwartet === 0 ? `
+    <p class="muted" style="margin:10px 0 0;">
+      In der aktuellen Auswahl gibt es keine Zahlung, gegen die sich der Auszug abgleichen ließe —
+      kein Trainer hat sowohl eine IBAN als auch eine Pauschale. Die Umsätze oben sind trotzdem gelesen.
+    </p>` : `
+    <p class="muted" style="margin:10px 0 0;">
+      <strong>${bezahlt.length} von ${anzahlErwartet}</strong>
+      ${anzahlErwartet === 1 ? "erwarteter Zahlung" : "erwarteten Zahlungen"} im Auszug wiedergefunden
+      (zusammen <strong>${_fmtBetrag(summeBezahlt, ",")} €</strong>).${ueberNamen ? `
+      <br /><em>${ueberNamen} davon nur über den Empfängernamen zugeordnet, nicht über die IBAN — bitte stichprobenhaft prüfen.</em>` : ""}
+    </p>`;
+
+  const abweichendBlock = abweichend.length ? `
+    <div class="error-banner visible" style="margin:10px 0 0;">
+      <strong>${abweichend.length} ${abweichend.length === 1 ? "Zahlung wurde" : "Zahlungen wurden"} mit einem anderen Betrag gebucht:</strong>
+      ${liste(abweichend.map(p => `<li>${_esc(p.name)} — erwartet ${_fmtBetrag(p.kandidat.betrag, ",")} €,
+        gebucht <strong>${_fmtBetrag(p.umsatz.betrag, ",")} €</strong>${p.umsatz.buchung ? ` am ${_fmtDateOnly(p.umsatz.buchung)}` : ""}</li>`))}
+    </div>` : "";
+
+  const offenBlock = offen.length ? `
+    <div class="error-banner visible" style="margin:10px 0 0;">
+      <strong>${offen.length} ${offen.length === 1 ? "Zahlung fehlt" : "Zahlungen fehlen"} im Auszug:</strong>
+      ${liste(offen.map(p => `<li>${_esc(p.name)} — ${_fmtBetrag(p.kandidat.betrag, ",")} € an ${_esc(p.kandidat.iban)}</li>`))}
+    </div>` : "";
+
+  // Nicht zugeordnete Belastungen werden vollständig gezeigt, nicht still
+  // verschluckt: darunter steckt sonst genau die Zahlung, die an eine falsche
+  // IBAN ging.
+  const restBlock = nichtZugeordnet.length ? `
+    <div class="muted" style="margin:10px 0 0;">
+      <strong>${nichtZugeordnet.length} ${nichtZugeordnet.length === 1 ? "Belastung" : "Belastungen"}</strong>
+      ${nichtZugeordnet.length === 1 ? "gehört" : "gehören"} zu keinem Trainer der aktuellen Auswahl:
+      ${liste(nichtZugeordnet.map(u => `<li>${u.buchung ? _fmtDateOnly(u.buchung) + " · " : ""}${_fmtBetrag(u.betrag, ",")} €
+        · ${_esc(u.name || "ohne Empfängernamen")}${u.iban ? ` · ${_esc(u.iban)}` : ""}${u.ausUnseremExport ? `
+        <em>(trägt unsere Referenz ${_esc(u.endToEnd)})</em>` : ""}</li>`))}
+    </div>` : "";
+
+  const sammel = _camtSammelbuchung(nichtZugeordnet, offen);
+  const sammelBlock = sammel ? `
+    <div class="error-banner visible" style="margin:10px 0 0;">
+      <strong>Der Auszug enthält die Überweisung offenbar als eine einzige Sammelbuchung</strong>
+      (${_fmtBetrag(sammel.betrag, ",")} €${sammel.sammelAnzahl > 1 ? ` über ${sammel.sammelAnzahl} Posten` : ""})
+      ohne die einzelnen Empfänger. Ein Abgleich je Trainer ist damit nicht möglich —
+      die Summe stimmt aber überein. Für einen Abgleich je Person braucht es einen Auszug
+      mit Einzelposten oder die Umsatzanzeige CAMT.054 der Bank.
+    </div>` : "";
+
+  el.innerHTML = `
+    <div class="muted" style="margin:0;">
+      <strong>${_esc(dateiname)}</strong> gelesen:
+      ${umsaetze.length} ${umsaetze.length === 1 ? "Umsatz" : "Umsätze"}
+      (${abgleich.anzahlBelastungen} ${abgleich.anzahlBelastungen === 1 ? "Belastung" : "Belastungen"},
+      ${gutschriften} ${gutschriften === 1 ? "Gutschrift" : "Gutschriften"}).
+      ${kontoZeilen ? `<ul style="margin:6px 0 0; padding-left:20px;">${kontoZeilen}</ul>` : ""}
+    </div>
+    ${sammelBlock}
+    ${bezahltBlock}
+    ${abweichendBlock}
+    ${offenBlock}
+    ${restBlock}`;
+}
+
+// ─── Umsätze als CSV ──────────────────────────────────────────────────────────
+// Brücke nach draußen: hier wird bewusst nichts gespeichert, aber die gelesenen
+// Bewegungen sollen sich weiterverarbeiten lassen — in der Buchhaltung der
+// Vereinsverwaltung, in Excel oder im Kassenbuch. Eigenes Format, keine
+// Vorgabe der Bank (anders als BANK_EXPORT_CSV_SPALTEN).
+const CAMT_CSV_SPALTEN = [
+  "Buchungstag", "Wertstellung", "Betrag", "Währung", "Soll/Haben",
+  "Name", "IBAN", "BIC", "Verwendungszweck", "Referenz (EndToEndId)",
+  "Zugeordnet zu", "Konto"
+];
+
+function _exportiereCamtUmsaetze() {
+  if (!_camtStand) return;
+
+  const zeilen = [CAMT_CSV_SPALTEN, ..._camtStand.umsaetze.map(u => [
+    _fmtDateOnly(u.buchung),
+    _fmtDateOnly(u.wert),
+    // Belastungen mit Minus: so ergibt eine Summenformel über die Spalte
+    // unmittelbar die Kontoveränderung.
+    _fmtBetrag(u.istBelastung ? -u.betrag : u.betrag, ","),
+    "EUR",
+    u.istBelastung ? "Soll" : "Haben",
+    u.name,
+    u.iban,
+    u.bic,
+    u.zweck,
+    u.endToEnd,
+    u.zugeordnetZu,
+    u.kontoIban
+  ])];
+
+  const csv = String.fromCharCode(0xFEFF) + zeilen.map(z => z.map(_csvCell).join(";")).join("\r\n");
+  _downloadBankDatei(csv, "text/csv;charset=utf-8;", `Kontoumsaetze_${_heuteIsoDatum()}.csv`);
 }
 
 function _exportFieldValue(t, f) {

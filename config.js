@@ -183,6 +183,12 @@ const SEPA_UMLAUT_MAP = {
 const SEPA_MAX_NAME = 70;
 const SEPA_MAX_VERWENDUNGSZWECK = 140;
 
+// Kennung, mit der jede von uns erzeugte SEPA-Datei ihre MsgId und ihre
+// EndToEndIds beginnt (_buildSepaXml in app.js). Der Kontoauszug-Abgleich
+// erkennt daran später eine Buchung wieder, die aus unserem eigenen Export
+// stammt — deshalb steht der Wert hier und nicht zweimal im Code.
+const SEPA_MSG_PRAEFIX = "SC1911";
+
 // PDF-Feldkoordinaten für das Vertragstemplate (Punkte, Ursprung unten-links, A4).
 // Diese Werte müssen nach Kalibrierung mit dem echten vertrag-template.pdf
 // angepasst werden. Bis dahin greift der Fallback-PDF-Pfad in pdf-utils.js.
@@ -221,6 +227,22 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.1",
+    groups: [
+      {
+        title: "Kontoauszug prüfen",
+        items: [
+          "Der Bank-Export hat einen Rückweg bekommen: Im neuen Bereich „Kontoauszug prüfen“ wird der Auszug aus dem Online-Banking eingelesen — Format CAMT.053, ebenso .052 und .054 — und gegen die Überweisungsliste gehalten. Das beantwortet die Frage nach der Zahlung: Ist das Geld bei jedem Trainer angekommen?",
+          "Der Bericht nennt jede wiedergefundene Zahlung, jede mit abweichendem Betrag samt erwartetem und tatsächlich gebuchtem Wert, jede fehlende — und jede Belastung des Kontos, die zu keinem Trainer der aktuellen Auswahl gehört. Nichts wird stillschweigend weggelassen.",
+          "Zugeordnet wird über die IBAN, ersatzweise über den Empfängernamen. Der Name wird auch in vertauschter Reihenfolge erkannt und in der Schreibweise, die für die Bank aus Umlauten wird — aus Hünermund wird dort Huenermund. Zahlungen, die nur über den Namen zugeordnet werden konnten, weist der Bericht getrennt aus.",
+          "Über dem Ergebnis stehen Konto, Auszugsnummer, Zeitraum sowie Anfangs- und Endsaldo aus dem Auszug.",
+          "Bucht die Bank die Sammelüberweisung als eine einzige Zeile ohne die einzelnen Empfänger, sagt der Bericht das ausdrücklich — sonst sähe es aus, als sei keine einzige Zahlung angekommen.",
+          "Gespeichert wird dabei nichts: die Datei bleibt im Browser, der Abgleich ist eine reine Kontrollansicht. Wer die Bewegungen weiterverarbeiten will, lädt sie mit „Umsätze als CSV“ herunter — mit Buchungstag, Betrag, Empfänger, Verwendungszweck und der jeweiligen Zuordnung."
+        ]
+      }
+    ]
+  },
   {
     version: "1.0",
     groups: [
