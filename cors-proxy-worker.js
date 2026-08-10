@@ -26,11 +26,39 @@ const ALLOWED_ORIGINS = [
   "https://tecko1985.github.io" // alte Adresse bis 2026-08: PWAs mit eigenem SW-Cache laufen dort noch
 ];
 const ALLOWED_TARGET_HOST = "nx88695.your-storageshare.de";
-// Dekodierter Pfad-Präfix (02_Förderung mit echtem Umlaut): die Ziel-URL kommt
-// je nach Client encoded (%C3%B6) oder roh an — verglichen wird deshalb immer
-// die decodeURIComponent-Form des Pfads (siehe isAllowedTarget).
-const ALLOWED_TARGET_PATH_PREFIX =
+// Dekodierte Pfade (02_Förderung mit echtem Umlaut): die Ziel-URL kommt je nach
+// Client encoded (%C3%B6) oder roh an — verglichen wird deshalb immer die
+// decodeURIComponent-Form des Pfads (siehe isAllowedTarget).
+const TOOLS_BASIS =
   "/remote.php/dav/files/admin/05_Nachwuchsbereich/02_Förderung/Tools/";
+
+// ⚠️ Bis 2026-08-10 stand hier TOOLS_BASIS selbst als Präfix — also der GANZE
+// Tools-Ordner. Darunter liegen 21 der 22 Dateien aus DAV_APPS: personalakte.json,
+// spielerplus.json (Kadermanager), vereinskalender.json, schulsport.json und der
+// Rest. Weil dieser Worker die Nextcloud-Zugangsdaten selbst injiziert und danach
+// nur noch canAdmin für EIN Tool prüft, war das Administrieren-Häkchen bei
+// Trainerdaten damit ein Lese- UND Schreibschlüssel für die Daten der halben
+// Flotte, komplett am Rechtemodell des Gateways vorbei. Gefunden beim
+// Flotten-Security-Audit am 2026-08-10.
+//
+// Der eigene Ordner bleibt als Präfix — darunter liegen neben trainerdaten.json
+// die Unterordner unterschriften/, kodex-unterschriften/,
+// jugendschutz-unterschriften/, fuehrerscheine/, fuehrungszeugnisse/,
+// trainerlizenzen/ und die erzeugten Verträge, alle über
+// davConfig.url.slice(0, lastIndexOf("/")) gebildet.
+const ALLOWED_TARGET_PATH_PREFIX = TOOLS_BASIS + "Trainerdaten/";
+
+// Die beiden Fremdquellen, die der Admin-Modus wirklich anspricht — beide nur
+// LESEND (_cloneConfigForUrl + davReadFile, siehe Trainerdaten/app.js:3946 und
+// :4276, Konstanten in Trainerdaten/config.js). Deshalb exakte Dateinamen statt
+// eines Ordner-Präfixes und nur GET: ein PUT oder DELETE auf personalkosten.json
+// war nie beabsichtigt und ist über diesen Weg jetzt auch nicht mehr möglich.
+// Das sind genau die zwei "offenen Aufräumpunkte" aus ToolsUebersicht/CLAUDE.md;
+// wer sie eines Tages auf dav-load umstellt, kann diese Menge leeren.
+const ALLOWED_TARGET_READONLY_PATHS = new Set([
+  TOOLS_BASIS + "Personalkosten/personalkosten.json",
+  TOOLS_BASIS + "TrainerCheckin/trainercheckin.json"
+]);
 
 export default {
   async fetch(request, env) {
@@ -53,7 +81,7 @@ export default {
     }
 
     const targetUrl = new URL(request.url).searchParams.get("url");
-    if (!isAllowedTarget(targetUrl)) {
+    if (!isAllowedTarget(targetUrl, request.method)) {
       return new Response("Invalid or missing url parameter", { status: 400, headers: corsHeaders });
     }
 
@@ -114,15 +142,24 @@ export default {
   }
 };
 
-// Ziel-Prüfung: exakter Host + Pfad unterhalb des Tools-Ordners. Verglichen wird
-// die decodeURIComponent-Form (02_F%C3%B6rderung und 02_Förderung meinen dieselbe
-// Ressource); nicht parse-/dekodierbare URLs fallen durch (fail-closed).
-function isAllowedTarget(targetUrl) {
+// Ziel-Prüfung: exakter Host + entweder ein Pfad im eigenen Trainerdaten-Ordner
+// oder eine der beiden namentlich erlaubten Fremddateien, letztere nur lesend.
+// Verglichen wird die decodeURIComponent-Form (02_F%C3%B6rderung und
+// 02_Förderung meinen dieselbe Ressource); nicht parse-/dekodierbare URLs fallen
+// durch (fail-closed).
+//
+// ⚠️ Gegen "../" schützt bereits new URL(): die WHATWG-Normalisierung räumt
+// Punkt-Segmente weg, auch in der %2e-Schreibweise, und fetch() unten folgt
+// derselben Regel — die geprüfte und die abgeschickte URL meinen also immer
+// dieselbe Ressource. Das gilt aber nur, solange verglichen wird, was new URL()
+// geliefert hat. Wer hier je auf den rohen String zurückgeht, reisst das auf.
+function isAllowedTarget(targetUrl, method) {
   if (!targetUrl) return false;
   let u;
   try { u = new URL(targetUrl); } catch (_) { return false; }
   if (u.protocol !== "https:" || u.hostname !== ALLOWED_TARGET_HOST) return false;
   let path;
   try { path = decodeURIComponent(u.pathname); } catch (_) { return false; }
-  return path.startsWith(ALLOWED_TARGET_PATH_PREFIX);
+  if (path.startsWith(ALLOWED_TARGET_PATH_PREFIX)) return true;
+  return method === "GET" && ALLOWED_TARGET_READONLY_PATHS.has(path);
 }
