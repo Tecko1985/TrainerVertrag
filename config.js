@@ -228,6 +228,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.2",
+    groups: [
+      {
+        title: "Kontaktliste des Vereins",
+        items: [
+          "Neuer Bereich „Kontaktliste des Vereins“ unter „Meine Daten“: Dort gibst du selbst frei, mit welchen Angaben du im neuen Werkzeug „Kontakte“ erscheinst. Von uns aus steht dort nichts über dich — ohne dein Häkchen bist du nicht in der Liste.",
+          "Gefragt wird einzeln: erst, ob du überhaupt mit deinem Namen in der Liste stehen möchtest, und darunter für Telefonnummer, E-Mail-Adresse und Anschrift getrennt. Du kannst also die Telefonnummer freigeben und die Anschrift für dich behalten.",
+          "Jedes Häkchen lässt sich jederzeit wieder entfernen. Die Angabe verschwindet dann sofort aus der Liste.",
+          "Die Freigabe gilt nur für angemeldete Personen des Vereins. Nach außen wird nichts veröffentlicht; Bankverbindung, Geburtsdatum und Dokumente sind in der Kontaktliste grundsätzlich nie zu sehen.",
+          "Der Bereich steht allen offen — auch denen, die keinen Trainervertrag bekommen. Gerade sie sollen ja erreichbar sein."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.1",
     groups: [
       {

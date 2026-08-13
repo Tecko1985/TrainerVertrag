@@ -72,6 +72,19 @@
 //     möglich) — Art/Gültig-bis beschreiben das Dokument selbst und bleiben bei
 //     einem Re-Upload (z.B. neuer Scan derselben Lizenz) unangetastet.
 //
+// SEIT 1.2 (Freigabe für die Kontaktliste des Vereins, App "kontakte"):
+//   { action: "kontakt-freigabe-speichern", name, telefon, email, adresse, vorname?, nachname? }
+//     -> setzt kontaktFreigabe = {name, telefon, email, adresse, aktualisiertAm} auf dem
+//     EIGENEN Datensatz (immer alle vier zusammen, kein Teil-Update; gleiches Stub-
+//     Matching wie bei den Uploads)
+//     -> { success:true, kontaktFreigabe }
+//     `name` ist der Hauptschalter: ohne ihn erscheint die Person überhaupt nicht in der
+//     Liste, auch wenn die anderen drei gesetzt sind (ein Eintrag ohne Namen ist kein
+//     Kontakt). Gelesen wird das Feld NICHT hier, sondern von der Gateway-Aktion
+//     `kontakte-liste` in ToolsUebersichts admin-worker.js, die serverseitig auf die
+//     freigegebenen Felder filtert.
+//     Bewusst NICHT in NUR_VERTRAGSPFLICHTIG_ACTIONS — Begründung am Handler.
+//
 // SEIT 1.6 (Trainerkodex, migriert aus dem eigenständigen trainerkodex-Tool, siehe
 // [[project-trainerkodex]]): Verhaltenskodex lesen + bestätigen ist jetzt Teil von
 // Trainerdaten statt einer eigenen App/Kachel.
@@ -334,6 +347,9 @@ export default {
     }
     if (body.action === "set-trainerlizenz-details") {
       return handleSetTrainerlizenzDetails(body, session, env, corsHeaders);
+    }
+    if (body.action === "kontakt-freigabe-speichern") {
+      return handleSetKontaktFreigabe(body, session, env, corsHeaders);
     }
     if (body.action === "delete-fuehrerschein-for-owner") {
       return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrerschein);
@@ -829,6 +845,60 @@ async function handleSetTrainerlizenzDetails(body, session, env, corsHeaders) {
   }
 
   return json({ success: true, trainerlizenzNichtVorhanden: nichtVorhanden, trainerlizenzArt: art, trainerlizenzGueltigBis: gueltigBis }, 200, corsHeaders);
+}
+
+// Trainer gibt frei, welche seiner Kontaktdaten in der Kontaktliste des Vereins
+// (App "kontakte", gelesen über die Gateway-Aktion kontakte-liste) erscheinen dürfen.
+// Immer alle vier Schalter zusammen, kein Teil-Update — gleiche Bauform wie
+// handleSetTrainerlizenzDetails, gleiches Stub-Matching (resolveOwnTrainerRecord).
+//
+// ⚠️ Bewusst NICHT über handleSubmit: das Hauptformular ist ein Alles-oder-nichts-
+// Absenden mit Pflichtfeldern (IBAN bzw. E-Mail). Ein Widerruf der Freigabe darf
+// nicht daran hängen, dass gerade alle Pflichtfelder ausgefüllt sind.
+//
+// ⚠️ Bewusst NICHT in NUR_VERTRAGSPFLICHTIG_ACTIONS: gerade die Nicht-Vertrags-
+// pflichtigen (Geschäftsstelle/Geschäftsführung) sind die, die erreichbar sein
+// müssen — ein 403 hier nähme der Kontaktliste die halbe Belegschaft.
+//
+// ⚠️ Gespeichert wird IMMER ein echter Boolean (`=== true`), nie der Rohwert aus
+// dem Body. Die lesende Seite prüft ebenfalls strikt auf `=== true`, damit ein
+// Bestandsdatensatz ohne das Feld und ein String wie "ja" beide als "nicht
+// freigegeben" gelten — das Fehlen muss hier in die geschlossene Richtung fallen.
+async function handleSetKontaktFreigabe(body, session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
+  const freigabe = {
+    name:    body.name === true,
+    telefon: body.telefon === true,
+    email:   body.email === true,
+    adresse: body.adresse === true,
+    aktualisiertAm: new Date().toISOString()
+  };
+  appData.trainer[idx].kontaktFreigabe = freigabe;
+
+  try {
+    const putResp = await fetch(env.NEXTCLOUD_URL, {
+      method: "PUT",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(appData, null, 2)
+    });
+    if (!putResp.ok) throw new Error(`Nextcloud PUT ${putResp.status}`);
+  } catch (e) {
+    return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
+  }
+
+  return json({ success: true, kontaktFreigabe: freigabe }, 200, corsHeaders);
 }
 
 // Kodex-Bestätigung (Name+Signatur, migriert aus dem eigenständigen trainerkodex-

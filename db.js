@@ -207,6 +207,33 @@ async function setTrainerlizenzDetails(details, vorname, nachname) {
   return data;
 }
 
+// Trainer gibt frei, welche seiner Kontaktdaten in der Kontaktliste des Vereins
+// erscheinen dürfen — immer alle vier Schalter zusammen (kein Teil-Update), gleiche
+// Bauform wie setTrainerlizenzDetails. `name` ist der Hauptschalter: ohne ihn steht die
+// Person gar nicht in der Liste. Gelesen wird die Freigabe nicht hier, sondern von der
+// Kontakte-App über die Gateway-Aktion `kontakte-liste`.
+async function saveKontaktFreigabe(freigabe, vorname, nachname) {
+  const token = getSessionToken();
+  if (!token) throw new NotLoggedInError();
+  const resp = await fetch(SUBMIT_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({
+      action: "kontakt-freigabe-speichern",
+      name:    freigabe.name === true,
+      telefon: freigabe.telefon === true,
+      email:   freigabe.email === true,
+      adresse: freigabe.adresse === true,
+      vorname: vorname || "",
+      nachname: nachname || ""
+    })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 // Trainer bestätigt den Kodex (Name kommt aus dem bereits bekannten Konto, nur die
 // Signatur ist neu) — analog zu submitDocument/setTrainerlizenzDetails (gleiches
 // Stub-Matching server-seitig über vorname/nachname).

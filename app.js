@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerKodex();
   _initTrainerJugendschutz();
   _initTrainerVertrag();
+  _initKontaktFreigabe();
   _initMainNav();
   _initAdminConnect();
   _initAdminPanel();
@@ -146,6 +147,7 @@ function _showTrainerConnectScreen(errorMsg) {
   document.getElementById("trainer-documents-panel").style.display = "none";
   document.getElementById("trainer-kodex-panel").style.display = "none";
   document.getElementById("trainer-jugendschutz-panel").style.display = "none";
+  document.getElementById("trainer-kontakt-panel").style.display = "none";
   const err = document.getElementById("trainer-connect-error");
   err.style.display = errorMsg ? "block" : "none";
   err.textContent = errorMsg || "";
@@ -163,10 +165,21 @@ function _showTrainerVertragsPanels() {
   return currentVertragspflichtig;
 }
 
+// Freigabe für die Kontaktliste — eigenes Panel, bewusst NICHT Teil von
+// _showTrainerVertragsPanels(): es hängt an keinem Trainervertrag. Gerade die
+// Nicht-Vertragspflichtigen (Geschäftsstelle, Geschäftsführung) sind die, die der
+// Verein erreichen können muss; würden sie hier mit ausgeblendet, fehlte ihnen der
+// einzige Weg, ihre eigenen Daten freizugeben.
+function _showKontaktFreigabePanel() {
+  document.getElementById("trainer-kontakt-panel").style.display = "";
+  _renderKontaktFreigabe();
+}
+
 function _showTrainerFormScreen() {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
+  _showKontaktFreigabePanel();
   if (_showTrainerVertragsPanels()) {
     // Canvas war bis eben in einem display:none-Screen, resize() konnte seine
     // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
@@ -394,6 +407,9 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "";
+  // ⚠️ VOR dem Early-Return: das Kontakt-Panel hängt nicht an der Vertragspflicht,
+  // ein Nicht-Vertragspflichtiger landet nach dem Absenden direkt hier.
+  _showKontaktFreigabePanel();
   if (!_showTrainerVertragsPanels()) return;
   kodexSigPad.resize();
   jugendschutzSigPad.resize();
@@ -986,6 +1002,95 @@ function _renderTrainerJugendschutzStatus() {
     statusEl.textContent = "⚠️ Noch nicht bestätigt.";
     submitBtn.textContent = "Ich bestätige";
     _setAccordionState("tf-jugendschutz-card", "open", "tf-jugendschutz-badge");
+  }
+}
+
+// ─── Freigabe für die Kontaktliste des Vereins (seit 1.2) ─────────────────────
+// Vier Schalter, immer zusammen gespeichert. `name` ist der Hauptschalter — ohne ihn
+// erscheint die Person gar nicht in der Kontaktliste, auch mit gesetzten Feld-Häkchen
+// (ein Eintrag ohne Namen ist kein Kontakt). Die Kontakte-App liest die Freigabe über
+// die Gateway-Aktion `kontakte-liste`, die serverseitig auf die freigegebenen Felder
+// filtert; das hier ist nur die Eingabeseite.
+
+function _initKontaktFreigabe() {
+  document.getElementById("btn-tf-kontakt-speichern").addEventListener("click", _handleKontaktFreigabeSubmit);
+  // Die drei Feld-Häkchen ohne Hauptschalter sind wirkungslos — statt sie zu sperren
+  // (ein gesperrtes Kästchen schluckt den Klick kommentarlos) werden sie sichtbar
+  // ausgegraut und der Hauptschalter zieht sie mit.
+  document.getElementById("tf-kontakt-name").addEventListener("change", _updateKontaktFelderZustand);
+}
+
+function _updateKontaktFelderZustand() {
+  const an = document.getElementById("tf-kontakt-name").checked;
+  const felder = document.getElementById("tf-kontakt-felder");
+  felder.style.opacity = an ? "" : "0.5";
+  felder.title = an ? "" : "Setz zuerst das Häkchen oben — sonst stehst du gar nicht in der Liste.";
+}
+
+// ⚠️ Überall `=== true` statt eines truthy-Checks: die Bestandsdatensätze haben das
+// Feld gar nicht, und ein Wert wie "ja" aus einem alten Client darf nicht als Freigabe
+// durchgehen. Das Fehlen muss hier in die geschlossene Richtung fallen — genau
+// umgekehrt zu `vertragspflichtig`, wo ein fehlendes Feld die Vollansicht bedeutet.
+function _renderKontaktFreigabe() {
+  const f = (myTrainerRecord && myTrainerRecord.kontaktFreigabe) || {};
+  document.getElementById("tf-kontakt-name").checked    = f.name === true;
+  document.getElementById("tf-kontakt-telefon").checked  = f.telefon === true;
+  document.getElementById("tf-kontakt-email").checked    = f.email === true;
+  document.getElementById("tf-kontakt-adresse").checked  = f.adresse === true;
+  _updateKontaktFelderZustand();
+
+  const statusEl = document.getElementById("tf-kontakt-status");
+  if (f.name === true) {
+    const zusatz = [
+      f.telefon === true ? "Telefon" : null,
+      f.email === true   ? "E-Mail"  : null,
+      f.adresse === true ? "Anschrift" : null
+    ].filter(Boolean);
+    statusEl.innerHTML = "✅ Du stehst in der Kontaktliste — sichtbar sind dein Name" +
+      (zusatz.length ? " sowie " + _esc(zusatz.join(", ")) : " (sonst nichts)") + ".";
+  } else if (f.aktualisiertAm) {
+    statusEl.textContent = "Du stehst nicht in der Kontaktliste. Das ist in Ordnung — die Freigabe ist freiwillig.";
+  } else {
+    statusEl.textContent = "Du hast dazu noch nichts entschieden. Bis dahin steht nichts über dich in der Liste.";
+  }
+
+  // Badge nie „open" (✗): das wäre ein offener Punkt, den man abarbeiten muss — hier
+  // ist beides eine gültige Entscheidung. Eine Einwilligung, zu der die Oberfläche
+  // drängt, wäre nicht mehr freiwillig.
+  _setAccordionState("tf-kontakt-card", f.name === true ? "done" : "na", "tf-kontakt-badge");
+}
+
+async function _handleKontaktFreigabeSubmit() {
+  const btn = document.getElementById("btn-tf-kontakt-speichern");
+  const err = document.getElementById("tf-kontakt-error");
+  const freigabe = {
+    name:    document.getElementById("tf-kontakt-name").checked,
+    telefon: document.getElementById("tf-kontakt-telefon").checked,
+    email:   document.getElementById("tf-kontakt-email").checked,
+    adresse: document.getElementById("tf-kontakt-adresse").checked
+  };
+  err.textContent = "";
+  btn.disabled = true;
+  try {
+    const res = await saveKontaktFreigabe(
+      freigabe,
+      document.getElementById("tf-vorname").value.trim() || currentVorname || "",
+      document.getElementById("tf-nachname").value.trim() || currentNachname || ""
+    );
+    // Aus der ANTWORT übernehmen, nicht aus dem lokalen Objekt: der Server setzt
+    // aktualisiertAm und normalisiert die Werte auf echte Booleans.
+    myTrainerRecord = { ...(myTrainerRecord || {}), kontaktFreigabe: res.kontaktFreigabe };
+    _renderKontaktFreigabe();
+    // Ohne diesen Zusatz passiert beim zweiten Druck auf denselben Stand sichtbar
+    // nichts — die Statuszeile ist dann unverändert und der Klick wirkt folgenlos.
+    const st = document.getElementById("tf-kontakt-status");
+    st.innerHTML = "<strong>Gespeichert.</strong> " + st.innerHTML;
+  } catch (e) {
+    err.textContent = e instanceof NotLoggedInError
+      ? "Deine Anmeldung ist abgelaufen. Bitte lade die Seite neu."
+      : "Konnte nicht gespeichert werden: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
 }
 
