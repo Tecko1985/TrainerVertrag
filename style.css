@@ -449,11 +449,3 @@ nav .nav-right { margin-left: auto; display: flex; gap: inherit; }
 @media (max-width: 820px) {
   input, select, textarea { font-size: 16px !important; }
 }
-/* ---------- Freigabe für die Kontaktliste (seit 1.2) ----------
-   Eigene Klasse statt der Inline-Angaben am Trainerlizenz-Häkchen, weil hier vier
-   Zeilen zusammengehören. ⚠️ Die Kästchen dürfen NICHT in `.form-field` stehen —
-   dort greift `input { width: 100% }` und macht aus jeder Checkbox einen Balken.
-   `flex: none` hält sie auch hier auf ihrer echten Größe, wenn die Beschriftung
-   am Handy umbricht. */
-.kontakt-check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.45; color: var(--text); cursor: pointer; }
-.kontakt-check input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin-top: 2px; }

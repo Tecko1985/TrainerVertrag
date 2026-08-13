@@ -228,6 +228,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.3",
+    groups: [
+      {
+        title: "Freigabe für die Kontaktliste ist umgezogen",
+        items: [
+          "Der Bereich „Kontaktliste des Vereins“ steht nicht mehr hier, sondern in der Tools-Übersicht im Tab „Mein Konto“. Dort gehört er hin: Es ist eine Einstellung an deinem Konto, kein Vertragsdatum.",
+          "Neu ist dabei, dass neben jedem Häkchen steht, was tatsächlich freigegeben würde — deine Nummer, deine Adresse.",
+          "Bereits gesetzte Freigaben bleiben unverändert bestehen. Du musst nichts neu machen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.2",
     groups: [
       {

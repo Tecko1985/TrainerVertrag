@@ -73,6 +73,14 @@
 //     einem Re-Upload (z.B. neuer Scan derselben Lizenz) unangetastet.
 //
 // SEIT 1.2 (Freigabe für die Kontaktliste des Vereins, App "kontakte"):
+//   Bedient wird das seit 1.3 NICHT mehr hier, sondern im Tab „Mein Konto" der
+//   ToolsUebersicht — die ruft diese beiden Aktionen direkt auf (gleicher Direktweg
+//   wie die Personalakte bei den Dokumenten). Gespeichert bleibt die Freigabe hier,
+//   weil sie sich auf DIESE Felder bezieht.
+//   { action: "my-kontakt-freigabe" } -> { vorhanden, kontaktFreigabe, werte }
+//     schmaler Leseweg: eigene Freigabe + eigene Kontaktwerte (Name, Telefon, E-Mail,
+//     Anschrift), NIE iban/bank/geburtsdatum/Dokumente. Bewusst nicht "my-submission",
+//     das den ganzen Datensatz liefert. Legt keinen Datensatz an.
 //   { action: "kontakt-freigabe-speichern", name, telefon, email, adresse, vorname?, nachname? }
 //     -> setzt kontaktFreigabe = {name, telefon, email, adresse, aktualisiertAm} auf dem
 //     EIGENEN Datensatz (immer alle vier zusammen, kein Teil-Update; gleiches Stub-
@@ -124,6 +132,7 @@
 const ALLOWED_ORIGINS = [
   "http://localhost:8769",
   "http://localhost:8783", // Personalakte (Dev-Server) -- ruft fuehrerschein-/fuehrungszeugnis-file-for-owner direkt hier ab
+  "http://localhost:8770", // ToolsUebersicht (Dev-Server) -- Karte "Kontaktliste des Vereins" im Tab "Mein Konto"
   "https://sc1911heiligenstadt.github.io",
   "https://tecko1985.github.io" // alte Adresse bis 2026-08: PWAs mit eigenem SW-Cache laufen dort noch
 ];
@@ -350,6 +359,9 @@ export default {
     }
     if (body.action === "kontakt-freigabe-speichern") {
       return handleSetKontaktFreigabe(body, session, env, corsHeaders);
+    }
+    if (body.action === "my-kontakt-freigabe") {
+      return handleMyKontaktFreigabe(session, env, corsHeaders);
     }
     if (body.action === "delete-fuehrerschein-for-owner") {
       return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrerschein);
@@ -845,6 +857,63 @@ async function handleSetTrainerlizenzDetails(body, session, env, corsHeaders) {
   }
 
   return json({ success: true, trainerlizenzNichtVorhanden: nichtVorhanden, trainerlizenzArt: art, trainerlizenzGueltigBis: gueltigBis }, 200, corsHeaders);
+}
+
+// Schmaler Leseweg für die Karte „Kontaktliste des Vereins" im Tab „Mein Konto"
+// der ToolsUebersicht (seit 1.3): die eigene Freigabe plus GENAU die Werte, um die
+// es dabei geht — damit dort nicht blind angekreuzt wird, sondern neben jedem
+// Häkchen steht, was freigegeben würde.
+//
+// ⚠️ Bewusst NICHT `my-submission` wiederverwendet, obwohl es dieselbe Person
+// betrifft: das liefert den GANZEN eigenen Datensatz inklusive IBAN, Bankverbindung
+// und Unterschrift. Für vier Häkchen und drei Anzeigewerte ist das zu viel — und die
+// Übersichtsseite ist die eine Seite der Flotte, die jeder ständig offen hat.
+// Minimal-Disclosure wie bei `raumnutzung-kontakt-lookup` im Gateway.
+//
+// ⚠️ Legt KEINEN Datensatz an (kein `resolveOwnTrainerRecord`): ein reiner Lesevorgang
+// beim Öffnen eines Tabs darf keine Zeile in `trainerdaten.json` erzeugen. Wer keinen
+// Datensatz hat, bekommt `vorhanden:false` und die Karte sagt das.
+async function handleMyKontaktFreigabe(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const mine = appData.trainer.find(t => t.username === session.username) || null;
+  if (!mine) {
+    return json({ vorhanden: false, kontaktFreigabe: null, werte: null }, 200, corsHeaders);
+  }
+  const f = mine.kontaktFreigabe || {};
+  return json({
+    vorhanden: true,
+    kontaktFreigabe: {
+      name:    f.name === true,
+      telefon: f.telefon === true,
+      email:   f.email === true,
+      adresse: f.adresse === true,
+      aktualisiertAm: typeof f.aktualisiertAm === "string" ? f.aktualisiertAm : ""
+    },
+    // Nur diese fünf Felder verlassen den Worker — nie iban/bankname/bic/
+    // geburtsdatum/Dokumentstatus/Vertragsfelder.
+    werte: {
+      vorname:  String(mine.vorname || "").trim(),
+      nachname: String(mine.nachname || "").trim(),
+      telefon:  String(mine.telefon || "").trim(),
+      email:    String(mine.email || "").trim(),
+      adresse: {
+        strasse: String(mine.strasse || "").trim(),
+        plz:     String(mine.plz || "").trim(),
+        ort:     String(mine.ort || "").trim()
+      }
+    }
+  }, 200, corsHeaders);
 }
 
 // Trainer gibt frei, welche seiner Kontaktdaten in der Kontaktliste des Vereins
