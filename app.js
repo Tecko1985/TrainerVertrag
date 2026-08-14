@@ -1514,8 +1514,12 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
-  document.getElementById("liste-filter-fz-ja").addEventListener("change", _renderAdminListe);
-  document.getElementById("liste-filter-fz-nein").addEventListener("change", _renderAdminListe);
+  // Führungszeugnis-Auswahl liegt im Export-Panel und verengt nur die
+  // Exportmenge — wie die Gruppen-Auswahl darunter genügt die Info-Zeile.
+  document.querySelectorAll(".export-fz-cb").forEach(cb => cb.addEventListener("change", () => {
+    _updateExportInfoLine();
+    _updateBankExportInfo();
+  }));
   // Delegation statt Einzel-Listener: die Gruppen-Checkboxen im Export-Panel
   // werden bei jedem Listen-Render neu gebaut (siehe _renderExportGruppenSection).
   // Sie wirken nur auf die Exportmenge, nicht auf die Bildschirmliste — deshalb
@@ -1773,8 +1777,6 @@ function _filteredTrainerList() {
   const statusFilter  = document.getElementById("liste-filter-status").value;
   const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
   const vertragFilter = document.getElementById("liste-filter-vertrag").value;
-  const fzJa          = document.getElementById("liste-filter-fz-ja").checked;
-  const fzNein        = document.getElementById("liste-filter-fz-nein").checked;
 
   return appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
@@ -1782,25 +1784,28 @@ function _filteredTrainerList() {
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
     if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
     if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
-    // Führungszeugnis: Vorhandensein hängt allein an fuehrungszeugnisEingereichtAm
-    // (dasselbe Feld, das _renderDocumentsSection und die Worker-Aktionen prüfen).
-    // Keine oder beide Checkboxen angekreuzt = keine Einschränkung (wie die
-    // Gruppen-Auswahl im Export-Panel: leere Auswahl heißt "alle").
-    if (fzJa !== fzNein) {
-      const hatFz = !!t.fuehrungszeugnisEingereichtAm;
-      if (fzJa && !hatFz) return false;
-      if (fzNein && hatFz) return false;
-    }
     return true;
   });
 }
 
+// Führungszeugnis-Auswahl aus dem Export-Panel. Vorhandensein hängt allein an
+// fuehrungszeugnisEingereichtAm — dasselbe Feld, das _renderDocumentsSection und
+// die Worker-Aktionen prüfen. Keins oder beide angekreuzt = keine Einschränkung
+// (gleiche Konvention wie die Gruppen-Auswahl darunter).
+function _fzExportGefiltert(liste) {
+  const ja   = document.getElementById("export-fz-ja").checked;
+  const nein = document.getElementById("export-fz-nein").checked;
+  if (ja === nein) return liste;
+  return liste.filter(t => !!t.fuehrungszeugnisEingereichtAm === ja);
+}
+
 // Exportmenge = sichtbare Liste, zusätzlich verengt auf die im Export-Panel
-// angekreuzten Gruppen (ODER-verknüpft; "__ohne__" = ohne Gruppenzuordnung).
-// Keine Gruppe angekreuzt = keine Einschränkung. Genutzt vom CSV-Export und
-// von der Info-Zeile, damit der Zähler immer die echte Exportmenge zeigt.
+// angekreuzten Gruppen (ODER-verknüpft; "__ohne__" = ohne Gruppenzuordnung)
+// und auf den Führungszeugnis-Stand. Nichts angekreuzt = keine Einschränkung.
+// Genutzt vom CSV-Export, vom Bank-Export und von der Info-Zeile, damit der
+// Zähler immer die echte Exportmenge zeigt.
 function _exportTrainerList() {
-  const basis = _filteredTrainerList();
+  const basis = _fzExportGefiltert(_filteredTrainerList());
   const auswahl = new Set(
     Array.from(document.querySelectorAll("#export-gruppen-section .export-gruppen-cb:checked")).map(cb => cb.dataset.value)
   );
@@ -1931,11 +1936,11 @@ function _updateExportInfoLine() {
   const checked = document.querySelectorAll(".export-field-cb:checked").length;
   const basisCount  = appData.trainer.length ? _filteredTrainerList().length : 0;
   const exportCount = appData.trainer.length ? _exportTrainerList().length : 0;
-  // Weicht die Exportmenge durch die Gruppen-Auswahl von der sichtbaren Liste
-  // ab, wird das explizit ausgewiesen statt still weggefiltert.
+  // Weicht die Exportmenge durch Führungszeugnis- oder Gruppen-Auswahl von der
+  // sichtbaren Liste ab, wird das explizit ausgewiesen statt still weggefiltert.
   el.textContent = exportCount === basisCount
     ? `${checked} von ${total} Feldern ausgewählt · exportiert ${exportCount} Trainer (aktuelle Filterung/Suche).`
-    : `${checked} von ${total} Feldern ausgewählt · exportiert ${exportCount} von ${basisCount} Trainern (aktuelle Filterung/Suche + Gruppen-Auswahl).`;
+    : `${checked} von ${total} Feldern ausgewählt · exportiert ${exportCount} von ${basisCount} Trainern (aktuelle Filterung/Suche + Auswahl unten).`;
 }
 
 function _handleExportCsv() {

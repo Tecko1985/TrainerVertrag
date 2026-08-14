@@ -480,16 +480,6 @@
                   <option value="offen">Vertrag nicht unterschrieben</option>
                 </select>
               </div>
-              <!-- Führungszeugnis: zwei Checkboxen statt eines Dropdowns (Michel-Vorgabe).
-                   Keine oder beide angekreuzt = keine Einschränkung. -->
-              <div class="form-field" style="flex:0 1 auto; margin-bottom:0; display:flex; align-items:center; gap:16px;">
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
-                  <input type="checkbox" id="liste-filter-fz-ja" /> Führungszeugnis da
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
-                  <input type="checkbox" id="liste-filter-fz-nein" /> Führungszeugnis fehlt
-                </label>
-              </div>
             </div>
             <div id="export-panel" style="display:none; background:var(--gray); border-radius:8px; padding:16px 18px; margin-bottom:16px;">
               <div class="detail-header" style="margin-bottom:0;">
@@ -500,6 +490,20 @@
                 </div>
               </div>
               <div id="export-field-groups"></div>
+              <!-- Verengt wie die Gruppen-Auswahl darunter NUR die Exportmenge,
+                   nicht die Bildschirmliste. Keins oder beide angekreuzt = alle. -->
+              <div id="export-fz-section">
+                <div class="section-divider" style="margin:14px 0 8px;">Führungszeugnis – nur ausgewählte exportieren</div>
+                <p class="muted" style="margin:0 0 8px; font-size:12px;">Nichts angekreuzt = alle exportieren. Beides angekreuzt wirkt genauso.</p>
+                <div class="form-grid" style="margin-bottom:0;">
+                  <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
+                    <input type="checkbox" class="export-fz-cb" id="export-fz-ja" /> Führungszeugnis eingereicht
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
+                    <input type="checkbox" class="export-fz-cb" id="export-fz-nein" /> Führungszeugnis fehlt
+                  </label>
+                </div>
+              </div>
               <div id="export-gruppen-section"></div>
               <p class="muted" id="export-info-line" style="margin:10px 0 14px;"></p>
               <div class="btn-row" style="justify-content:flex-start;">
@@ -927,13 +931,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.23"></script>
+<script src="config.js?v=1.24"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.5"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=3.1"></script>
+<script src="app.js?v=3.2"></script>
 </body>
 </html>

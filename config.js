@@ -231,11 +231,11 @@ const APP_CHANGELOG = [
     version: "1.4",
     groups: [
       {
-        title: "Filter: Führungszeugnis eingereicht oder nicht",
+        title: "Export nach Führungszeugnis eingrenzen",
         items: [
-          "In der Trainerliste gibt es zwei neue Häkchen: „Führungszeugnis da“ und „Führungszeugnis fehlt“. So siehst du mit einem Klick, wer noch eins abgeben muss.",
-          "Kein Häkchen oder beide gesetzt heißt: alle anzeigen, wie bisher.",
-          "Der Filter wirkt wie die anderen auch auf den CSV-Export und den Bank-Export — du kannst dir also direkt die Liste der Fehlenden herausziehen."
+          "Im CSV-Export gibt es einen neuen Bereich „Führungszeugnis – nur ausgewählte exportieren“ mit zwei Häkchen: „Führungszeugnis eingereicht“ und „Führungszeugnis fehlt“. So ziehst du dir mit einem Klick die Liste derer, die noch eins abgeben müssen.",
+          "Nichts angekreuzt = alle exportieren, wie bisher. Beides angekreuzt wirkt genauso.",
+          "Die Auswahl wirkt wie die Gruppen-Auswahl darunter nur auf den Export (CSV und Bank-Export), nicht auf die Liste am Bildschirm. Die Zeile über dem grünen Knopf sagt dir, wie viele Trainer dabei herauskommen."
         ]
       }
     ]
