@@ -233,7 +233,8 @@ const APP_CHANGELOG = [
       {
         title: "Filter: Führungszeugnis eingereicht oder nicht",
         items: [
-          "In der Trainerliste gibt es ein viertes Auswahlfeld: „Führungszeugnis eingereicht“ oder „Führungszeugnis fehlt“. So siehst du mit einem Klick, wer noch eins abgeben muss.",
+          "In der Trainerliste gibt es zwei neue Häkchen: „Führungszeugnis da“ und „Führungszeugnis fehlt“. So siehst du mit einem Klick, wer noch eins abgeben muss.",
+          "Kein Häkchen oder beide gesetzt heißt: alle anzeigen, wie bisher.",
           "Der Filter wirkt wie die anderen auch auf den CSV-Export und den Bank-Export — du kannst dir also direkt die Liste der Fehlenden herausziehen."
         ]
       }
