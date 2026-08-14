@@ -153,11 +153,35 @@ export default {
 // derselben Regel — die geprüfte und die abgeschickte URL meinen also immer
 // dieselbe Ressource. Das gilt aber nur, solange verglichen wird, was new URL()
 // geliefert hat. Wer hier je auf den rohen String zurückgeht, reisst das auf.
+//
+// ⚠️ GENAU DAS WAR BIS 2026-08-15 DER FALL — mit einem KODIERTEN Trenner (%2F).
+// new URL() zerlegt den Pfad an echten Schrägstrichen; ein %2F ist für die
+// Normalisierung ein gewöhnliches Zeichen, die Punkt-Segmente dahinter bleiben
+// also stehen. decodeURIComponent macht daraus danach echte Schrägstriche, und
+// der Vergleich sieht einen Pfad, der brav mit …/Tools/Trainerdaten/ beginnt —
+// während Zeile 132 den ROHEN String abschickt. Damit war die Verengung vom
+// 2026-08-10 für GET, PUT, DELETE und MKCOL umgehbar:
+//   …/Tools/Trainerdaten%2F..%2FPersonalakte%2Fpersonalakte.json
+//     geprüft:    …/Tools/Trainerdaten/../Personalakte/personalakte.json  → erlaubt
+//     abgeschickt: …/Tools/Trainerdaten%2F..%2FPersonalakte%2F…           → Traversal
+// Der Testsatz vom 2026-08-10 deckte "../" und "%2e%2e" ab, beide fallen korrekt
+// durch — die kodierte Trenner-Schreibweise stand nicht darin. Gefunden beim
+// Flotten-Security-Audit am 2026-08-15.
+//
+// Behoben mit einer Abweisung VOR dem Dekodieren: kein legitimer Pfad dieser
+// App trägt je einen kodierten Trenner (Nextcloud-Dateinamen können keinen
+// Schrägstrich enthalten), die Prüfung kostet also nichts. Sie steht bewusst
+// VOR decodeURIComponent — danach wäre der Unterschied zum echten Trenner weg.
+// %5C ist mitgenommen, weil new URL() rohe Backslashes zu Schrägstrichen
+// normalisiert, die kodierte Form aber stehen lässt.
+const KODIERTER_TRENNER_RE = /%2f|%5c/i;
+
 function isAllowedTarget(targetUrl, method) {
   if (!targetUrl) return false;
   let u;
   try { u = new URL(targetUrl); } catch (_) { return false; }
   if (u.protocol !== "https:" || u.hostname !== ALLOWED_TARGET_HOST) return false;
+  if (KODIERTER_TRENNER_RE.test(u.pathname)) return false;
   let path;
   try { path = decodeURIComponent(u.pathname); } catch (_) { return false; }
   if (path.startsWith(ALLOWED_TARGET_PATH_PREFIX)) return true;
