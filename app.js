@@ -1514,6 +1514,7 @@ function _initAdminPanel() {
   document.getElementById("liste-filter-status").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-lizenz").addEventListener("change", _renderAdminListe);
   document.getElementById("liste-filter-vertrag").addEventListener("change", _renderAdminListe);
+  document.getElementById("liste-filter-fz").addEventListener("change", _renderAdminListe);
   // Delegation statt Einzel-Listener: die Gruppen-Checkboxen im Export-Panel
   // werden bei jedem Listen-Render neu gebaut (siehe _renderExportGruppenSection).
   // Sie wirken nur auf die Exportmenge, nicht auf die Bildschirmliste — deshalb
@@ -1771,6 +1772,7 @@ function _filteredTrainerList() {
   const statusFilter  = document.getElementById("liste-filter-status").value;
   const lizenzFilter  = document.getElementById("liste-filter-lizenz").value;
   const vertragFilter = document.getElementById("liste-filter-vertrag").value;
+  const fzFilter      = document.getElementById("liste-filter-fz").value;
 
   return appData.trainer.filter(t => {
     if (searchTerm && !(t.vorname + " " + t.nachname).toLowerCase().includes(searchTerm)) return false;
@@ -1778,6 +1780,10 @@ function _filteredTrainerList() {
     if (lizenzFilter && (t.lizenz || "").trim() !== lizenzFilter) return false;
     if (vertragFilter === "unterschrieben" && !t.vertragUnterschriebenAm) return false;
     if (vertragFilter === "offen" && t.vertragUnterschriebenAm) return false;
+    // Führungszeugnis: Vorhandensein hängt allein an fuehrungszeugnisEingereichtAm
+    // (dasselbe Feld, das _renderDocumentsSection und die Worker-Aktionen prüfen).
+    if (fzFilter === "eingereicht" && !t.fuehrungszeugnisEingereichtAm) return false;
+    if (fzFilter === "offen" && t.fuehrungszeugnisEingereichtAm) return false;
     return true;
   });
 }

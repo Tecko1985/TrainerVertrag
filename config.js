@@ -228,6 +228,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.4",
+    groups: [
+      {
+        title: "Filter: Führungszeugnis eingereicht oder nicht",
+        items: [
+          "In der Trainerliste gibt es ein viertes Auswahlfeld: „Führungszeugnis eingereicht“ oder „Führungszeugnis fehlt“. So siehst du mit einem Klick, wer noch eins abgeben muss.",
+          "Der Filter wirkt wie die anderen auch auf den CSV-Export und den Bank-Export — du kannst dir also direkt die Liste der Fehlenden herausziehen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.3",
     groups: [
       {
