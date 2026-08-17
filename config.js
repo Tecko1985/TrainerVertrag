@@ -228,6 +228,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.5",
+    groups: [
+      {
+        title: "Startet schneller",
+        items: [
+          "Die PDF- und die ZIP-Bibliothek werden erst geladen, wenn wirklich eine Datei entsteht. Vorher kamen beide bei jedem Öffnen der Seite mit — zusammen 230 KB, auch für den Trainer, der nur seine Telefonnummer ändert.",
+          "Betroffen sind Vertrag als Word oder PDF, das Sammel-ZIP, der Bank-Export als Excel und der Führerschein-Sammelexport. Am Ablauf ändert sich nichts: beim ersten Erzeugen lädt die Bibliothek automatisch nach. Nur wenn dabei keine Internetverbindung besteht, sagt die App es jetzt deutlich."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.4",
     groups: [
       {

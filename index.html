@@ -929,15 +929,17 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.24"></script>
+<!-- pdf-lib und JSZip hängen bewusst NICHT hier: pdf-utils.js lädt sie beim ersten
+     Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
+     waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
+     Telefonnummer ändert. -->
+<script src="config.js?v=1.25"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.5"></script>
 <script src="signature-pad.js?v=1.0"></script>
-<script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=3.2"></script>
+<script src="pdf-utils.js?v=1.1"></script>
+<script src="app.js?v=3.3"></script>
 </body>
 </html>

@@ -1249,6 +1249,8 @@ async function _exportFuehrerscheinePdf() {
   btn.disabled = true;
   statusEl.textContent = "Erstelle PDF …";
   try {
+    // pdf-lib hängt nicht mehr fest im <head> (siehe Kopf von pdf-utils.js).
+    await ladePdfLib();
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
     const out = await PDFDocument.create();
     const font = await out.embedFont(StandardFonts.HelveticaBold);
@@ -2352,7 +2354,8 @@ function _xlsxText(roh) {
 }
 
 async function _buildVorlagenXlsx(o) {
-  if (typeof JSZip === "undefined") throw new Error("JSZip ist nicht geladen — bitte die Seite neu laden.");
+  // JSZip hängt nicht mehr fest im <head> (siehe Kopf von pdf-utils.js).
+  await ladeJsZip();
 
   // Kopfzeile + je Zahlung eine Zeile. Der Betrag bleibt hier eine echte Zahl:
   // als Text ("125,00") würde das Banktool ihn beim Import nicht als Betrag

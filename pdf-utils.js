@@ -8,7 +8,52 @@
 //   3. Falls kein Template: strukturiertes Fallback-PDF aus pdf-lib erstellen.
 // Die Trainer-Unterschrift wird in beiden Pfaden als PNG-Bild eingebettet.
 
+// ---------------------------------------------------------------------------
+// pdf-lib (202 KB) und JSZip (28 KB) hängen bewusst NICHT fest im <head>: zusammen
+// waren sie 230 KB bei JEDEM Seitenaufbau — auch für den Trainer, der nur seine
+// Telefonnummer ändert. Gebraucht werden sie ausschließlich beim Erzeugen einer
+// Datei (Vertrag, ZIP, signiertes PDF, Führerschein-Sammelexport).
+//
+// Erster Bedarf lädt nach, jeder weitere Aufruf bekommt dieselbe Promise. Gleiche
+// Bauform wie ladeJsZip in raumnutzung/app.js und ladeBibliothek in
+// vereinsverwaltung/db.js.
+//
+// ⚠️ Beide Funktionen sind global (klassisches Script, kein Modul) — app.js ruft
+// sie an seinen eigenen vier Stellen ebenfalls auf.
+const _bibliotheken = {};
+function _ladeBibliothek(name, url, globalName) {
+  if (typeof window[globalName] !== "undefined") return Promise.resolve();
+  if (_bibliotheken[url]) return _bibliotheken[url];
+  _bibliotheken[url] = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = () => {
+      if (typeof window[globalName] === "undefined") {
+        delete _bibliotheken[url];
+        reject(new Error(name + " geladen, aber nicht nutzbar — bitte Seite neu laden."));
+        return;
+      }
+      resolve();
+    };
+    s.onerror = () => {
+      delete _bibliotheken[url]; // nächster Versuch darf es erneut probieren
+      reject(new Error(name + " konnte nicht geladen werden (Internetverbindung nötig)."));
+    };
+    document.head.appendChild(s);
+  });
+  return _bibliotheken[url];
+}
+
+function ladePdfLib() {
+  return _ladeBibliothek("PDF-Bibliothek", "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js", "PDFLib");
+}
+
+function ladeJsZip() {
+  return _ladeBibliothek("ZIP-Bibliothek", "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js", "JSZip");
+}
+
 async function _buildPdfBlob(trainer) {
+  await ladePdfLib();
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   let pdfDoc;
   let useTemplate = false;
@@ -48,7 +93,8 @@ async function generiereVertrag(trainer) {
 // Admin haengt darueber die ausgelagerte Unterschrift an, ohne dass pdf-utils.js den
 // WebDAV-Weg kennen muss. Ohne den Hook wird die Liste unveraendert verarbeitet.
 async function generiereAlleVertraegeZip(trainerList, onProgress, prepareTrainer) {
-  if (typeof JSZip === "undefined") throw new Error("JSZip nicht geladen.");
+  // Beide parallel: dieser Weg erzeugt PDFs UND packt sie in ein Archiv.
+  await Promise.all([ladePdfLib(), ladeJsZip()]);
   const zip = new JSZip();
   let done = 0;
   const usedNames = new Set();
@@ -82,6 +128,7 @@ async function generiereAlleVertraegeZip(trainerList, onProgress, prepareTrainer
 // Fließtext, die selbst kein Datum tragen.
 // Gibt ein Uint8Array zurück (Aufrufer verpackt es in einen application/pdf-Blob).
 async function buildSignedVertragPdf(originalBytes, opts) {
+  await ladePdfLib();
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const doc = await PDFDocument.load(originalBytes);
   const font     = await doc.embedFont(StandardFonts.Helvetica);
@@ -292,9 +339,7 @@ function _b64ToUint8(b64) {
 // DOCX-Generierung via JSZip: lädt vertrag-template.docx, ersetzt {{PLATZHALTER}} in
 // word/document.xml und bietet die gefüllte Datei als Download an.
 async function generiereVertragDocx(trainer) {
-  if (typeof JSZip === "undefined") {
-    throw new Error("JSZip nicht geladen – bitte Seite neu laden.");
-  }
+  await ladeJsZip();
 
   const heute = new Date();
   const dd   = String(heute.getDate()).padStart(2, "0");
