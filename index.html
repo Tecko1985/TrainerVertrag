@@ -25,12 +25,6 @@
      Berechtigte ein (Admin oder Administrieren-Stufe für Trainerdaten). -->
 <nav id="main-nav">
   <button data-tab="meine" class="active" type="button">Meine Daten</button>
-  <!-- Downloads sieht JEDER Angemeldete, auch ohne Trainervertrag: das
-       Bestätigungsschreiben fürs erweiterte Führungszeugnis betrifft jeden mit
-       Kontakt zu Minderjährigen. Deshalb bewusst kein admin-only-tab und auch
-       kein Platz im Panel #trainer-documents-panel, das für Konten ohne
-       Vertragspflicht komplett ausgeblendet wird. -->
-  <button data-tab="downloads" type="button">Downloads</button>
   <button data-tab="liste" class="admin-only-tab" style="display:none;" type="button">Trainer</button>
   <button data-tab="import" class="admin-only-tab" style="display:none;" type="button">Import</button>
   <div class="nav-right">
@@ -406,51 +400,6 @@
       <div class="empty-state" id="tf-fs-register-empty" style="display:none;">Noch keine Führerschein-Kopien hinterlegt.</div>
       <div id="tf-fs-register-rows" style="overflow-x:auto;"></div>
     </div>
-  </div>
-
-</div>
-
-<!-- ===== DOWNLOADBEREICH (für alle Angemeldeten) ===== -->
-<!-- Eigener Top-Level-Container neben #trainer-flow und #admin-flow: braucht
-     weder WebDAV-Verbindung (läuft über den submit-worker wie der Trainer-
-     Bereich) noch eine Berechtigung. -->
-<div id="downloads-flow" style="display:none;">
-
-  <div class="card">
-    <h2 style="margin-bottom:6px;">Downloads</h2>
-    <p class="muted" style="line-height:1.5;">
-      Unterlagen, die der Verein für dich bereitstellt — zum Herunterladen, Ausdrucken
-      oder Weitergeben.
-    </p>
-    <p class="muted" id="dl-fehler" style="display:none; color:#c0392b; margin-top:10px;"></p>
-  </div>
-
-  <!-- Bestätigungsschreiben: die Karte erscheint nur für Freigegebene. Der Server
-       liefert die Freigabe mit (my-downloads) und weist einen Direktaufruf ohne
-       Freigabe ohnehin ab — die Karte auszublenden ist Bequemlichkeit, nicht das
-       Gate. -->
-  <div class="card" id="dl-efz-card" style="display:none;">
-    <h3 style="margin-bottom:6px;">Bestätigungsschreiben für die Meldebehörde</h3>
-    <p class="muted" style="line-height:1.5; margin-bottom:12px;">
-      Damit beantragst du beim Meldeamt dein <strong>erweitertes Führungszeugnis</strong>.
-      Das Schreiben bestätigt, dass du für den Verein ehrenamtlich mit Kindern und
-      Jugendlichen arbeitest — davon hängt auch ab, dass du keine Gebühr zahlst.
-      Deine Angaben, Stempel und Unterschrift sind schon eingetragen: herunterladen,
-      ausdrucken, mitnehmen.
-    </p>
-    <p class="muted" id="dl-efz-hinweis" style="display:none; margin-bottom:10px;"></p>
-    <div class="btn-row" style="justify-content:flex-start;">
-      <button type="button" class="btn" id="btn-dl-efz">Mein Bestätigungsschreiben (PDF)</button>
-    </div>
-    <p class="muted" id="dl-efz-geholt" style="display:none; margin-top:10px; font-size:12px;"></p>
-  </div>
-
-  <div class="card">
-    <h3 style="margin-bottom:10px;">Dateien des Vereins</h3>
-    <div class="empty-state" id="dl-dateien-empty" style="display:none;">
-      Der Verein hat hier noch nichts hinterlegt.
-    </div>
-    <div id="dl-dateien-rows"></div>
   </div>
 
 </div>
@@ -834,21 +783,6 @@
                 <button type="button" class="btn danger small" id="btn-d-vertrag-neuausstellung" disabled>Vertrag zurücksetzen (Neuausstellung)</button>
               </div>
             </div>
-            <!-- Bestätigungsschreiben fürs erweiterte Führungszeugnis: steht hier
-                 zwischen den Dokumenten, weil es zum selben Vorgang gehört —
-                 der Brief geht raus, das Zeugnis kommt zurück und landet zwei
-                 Zeilen darüber. -->
-            <div class="doc-row">
-              <div class="doc-row-main">
-                <span class="doc-row-label">Bestätigungsschreiben (Führungszeugnis)</span>
-                <span class="muted" id="d-efz-status">—</span>
-                <input type="text" id="d-efz-einsatz" placeholder="Einsatzbereich nur für diese Person (leer = Standard)" style="margin-top:6px; max-width:520px;" />
-              </div>
-              <div class="btn-row" style="justify-content:flex-start;">
-                <button type="button" class="btn small" id="btn-d-efz-freigeben">Freigeben</button>
-                <button type="button" class="btn danger small" id="btn-d-efz-entziehen" disabled>Freigabe entziehen</button>
-              </div>
-            </div>
             <p class="muted" id="d-doc-error" style="display:none; color:#c0392b; margin-top:6px; font-size:12px;"></p>
 
             <div class="section-divider">Status</div>
@@ -964,65 +898,6 @@
             <button class="btn secondary small" id="btn-disconnect">Verbindung trennen</button>
           </div>
         </div>
-        <!-- Downloadbereich: Dateien für alle + die Vereinsseite des
-             Bestätigungsschreibens. Beides wird über den normalen Admin-WebDAV-
-             Weg gespeichert, es braucht dafür keine eigene Worker-Aktion. -->
-        <div class="card">
-          <h3>Downloadbereich: Dateien</h3>
-          <p class="muted" style="margin-bottom:10px; line-height:1.5;">
-            Diese Dateien sieht <strong>jeder Angemeldete</strong> im Tab „Downloads“.
-            Nichts Vertrauliches hier ablegen — für etwas, das nur eine Person bekommen
-            soll, ist das der falsche Ort.
-          </p>
-          <div class="form-grid" style="margin-bottom:8px;">
-            <div class="form-field">
-              <label>Anzeigename</label>
-              <input type="text" id="dlv-name" placeholder="z. B. Merkblatt Führungszeugnis" />
-            </div>
-            <div class="form-field">
-              <label>Kurze Erklärung (freiwillig)</label>
-              <input type="text" id="dlv-beschreibung" placeholder="Wofür ist die Datei?" />
-            </div>
-          </div>
-          <div class="btn-row" style="justify-content:flex-start;">
-            <button type="button" class="btn small" id="btn-dlv-upload">Datei wählen und hochladen…</button>
-            <input type="file" id="dlv-file-input" style="display:none;" />
-            <span class="muted" id="dlv-status" style="font-size:12px;"></span>
-          </div>
-          <p class="muted" id="dlv-fehler" style="display:none; color:#c0392b; margin-top:8px; font-size:12px;"></p>
-          <div class="empty-state" id="dlv-empty" style="display:none; margin-top:10px;">Noch keine Datei hinterlegt.</div>
-          <div id="dlv-rows" style="margin-top:10px;"></div>
-        </div>
-
-        <div class="card">
-          <h3>Downloadbereich: Bestätigungsschreiben</h3>
-          <p class="muted" style="margin-bottom:10px; line-height:1.5;">
-            Absender, Einsatzbereich und Stempelbild für das Schreiben zur Beantragung des
-            erweiterten Führungszeugnisses. Ohne alle drei bleibt der Knopf bei den Trainern
-            gesperrt. Freigegeben wird dann pro Person in der Trainerliste.
-          </p>
-          <div class="form-field" style="margin-bottom:10px;">
-            <label>Absender (erscheint oben im Brief, erste Zeile ist der Vereinsname)</label>
-            <textarea id="efz-absender" rows="4" placeholder="1. SC 1911 Heiligenstadt e.V.&#10;Musterstraße 1&#10;37308 Heilbad Heiligenstadt"></textarea>
-          </div>
-          <div class="form-field" style="margin-bottom:10px;">
-            <label>Einsatzbereich (Standard für alle)</label>
-            <input type="text" id="efz-einsatz-standard" />
-          </div>
-          <div class="btn-row" style="justify-content:flex-start;">
-            <button type="button" class="btn small" id="btn-efz-speichern">Speichern</button>
-            <button type="button" class="btn secondary small" id="btn-efz-stempel">Stempelbild wählen…</button>
-            <input type="file" id="efz-stempel-input" accept="image/png,image/jpeg" style="display:none;" />
-            <span class="muted" id="efz-status" style="font-size:12px;"></span>
-          </div>
-          <p class="muted" id="efz-fehler" style="display:none; color:#c0392b; margin-top:8px; font-size:12px;"></p>
-          <div style="margin-top:10px;">
-            <span class="muted" style="font-size:12px;">Stempelbild: </span>
-            <span class="muted" style="font-size:12px;" id="efz-stempel-status">—</span>
-            <div><img id="efz-stempel-vorschau" alt="Stempelbild" style="display:none; max-width:220px; max-height:110px; margin-top:6px;" /></div>
-          </div>
-        </div>
-
         <div class="card">
           <h3>Vertrags-PDFs erzeugen (lokal)</h3>
           <p class="muted" style="margin-bottom:10px;">
@@ -1056,14 +931,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js?v=1.25"></script>
+<script src="config.js?v=1.24"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <script src="jugendschutz-text.js?v=1.0"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
-<script src="db.js?v=1.6"></script>
+<script src="db.js?v=1.5"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="efz-brief.js?v=1.0"></script>
-<script src="app.js?v=3.3"></script>
+<script src="app.js?v=3.2"></script>
 </body>
 </html>

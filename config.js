@@ -51,24 +51,6 @@ const FS_VIEW_GROUP_ID = "fuehrerschein-einsicht";
 // Worker-Cap DOC_MAX_FILE_BYTES in submit-worker.js passen.
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// ─── Downloadbereich (seit 1.5) ───────────────────────────────────────────────
-// Dateien, die der Verein allen zum Herunterladen bereitstellt, plus das
-// Bestätigungsschreiben zur Beantragung des erweiterten Führungszeugnisses.
-
-// Deckel für die Liste im Downloadbereich. Kein technisches Limit, sondern eine
-// Bremse: die Metadaten liegen in trainerdaten.json, die bei JEDER Einreichung
-// komplett übertragen wird (siehe die Signatur-Auslagerung im Changelog).
-const DOWNLOADS_MAX_DATEIEN = 30;
-
-// Vorschlag im leeren Einsatzbereich-Feld. Bewusst nur ein Platzhalter, keine
-// Vorbelegung — was der Verein der Behörde gegenüber erklärt, soll jemand
-// bewusst hinschreiben.
-const EFZ_EINSATZ_PLATZHALTER = "z. B. Trainer bzw. Betreuer im Nachwuchsbereich (Fußball)";
-
-// Nur Bildformate: das Stempelbild wird als Grafik ins PDF gezeichnet, und
-// pdf-lib kann ausschließlich PNG und JPEG einbetten.
-const EFZ_STEMPEL_TYPEN = ["image/png", "image/jpeg"];
-
 // Auswahlwerte für das Lizenzart-Dropdown im Trainerlizenz-Dokumentenbereich (nicht
 // zu verwechseln mit dem bestehenden Freitext-Feld "Lizenz" für den Vertrag/
 // {{LIZENZ}}-Platzhalter, siehe CLAUDE.md). Einzige Quelle für beide <select>-Felder
@@ -245,34 +227,6 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
-  {
-    version: "1.5",
-    groups: [
-      {
-        title: "Neuer Tab „Downloads“",
-        items: [
-          "Es gibt einen neuen Tab „Downloads“. Dort legt der Verein Dateien ab, die du dir herunterladen und ausdrucken kannst — Merkblätter, Vordrucke, Formulare.",
-          "Den Tab sieht jeder, der hier angemeldet ist. Auch wer keinen Trainervertrag bekommt."
-        ]
-      },
-      {
-        title: "Bestätigungsschreiben fürs erweiterte Führungszeugnis",
-        items: [
-          "Wer sein erweitertes Führungszeugnis selbst beantragen muss (weil er nicht in Heiligenstadt gemeldet ist), findet im Tab „Downloads“ den Knopf „Mein Bestätigungsschreiben“.",
-          "Das Schreiben kommt als PDF heraus — mit deinem Namen, Geburtsdatum und deiner Anschrift schon eingetragen, dazu Stempel und Unterschrift des Vereins. Ausdrucken und beim Meldeamt vorlegen.",
-          "Der Knopf erscheint erst, wenn die Geschäftsstelle dich freigeschaltet hat. Sobald das passiert, bekommst du eine Meldung aufs Handy (abschaltbar in der Tools-Übersicht unter „Mein Konto“).",
-          "Fehlt bei dir noch das Geburtsdatum oder die Anschrift, sagt der Knopf das und bleibt gesperrt — ein Schreiben mit Lücke nimmt die Behörde nicht an. Trag die Angaben unter „Meine Daten“ nach."
-        ]
-      },
-      {
-        title: "Für die Geschäftsstelle",
-        items: [
-          "Im Tab „Einstellungen“ werden die Dateien für den Downloadbereich hochgeladen und der Absender, der Standard-Einsatzbereich und das Stempelbild für das Schreiben hinterlegt.",
-          "In der Trainerliste gibt es bei jeder Person die Zeile „Bestätigungsschreiben“: freigeben, wieder entziehen und ein eigener Einsatzbereich nur für diese Person. Dort steht auch, wann sie ihr Schreiben zuletzt geholt hat."
-        ]
-      }
-    ]
-  },
   {
     version: "1.4",
     groups: [
