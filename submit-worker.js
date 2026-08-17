@@ -93,6 +93,28 @@
 //     freigegebenen Felder filtert.
 //     Bewusst NICHT in NUR_VERTRAGSPFLICHTIG_ACTIONS — Begründung am Handler.
 //
+// SEIT 1.5 (Downloadbereich + Bestätigungsschreiben fürs erweiterte Führungszeugnis):
+//   { action: "my-downloads" } -> { dateien:[…], efz:{freigegeben, einsatzbereich,
+//     zuletztGeholtAm, fehlend:[…]} }
+//     Alles, was der Tab „Downloads" zum Zeichnen braucht, in EINEM Request. Legt
+//     keinen Datensatz an (wie my-kontakt-freigabe). `fehlend` nennt die eigenen
+//     Felder, ohne die der Brief nicht erzeugt werden darf — der Client sperrt den
+//     Knopf damit und sagt, was fehlt.
+//   { action: "download-datei", id } -> rohe Datei-Bytes | 404
+//     Die id MUSS in appData.downloads.dateien stehen; ohne diesen Abgleich wäre die
+//     Aktion ein Leseweg auf jeden Dateinamen im downloads/-Ordner.
+//   { action: "efz-brief-daten" } -> { person, absender, einsatzbereich, stempelBase64 }
+//     NUR für Freigegebene (403 sonst) und einziger Weg zum Stempelbild. Setzt
+//     efzFreigabe.zuletztGeholtAm.
+//   { action: "efz-push", trainerId }  (Administrieren-Stufe für „trainerdaten")
+//     -> { ok:true, infrage } — schickt nur eine Meldung, schreibt nichts.
+//     ⚠️ Der Empfänger kommt aus dem DATENSATZ, nie aus dem Request (gleiches
+//     Prinzip wie handleVorgangPush im Gateway), und die Aktion prüft vorher, dass
+//     dort wirklich eine Freigabe steht.
+//   Hochgeladene Dateien, Stempelbild und die Freigabe selbst schreibt der Admin
+//   über den bestehenden WebDAV-Weg (cors-proxy-worker) — dafür braucht es hier
+//   keine Aktion. Nur der Push geht nicht ohne Worker.
+//
 // SEIT 1.6 (Trainerkodex, migriert aus dem eigenständigen trainerkodex-Tool, siehe
 // [[project-trainerkodex]]): Verhaltenskodex lesen + bestätigen ist jetzt Teil von
 // Trainerdaten statt einer eigenen App/Kachel.
@@ -362,6 +384,18 @@ export default {
     }
     if (body.action === "my-kontakt-freigabe") {
       return handleMyKontaktFreigabe(session, env, corsHeaders);
+    }
+    if (body.action === "my-downloads") {
+      return handleMyDownloads(session, env, corsHeaders);
+    }
+    if (body.action === "download-datei") {
+      return handleDownloadDatei(body, session, env, corsHeaders);
+    }
+    if (body.action === "efz-brief-daten") {
+      return handleEfzBriefDaten(session, env, corsHeaders);
+    }
+    if (body.action === "efz-push") {
+      return handleEfzPush(body, session, env, corsHeaders, request);
     }
     if (body.action === "delete-fuehrerschein-for-owner") {
       return handleDeleteDocumentForOwner(body, session, env, corsHeaders, DOCUMENT_TYPES.fuehrerschein);
@@ -1416,6 +1450,297 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
     return json({ error: "PDF gespeichert, aber Metadaten-Update fehlgeschlagen: " + e.message }, 502, corsHeaders);
   }
   return json({ success: true, vertragUnterschriebenAm: nowIso }, 200, corsHeaders);
+}
+
+// ─── Downloadbereich + Bestätigungsschreiben (seit 1.5) ───────────────────────
+//
+// Zwei Dinge im selben Tab, die sich eine Datenstruktur teilen:
+//   appData.downloads.dateien[]  -> was der Admin für alle hinterlegt hat
+//   appData.downloads.efz{}      -> Absender/Standardtext/Stempel für den Brief
+//   trainer[].efzFreigabe{}      -> wer den Brief ziehen darf
+//
+// ⚠️ Geschrieben wird all das vom Admin über den WebDAV-Weg (cors-proxy-worker),
+// nicht hier. Dieser Worker liest es nur — und ist damit die Schranke, die
+// verhindert, dass ein Trainer den Stempel oder eine fremde Datei bekommt.
+// Deshalb wird beim Ausliefern JEDER Wert neu normiert statt durchgereicht: was
+// in der Datei steht, hat kein Schema durchlaufen.
+const DOWNLOADS_SUBDIR = "downloads";
+
+// Das Stempelbild liegt bewusst in einem EIGENEN Unterordner, nicht als weitere
+// Datei unter downloads/. Sonst müsste "download-datei" es aktiv ausschließen —
+// so kann diese Aktion es gar nicht erst adressieren.
+const EFZ_SUBDIR = "efz";
+const EFZ_STEMPEL_DATEI = "stempel";
+
+function textFeld(wert, maxLaenge) {
+  const s = typeof wert === "string" ? wert : "";
+  return s.slice(0, maxLaenge);
+}
+
+// Lesendes Gegenstück zu resolveOwnTrainerRecord: findet den eigenen Datensatz,
+// legt aber KEINEN an (reine Anzeige darf keine Zeile erzeugen) und fällt auf
+// linkedUsername zurück. Der Fallback zählt hier wirklich: Michel kann jemanden
+// freigeben, dessen Datensatz noch ein Provisioning-Stub ohne `username` ist.
+function findOwnTrainerRecord(appData, session) {
+  const liste = Array.isArray(appData.trainer) ? appData.trainer : [];
+  return liste.find(t => t && t.username === session.username)
+      || liste.find(t => t && !t.username && t.linkedUsername === session.username)
+      || null;
+}
+
+function downloadsBlock(appData) {
+  const d = (appData && typeof appData.downloads === "object" && appData.downloads) || {};
+  return {
+    dateien: Array.isArray(d.dateien) ? d.dateien : [],
+    efz: (typeof d.efz === "object" && d.efz) || {}
+  };
+}
+
+// Die Felder, ohne die der Brief nicht erzeugt werden darf. Ein Schreiben mit
+// leerer Anschrift oder ohne Geburtsdatum ist bei der Meldebehörde wertlos —
+// lieber ein gesperrter Knopf mit Begründung als ein lückenhaftes Dokument
+// unter dem Vereinsstempel.
+function efzFehlendeFelder(t) {
+  const fehlt = [];
+  if (!String((t && t.vorname) || "").trim() || !String((t && t.nachname) || "").trim()) fehlt.push("Vor- und Nachname");
+  if (!String((t && t.geburtsdatum) || "").trim()) fehlt.push("Geburtsdatum");
+  if (!String((t && t.strasse) || "").trim()) fehlt.push("Straße und Hausnummer");
+  if (!String((t && t.plz) || "").trim() || !String((t && t.ort) || "").trim()) fehlt.push("PLZ und Ort");
+  return fehlt;
+}
+
+// Alles für den Tab „Downloads" in einem Request (piggyback statt zweitem Roundtrip).
+// Bewusst NICHT in NUR_VERTRAGSPFLICHTIG_ACTIONS: das erweiterte Führungszeugnis
+// betrifft jeden mit Kontakt zu Minderjährigen, auch Betreuer und Geschäftsstelle
+// ohne Trainervertrag.
+async function handleMyDownloads(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const { dateien, efz } = downloadsBlock(appData);
+  const mine = findOwnTrainerRecord(appData, session);
+  const f = (mine && typeof mine.efzFreigabe === "object" && mine.efzFreigabe) || null;
+
+  return json({
+    dateien: dateien.filter(d => d && typeof d.id === "string" && d.id).map(d => ({
+      id:            d.id,
+      name:          textFeld(d.name, 200) || textFeld(d.dateiName, 200) || "Datei",
+      beschreibung:  textFeld(d.beschreibung, 1000),
+      dateiName:     textFeld(d.dateiName, 200) || "datei",
+      contentType:   textFeld(d.contentType, 200) || "application/octet-stream",
+      groesse:       Number.isFinite(d.groesse) ? d.groesse : 0,
+      hochgeladenAm: textFeld(d.hochgeladenAm, 40)
+    })),
+    efz: {
+      // Ist die Vereinsseite überhaupt eingerichtet? Ohne Absender wäre der Brief
+      // ein Schreiben ohne Absender, ohne Stempel eines ohne Unterschrift.
+      bereit:         !!textFeld(efz.absender, 2000).trim() && !!textFeld(efz.stempelContentType, 200),
+      freigegeben:    !!f,
+      zuletztGeholtAm: f ? textFeld(f.zuletztGeholtAm, 40) : "",
+      fehlend:        f ? efzFehlendeFelder(mine) : []
+    }
+  }, 200, corsHeaders);
+}
+
+// ⚠️ Die id muss in der Liste stehen. Ohne diesen Abgleich könnte jeder Angemeldete
+// jeden beliebigen Dateinamen im downloads/-Ordner abrufen — auch eine, die der
+// Admin aus der Liste genommen, in der Nextcloud aber liegen gelassen hat.
+async function handleDownloadDatei(body, session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const id = String((body && body.id) || "");
+  const { dateien } = downloadsBlock(appData);
+  const eintrag = dateien.find(d => d && d.id === id);
+  if (!eintrag) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+
+  const fileUrl = trainerdatenDir(env) + "/" + DOWNLOADS_SUBDIR + "/" + encodeURIComponent(id);
+  let resp;
+  try {
+    resp = await fetch(fileUrl, { method: "GET", headers: { Authorization: authHeader } });
+  } catch (_) {
+    return json({ error: "Nextcloud nicht erreichbar" }, 502, corsHeaders);
+  }
+  if (resp.status === 404) return json({ error: "Datei nicht gefunden" }, 404, corsHeaders);
+  if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
+
+  return new Response(resp.body, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": textFeld(eintrag.contentType, 200) || "application/octet-stream",
+      "Cache-Control": "private, no-store"
+    }
+  });
+}
+
+// Der einzige Weg zum Stempelbild — deshalb hart an die Freigabe gebunden. Das PDF
+// selbst baut der Client (pdf-lib liegt dort ohnehin); hier entsteht nur der Inhalt,
+// den er einsetzen darf.
+async function handleEfzBriefDaten(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const mine = findOwnTrainerRecord(appData, session);
+  const f = (mine && typeof mine.efzFreigabe === "object" && mine.efzFreigabe) || null;
+  if (!f) return json({ error: "Für dich ist kein Bestätigungsschreiben freigegeben" }, 403, corsHeaders);
+
+  const fehlend = efzFehlendeFelder(mine);
+  if (fehlend.length) {
+    return json({ error: "Es fehlen noch Angaben: " + fehlend.join(", ") }, 409, corsHeaders);
+  }
+
+  const { efz } = downloadsBlock(appData);
+  const absender = textFeld(efz.absender, 2000).trim();
+  if (!absender) return json({ error: "Der Verein hat den Absender noch nicht hinterlegt" }, 409, corsHeaders);
+
+  // Je Person überschreibbar; leer heißt Standard aus den Einstellungen.
+  const einsatzbereich = textFeld(f.einsatzbereich, 500).trim()
+                      || textFeld(efz.einsatzStandard, 500).trim();
+  if (!einsatzbereich) return json({ error: "Der Verein hat den Einsatzbereich noch nicht hinterlegt" }, 409, corsHeaders);
+
+  let stempelBase64 = "";
+  const stempelCtype = textFeld(efz.stempelContentType, 200);
+  if (stempelCtype) {
+    const stempelUrl = trainerdatenDir(env) + "/" + EFZ_SUBDIR + "/" + EFZ_STEMPEL_DATEI;
+    try {
+      const sResp = await fetch(stempelUrl, { method: "GET", headers: { Authorization: authHeader } });
+      if (sResp.ok) {
+        const buf = new Uint8Array(await sResp.arrayBuffer());
+        if (buf.length) stempelBase64 = bytesToBase64(buf);
+      }
+    } catch (_) { /* ohne Stempel weiter — der Guard unten entscheidet */ }
+  }
+  if (!stempelBase64) {
+    return json({ error: "Der Verein hat noch kein Stempelbild hinterlegt" }, 409, corsHeaders);
+  }
+
+  // Abholzeitpunkt festhalten, damit in der Trainerliste steht, wer sein Schreiben
+  // schon hat. Scheitert der Schreibvorgang, wird der Brief trotzdem ausgeliefert:
+  // ein fehlender Zeitstempel ist ein kleineres Übel als ein verweigertes Dokument.
+  if (mine) {
+    mine.efzFreigabe = { ...f, zuletztGeholtAm: new Date().toISOString() };
+    try {
+      await fetch(env.NEXTCLOUD_URL, {
+        method: "PUT",
+        headers: { Authorization: authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify(appData, null, 2)
+      });
+    } catch (_) { /* siehe Kommentar */ }
+  }
+
+  return json({
+    person: {
+      vorname:      String(mine.vorname || "").trim(),
+      nachname:     String(mine.nachname || "").trim(),
+      geburtsdatum: String(mine.geburtsdatum || "").trim(),
+      strasse:      String(mine.strasse || "").trim(),
+      plz:          String(mine.plz || "").trim(),
+      ort:          String(mine.ort || "").trim()
+    },
+    absender,
+    einsatzbereich,
+    stempelBase64,
+    stempelContentType: stempelCtype
+  }, 200, corsHeaders);
+}
+
+// Prüft die Administrieren-Stufe für „trainerdaten" — dieselbe Schranke, die der
+// cors-proxy-worker vor den ganzen Admin-Bereich setzt. Bewusst NICHT session.isAdmin
+// wie bei den *-for-owner-Aktionen: wer die Trainerliste bedienen darf, muss auch
+// freigeben können, sonst sieht er einen Knopf, der für ihn immer scheitert.
+// Kostet einen zweiten Binding-Roundtrip und steht deshalb nur in Admin-Aktionen.
+async function hatTrainerdatenAdmin(env, authHeader) {
+  if (!authHeader) return false;
+  try {
+    const resp = await env.LANDINGPAGE.fetch("https://landingpage/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: authHeader },
+      body: JSON.stringify({ action: "check-edit-permission", app: "trainerdaten" })
+    });
+    if (!resp.ok) return false;
+    const r = await resp.json();
+    return !!(r && r.canAdmin === true);
+  } catch (_) {
+    return false;
+  }
+}
+
+// Meldung „dein Schreiben liegt bereit" nach dem Freigeben. Schreibt selbst nichts —
+// der Admin hat die Freigabe unmittelbar davor über den WebDAV-Weg gespeichert
+// (gleiche Arbeitsteilung wie handleVorgangPush im Gateway).
+//
+// ⚠️ Der Empfänger kommt aus dem Datensatz, nicht aus dem Request: sonst könnte ein
+// Bearbeiter beliebige Konten mit Meldungen belegen. Und es wird gegengeprüft, dass
+// dort wirklich eine Freigabe steht — eine Meldung über etwas, das nicht bereitliegt,
+// wäre schlimmer als gar keine.
+async function handleEfzPush(body, session, env, corsHeaders, request) {
+  const clientAuth = request.headers.get("Authorization") || "";
+  if (!(await hatTrainerdatenAdmin(env, clientAuth))) {
+    return json({ error: "Nicht berechtigt" }, 403, corsHeaders);
+  }
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const trainerId = String((body && body.trainerId) || "");
+  const t = (Array.isArray(appData.trainer) ? appData.trainer : []).find(x => x && x.id === trainerId);
+  if (!t) return json({ error: "Datensatz nicht gefunden" }, 404, corsHeaders);
+  if (!t.efzFreigabe || typeof t.efzFreigabe !== "object") {
+    return json({ error: "Für diesen Datensatz ist nichts freigegeben" }, 409, corsHeaders);
+  }
+
+  // Ein Stub ohne Konto kann keine Meldung bekommen — das ist kein Fehler, sondern
+  // der Hinweis an den Admin, dass er die Person selbst ansprechen muss.
+  const empfaenger = String(t.username || t.linkedUsername || "").trim();
+  if (!empfaenger) return json({ ok: true, infrage: 0, grund: "kein Konto verknüpft" }, 200, corsHeaders);
+
+  try {
+    const resp = await env.LANDINGPAGE.fetch("https://landingpage/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: clientAuth },
+      body: JSON.stringify({ action: "trainerdaten-push", empfaenger: [empfaenger] })
+    });
+    if (!resp.ok) return json({ ok: false, error: `Gateway ${resp.status}` }, 502, corsHeaders);
+  } catch (e) {
+    return json({ ok: false, error: "Gateway nicht erreichbar" }, 502, corsHeaders);
+  }
+  return json({ ok: true, infrage: 1 }, 200, corsHeaders);
 }
 
 function json(obj, status, corsHeaders) {
