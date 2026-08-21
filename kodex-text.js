@@ -1,5 +1,5 @@
 // Wortlaut des Trainerkodex, übernommen aus "Verhaltenskodex für Trainer_Funktionäre.docx"
-// (1. SC 1911 Heilbad Heiligenstadt). Ursprünglich in der eigenständigen App
+// (1. SC 1911 Heiligenstadt e.V.). Ursprünglich in der eigenständigen App
 // trainerkodex (siehe [[project-trainerkodex]]), seit 1.6 Teil von Trainerdaten.
 // Die Unterschriftszeile des Papierformulars ("Ort und Datum" / "Unterschrift
 // Trainer*in / Funktionär*in") ist bewusst nicht übernommen — das übernimmt das
@@ -14,10 +14,13 @@
 // Modul zwischen Worker und Frontend, gleiche Duplizierungs-Konvention wie an
 // anderen Stellen dieser App).
 const KODEX_IS_PLACEHOLDER = false;
-const KODEX_VERSION = "1.0";
+// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert -- "1. SC 1911 Heiligenstadt
+// e.V." statt "1. SC 1911 Heilbad Heiligenstadt". Inhaltlich unveraendert. Alte
+// Zusagen bleiben auf 1.0 stehen, niemand muss neu bestaetigen.
+const KODEX_VERSION = "1.1";
 
 const KODEX_HTML = `
-  <p class="muted">1. SC 1911 Heilbad Heiligenstadt — Verhaltenskodex für Trainer/Funktionäre</p>
+  <p class="muted">1. SC 1911 Heiligenstadt e.V. — Verhaltenskodex für Trainer/Funktionäre</p>
 
   <h3>Respekt und Würde</h3>
   <p>Ich behandle alle Kinder und Jugendlichen mit Respekt und Wertschätzung. Ich verzichte

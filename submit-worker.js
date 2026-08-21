@@ -177,11 +177,17 @@ const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
 // gemeinsames Modul zwischen Worker und Frontend, gleiche Duplizierungs-Konvention
 // wie an anderen Stellen dieser App). Server-autoritativ (wie username), damit ein
 // veralteter Client keine neuere Version behaupten kann als tatsächlich gezeigt.
-const KODEX_VERSION = "1.0";
+// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert -- "1. SC 1911 Heiligenstadt
+// e.V." statt "1. SC 1911 Heilbad Heiligenstadt". Inhaltlich unveraendert. Alte
+// Zusagen bleiben auf 1.0 stehen, niemand muss neu bestaetigen.
+const KODEX_VERSION = "1.1";
 
 // Muss manuell synchron zu JUGENDSCHUTZKONZEPT_VERSION in jugendschutz-text.js
 // gehalten werden (gleiche Duplizierungs-Konvention wie KODEX_VERSION oben).
-const JUGENDSCHUTZKONZEPT_VERSION = "1.0";
+// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert -- "1. SC 1911
+// Heiligenstadt e.V." statt "1. SC 1911 Heilbad Heiligenstadt". Inhaltlich
+// unveraendert. Alte Zusagen bleiben auf 1.0 stehen.
+const JUGENDSCHUTZKONZEPT_VERSION = "1.1";
 
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.

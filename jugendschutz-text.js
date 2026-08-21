@@ -1,5 +1,5 @@
 // Wortlaut des Kinder- und Jugendschutzkonzepts, Auszug aus "Konzeptpapier –
-// Nachwuchsförderung" (1. SC 1911 Heilbad Heiligenstadt, erstellt C. Preiß, 03.2026).
+// Nachwuchsförderung" (1. SC 1911 Heiligenstadt e.V., erstellt C. Preiß, 03.2026).
 // Gleiche Behandlung wie kodex-text.js (siehe dort) — eigenständige Bestätigung mit
 // Unterschrift, aber inhaltlich ein anderes Dokument (Schutzkonzept statt Verhaltenskodex).
 //
@@ -12,13 +12,16 @@
 // werden (kein gemeinsames Modul zwischen Worker und Frontend, gleiche Duplizierungs-
 // Konvention wie bei KODEX_VERSION).
 const JUGENDSCHUTZKONZEPT_IS_PLACEHOLDER = false;
-const JUGENDSCHUTZKONZEPT_VERSION = "1.0";
+// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert -- "1. SC 1911
+// Heiligenstadt e.V." statt "1. SC 1911 Heilbad Heiligenstadt". Inhaltlich
+// unveraendert. Alte Zusagen bleiben auf 1.0 stehen.
+const JUGENDSCHUTZKONZEPT_VERSION = "1.1";
 
 const JUGENDSCHUTZKONZEPT_HTML = `
-  <p class="muted">1. SC 1911 Heilbad Heiligenstadt — Kinder- und Jugendschutzkonzept (Auszug aus dem Konzeptpapier Nachwuchsförderung)</p>
+  <p class="muted">1. SC 1911 Heiligenstadt e.V. — Kinder- und Jugendschutzkonzept (Auszug aus dem Konzeptpapier Nachwuchsförderung)</p>
 
   <h3>1. Kinder- und Jugendschutzkonzept</h3>
-  <p>Der 1. SC 1911 Heilbad Heiligenstadt bekennt sich klar zum Schutz von Kindern, Jugendlichen
+  <p>Der 1. SC 1911 Heiligenstadt e.V. bekennt sich klar zum Schutz von Kindern, Jugendlichen
   und jungen Erwachsenen vor jeder Form von Gewalt, Missbrauch, Diskriminierung und
   Vernachlässigung. Ziel ist es, ein sicheres, respektvolles und vertrauensvolles Umfeld zu
   schaffen, in dem sich alle Spieler*innen frei entwickeln können.</p>
