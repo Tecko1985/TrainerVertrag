@@ -140,6 +140,28 @@ async function _initTrainerGateway() {
 }
 
 function _showTrainerConnectScreen(errorMsg) {
+  // ⚠️ Verstecken ist nicht Räumen. Diese Funktion wird auch MITTEN IM BETRIEB
+  // gerufen (_handleTrainerSubmit, _handleKodexSubmit und weitere) — dann steht
+  // das ausgefüllte Formular schon da, samt IBAN, Anschrift und Geburtsdatum,
+  // und display:none lässt es nur unsichtbar im DOM zurück.
+  //
+  // ⚠️ Anders als der Rest der Flotte hat diese App KEINE app-shell, sondern
+  // fünf einzelne Bildschirme. Wer hier einen sechsten ergänzt, muss ihn in
+  // beide Listen eintragen — sonst wird er zwar versteckt, aber nicht geräumt.
+  //
+  // Der Weg zurück führt nur über ein Neuladen der Seite, also darf alles weg.
+  ["trainer-form-screen", "trainer-success-screen", "trainer-documents-panel",
+   "trainer-kodex-panel", "trainer-jugendschutz-panel"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Formularwerte stehen nicht im Markup — ein leeres innerHTML erwischt sie
+    // nicht, und genau dort liegt die IBAN.
+    el.querySelectorAll("input, textarea").forEach((f) => {
+      if (f.type === "checkbox" || f.type === "radio") f.checked = false; else f.value = "";
+    });
+    el.innerHTML = "";
+  });
+
   document.getElementById("trainer-connect-screen").style.display = "";
   document.getElementById("trainer-form-screen").style.display = "none";
   document.getElementById("trainer-success-screen").style.display = "none";
