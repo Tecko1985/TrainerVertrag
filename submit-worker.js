@@ -182,12 +182,47 @@ const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
 // Zusagen bleiben auf 1.0 stehen, niemand muss neu bestaetigen.
 const KODEX_VERSION = "1.1";
 
-// Muss manuell synchron zu JUGENDSCHUTZKONZEPT_VERSION in jugendschutz-text.js
-// gehalten werden (gleiche Duplizierungs-Konvention wie KODEX_VERSION oben).
-// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert -- "1. SC 1911
-// Heiligenstadt e.V." statt "1. SC 1911 Heilbad Heiligenstadt". Inhaltlich
-// unveraendert. Alte Zusagen bleiben auf 1.0 stehen.
-const JUGENDSCHUTZKONZEPT_VERSION = "1.1";
+// ⚠️ NUR NOCH RÜCKFALLEBENE (seit 2026-08-29). Die geltende Fassungsnummer steht
+// in der Kinderschutz-App und wird bei jeder Bestaetigung frisch von dort gelesen
+// (ksGeltendeKonzeptVersion weiter unten). Diese Konstante greift nur, wenn dort
+// noch nichts gespeichert wurde oder die Datei nicht erreichbar ist.
+//
+// ⚠️ Die frueher hier stehende Regel "muss manuell synchron zu
+// jugendschutz-text.js gehalten werden" gilt NICHT mehr — genau diese
+// Handarbeit ist mit dem Umzug entfallen. Wer die Fassung aendern will, aendert
+// sie in der Kinderschutz-App.
+//
+// 1.1 (2026-08-21): nur der Vereinsname im Wortlaut korrigiert. Alte Zusagen
+// bleiben auf 1.0 stehen.
+const JUGENDSCHUTZKONZEPT_VERSION_FALLBACK = "1.1";
+
+// Die Ablage der Kinderschutz-App. Dieser Worker hat dieselben Nextcloud-Zugaenge
+// wie das Gateway und liest die Datei direkt — ein Umweg ueber das Service
+// Binding waere ein zweiter Weg zum selben Inhalt.
+const KINDERSCHUTZ_JSON_URL = "https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F\u00f6rderung/Tools/Kinderschutz/kinderschutz.json";
+
+// Die GERADE GELTENDE Fassungsnummer des Konzepts.
+//
+// ⚠️ Kein stiller Rueckfall bei einem Netzwerkfehler mitten in der Bestaetigung:
+// waere die Kinderschutz-App kurz weg, stuende in der Akte "1.1", obwohl der
+// Trainer 2.0 gelesen hat. Deshalb gibt diese Funktion null zurueck, und der
+// Aufrufer bricht ab. Der Rueckfall gilt nur fuer den Fall, dass dort ueberhaupt
+// noch kein Konzept gespeichert ist — dann ist 1.1 auch wirklich die geltende
+// Fassung, weil die App genau diese anzeigt.
+async function ksGeltendeKonzeptVersion(authHeader) {
+  let resp;
+  try {
+    resp = await fetch(KINDERSCHUTZ_JSON_URL, { headers: { Authorization: authHeader } });
+  } catch (_) {
+    return null;
+  }
+  if (resp.status === 404) return JUGENDSCHUTZKONZEPT_VERSION_FALLBACK;
+  if (!resp.ok) return null;
+  let doc;
+  try { doc = await resp.json(); } catch (_) { return null; }
+  const v = doc && doc.konzept && doc.konzept.version;
+  return v ? String(v) : JUGENDSCHUTZKONZEPT_VERSION_FALLBACK;
+}
 
 // Gruppe, deren Mitglieder (plus Admin) alle eingereichten Führerschein-Kopien im
 // Register einsehen dürfen — dieselbe Gruppe, die vorher im Fahrtenbuch galt.
@@ -1058,8 +1093,19 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
   } catch (e) {
     return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
   }
+  // ⚠️ Was hier gespeichert wird, MUSS die Fassung sein, die der Trainer eben
+  // auf dem Schirm hatte. Sonst belegt die Akte etwas, das nie stattgefunden hat.
+  const geltendeVersion = await ksGeltendeKonzeptVersion(authHeader);
+  if (!geltendeVersion) {
+    return json({ error: "Die geltende Fassung des Konzepts ist gerade nicht abrufbar. Bitte in ein paar Minuten erneut bestaetigen — es wurde nichts gespeichert." }, 503, corsHeaders);
+  }
+  const angezeigt = String(body.angezeigteVersion || "");
+  if (angezeigt && angezeigt !== geltendeVersion) {
+    return json({ error: "Das Konzept wurde gerade geaendert (Fassung " + geltendeVersion + "). Bitte lade die Seite neu, lies den Text noch einmal und bestaetige erneut." }, 409, corsHeaders);
+  }
+
   appData.trainer[idx].jugendschutzBestaetigtAm = nowIso;
-  appData.trainer[idx].jugendschutzVersion = JUGENDSCHUTZKONZEPT_VERSION;
+  appData.trainer[idx].jugendschutzVersion = geltendeVersion;
 
   try {
     const putResp = await fetch(env.NEXTCLOUD_URL, {
@@ -1072,7 +1118,7 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
     return json({ error: "Speicherfehler: " + e.message }, 502, corsHeaders);
   }
 
-  return json({ success: true, jugendschutzBestaetigtAm: nowIso, jugendschutzVersion: JUGENDSCHUTZKONZEPT_VERSION }, 200, corsHeaders);
+  return json({ success: true, jugendschutzBestaetigtAm: nowIso, jugendschutzVersion: geltendeVersion }, 200, corsHeaders);
 }
 
 // Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).

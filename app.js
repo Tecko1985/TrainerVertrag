@@ -778,8 +778,46 @@ function _initTrainerJugendschutz() {
     jugendschutzSigPad.clear();
   });
   document.getElementById("btn-tf-jugendschutz-submit").addEventListener("click", _handleJugendschutzSubmit);
-  document.getElementById("jugendschutz-placeholder-banner").style.display = JUGENDSCHUTZKONZEPT_IS_PLACEHOLDER ? "flex" : "none";
-  document.getElementById("jugendschutz-text").innerHTML = JUGENDSCHUTZKONZEPT_HTML;
+  _ladeJugendschutzText();
+}
+
+// Die Fassung, die dem Trainer WIRKLICH auf dem Schirm steht. Sie wird beim
+// Bestätigen mitgeschickt und dort gegengeprüft — siehe db.js.
+let jugendschutzAngezeigteVersion = JUGENDSCHUTZKONZEPT_VERSION;
+
+// ⚠️ Seit 2026-08-29 kommt der Wortlaut aus der Kinderschutz-App, nicht mehr aus
+// jugendschutz-text.js. Die lokale Datei ist nur noch die Rückfallebene für den
+// Fall, dass die Kinderschutz-App nicht erreichbar ist oder dort noch nichts
+// gespeichert wurde.
+//
+// ⚠️ Im Rückfall wird der Warnbanner GEZEIGT, auch wenn
+// JUGENDSCHUTZKONZEPT_IS_PLACEHOLDER false ist. Jemanden einen Text
+// unterschreiben zu lassen, ohne dass geprüft ist, ob er noch gilt, wäre genau
+// der stille Fehler, den die Fassungsnummer verhindern soll.
+async function _ladeJugendschutzText() {
+  const textEl = document.getElementById("jugendschutz-text");
+  const banner = document.getElementById("jugendschutz-placeholder-banner");
+  textEl.innerHTML = "<p class='muted'>Der Wortlaut wird geladen …</p>";
+  try {
+    const k = await ladeJugendschutzKonzept();
+    if (k) {
+      textEl.innerHTML = k.html;
+      jugendschutzAngezeigteVersion = k.version;
+      banner.style.display = k.istEntwurf ? "flex" : "none";
+      if (k.istEntwurf) {
+        banner.textContent = "Dieser Wortlaut ist noch ein Entwurf und vom Verein noch nicht freigegeben.";
+      }
+      return;
+    }
+    throw new Error("in der Kinderschutz-App ist noch kein Konzept hinterlegt");
+  } catch (e) {
+    textEl.innerHTML = JUGENDSCHUTZKONZEPT_HTML;
+    jugendschutzAngezeigteVersion = JUGENDSCHUTZKONZEPT_VERSION;
+    banner.style.display = "flex";
+    banner.textContent = "Achtung: Der Wortlaut konnte nicht aus der Kinderschutz-App geladen werden (" +
+      (e && e.message ? e.message : "unbekannter Grund") + "). Angezeigt wird die zuletzt bekannte Fassung " +
+      JUGENDSCHUTZKONZEPT_VERSION + ". Bitte prüfe vor dem Unterschreiben, ob sie noch gilt.";
+  }
 }
 
 async function _handleJugendschutzSubmit() {
@@ -796,7 +834,7 @@ async function _handleJugendschutzSubmit() {
   btn.textContent = "Wird übermittelt …";
   try {
     const signatureDataUrl = jugendschutzSigPad.toDataURL();
-    const data = await submitJugendschutzkonzept(signatureDataUrl, currentVorname, currentNachname);
+    const data = await submitJugendschutzkonzept(signatureDataUrl, currentVorname, currentNachname, jugendschutzAngezeigteVersion);
     myTrainerRecord = {
       ...(myTrainerRecord || {}),
       jugendschutzBestaetigtAm: data.jugendschutzBestaetigtAm,

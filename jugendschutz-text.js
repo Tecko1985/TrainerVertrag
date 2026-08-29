@@ -1,3 +1,21 @@
+// ⚠️ NUR NOCH RÜCKFALLEBENE (seit 2026-08-29).
+//
+// Der geltende Wortlaut lebt in der Kinderschutz-App (E:\kinderschutz) und wird
+// dort im Verwaltungsbereich gepflegt. Trainerdaten holt ihn beim Öffnen des
+// Reiters über die Aktion "kinderschutz-info" (siehe ladeJugendschutzKonzept in
+// db.js) und zeigt DIESEN Text an.
+//
+// Was hier steht, erscheint nur noch, wenn die Kinderschutz-App nicht erreichbar
+// ist oder dort noch nichts gespeichert wurde — und dann immer zusammen mit einem
+// sichtbaren Warnbanner. Wer den Wortlaut ändern will, ändert ihn in der
+// Kinderschutz-App, nicht hier.
+//
+// ⚠️ Die Fassung 2.0 (Zuständigkeit liegt bei der vereinsinternen Beauftragten,
+// nicht mehr bei der Villa Lampe) steht in E:\kinderschutz\inhalte-vorgabe.js
+// und gilt, sobald sie dort einmal gespeichert wurde. Ab diesem Moment müssen
+// alle Trainerinnen und Trainer neu bestätigen — das ist so gewollt, die
+// Meldestelle hat gewechselt.
+//
 // Wortlaut des Kinder- und Jugendschutzkonzepts, Auszug aus "Konzeptpapier –
 // Nachwuchsförderung" (1. SC 1911 Heiligenstadt e.V., erstellt C. Preiß, 03.2026).
 // Gleiche Behandlung wie kodex-text.js (siehe dort) — eigenständige Bestätigung mit

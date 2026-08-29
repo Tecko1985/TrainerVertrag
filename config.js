@@ -228,6 +228,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.8",
+    groups: [
+      {
+        title: "Das Schutzkonzept lebt jetzt in der Kinderschutz-App",
+        items: [
+          "Der Wortlaut des Kinder- und Jugendschutzkonzepts wird nicht mehr hier gepflegt, sondern in der neuen App „Kinder- und Jugendschutz“. Hier wird er nur noch angezeigt und unterschrieben.",
+          "Der Vorteil: Es gibt den Text nur noch an einer Stelle. Vorher hätte man ihn an zwei Orten gleich halten müssen — das geht auf Dauer schief.",
+          "Beim Bestätigen wird geprüft, ob die angezeigte Fassung noch die geltende ist. Wurde der Text in der Zwischenzeit geändert, sagt die App das und bittet um erneutes Lesen, statt eine Bestätigung für einen anderen Text abzulegen.",
+          "Ist die Kinderschutz-App gerade nicht erreichbar, zeigt dieser Reiter die zuletzt bekannte Fassung mit einem deutlichen Warnhinweis darüber — statt stillschweigend einen womöglich veralteten Text.",
+          "⚠️ Sobald die neue Fassung 2.0 in der Kinderschutz-App freigegeben ist, müssen alle Trainerinnen und Trainer neu bestätigen. Der Grund ist inhaltlich: Die Meldestelle hat gewechselt, sie liegt jetzt bei einer Person im Verein."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.7",
     groups: [
       {
