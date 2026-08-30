@@ -379,6 +379,22 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 }
 .error-banner.visible { display: block; }
 
+/* Hinweis-Banner (gelb): nicht Fehler, sondern "da fehlt noch was" -- steht auf
+   dem Bestätigungs-Screen über der Datenkarte. Anders als .error-banner ohne
+   .visible-Klasse: die Sichtbarkeit setzt _renderTrainerReceipt() direkt. */
+.hinweis-banner {
+  background: var(--gold-light);
+  color: var(--gold);
+  border: 1px solid #ecd9a8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
 /* Aufklappbare Karten (Trainer-Dokumente/-Bestätigungen) */
 .accordion-card { padding: 0; }
 .accordion-card > summary.accordion-summary {

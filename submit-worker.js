@@ -534,14 +534,29 @@ async function handleMySubmission(session, env, corsHeaders) {
 async function handleSubmit(body, session, env, corsHeaders) {
   const vertragspflichtig = session.vertragspflichtig;
 
-  // Pflichtfelder prüfen. Für Nicht-Vertragspflichtige tritt die E-Mail an die Stelle
-  // von IBAN/Nebentätigkeit: Kontaktaufnahme ist der einzige Zweck ihres Datensatzes,
-  // ein Eintrag ohne E-Mail wäre wertlos. Gleiche Bedingung wie das Ampel-Badge im
-  // Dashboard (handleMyTrainerdatenStatus) -- Formular und Ampel dürfen nie
-  // auseinanderlaufen.
+  // Pflichtfelder prüfen. Seit 1.9 muss JEDER die vollen Stammdaten liefern:
+  // die Geschäftsstelle braucht Anschrift, Telefon und E-Mail von allen, die sich
+  // anmelden, und ohne Geburtsdatum lässt sich eine Person nicht sicher von einer
+  // namensgleichen unterscheiden. Vertragspflichtige liefern zusätzlich Bankdaten
+  // und die Anlage-1-Erklärung.
+  //
+  // ⚠️ Dieselbe Liste steht als TRAINER_STAMMDATEN_PFLICHT /
+  // TRAINER_VERTRAGSFELDER_PFLICHT in app.js (Formular + Badge) und als Bedingung in
+  // handleMyTrainerdatenStatus (ToolsUebersicht/admin-worker.js, Ampel auf der
+  // Kachel). Alle drei müssen zusammen geändert werden -- sonst lässt eine Stelle
+  // durch, was die nächste ablehnt, oder die Ampel zeigt Grün für einen Datensatz,
+  // den das Formular nicht mehr speichern würde.
+  //
+  // ⚠️ Der BIC steht bewusst NICHT hier: bei Inlands-SEPA wird er nicht gebraucht
+  // (im XML steht dann NOTPROVIDED), und die wenigsten kennen ihn auswendig.
+  //
+  // ⚠️ Diese Prüfung hängt NUR am Hauptformular. Uploads, Kodex, Jugendschutz und
+  // der Widerruf einer Kontakt-Freigabe laufen über eigene Aktionen und dürfen nicht
+  // daran scheitern, dass gerade eine Stammangabe fehlt.
+  const STAMMDATEN_PFLICHT = ["vorname", "nachname", "geburtsdatum", "strasse", "plz", "ort", "telefon", "email"];
   const pflichtfelder = vertragspflichtig
-    ? ["vorname", "nachname", "iban", "nebentaetigkeit"]
-    : ["vorname", "nachname", "email"];
+    ? STAMMDATEN_PFLICHT.concat(["iban", "bankname", "nebentaetigkeit"])
+    : STAMMDATEN_PFLICHT;
   for (const field of pflichtfelder) {
     if (!body[field] || !String(body[field]).trim()) {
       return json({ error: `Pflichtfeld fehlt: ${field}` }, 400, corsHeaders);

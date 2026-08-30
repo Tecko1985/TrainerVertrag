@@ -222,9 +222,9 @@ function _applyVertragspflichtGate() {
   if (_introTextTrainer === null) _introTextTrainer = intro.textContent;
 
   document.getElementById("tf-vertragsdaten").style.display = currentVertragspflichtig ? "" : "none";
-  // E-Mail rückt an die Stelle von IBAN/Nebentätigkeit: einziges Pflichtfeld dieser
-  // Einreichungsart (gleiche Bedingung wie Worker-Prüfung und Dashboard-Ampel).
-  document.getElementById("tf-email-field").classList.toggle("required", !currentVertragspflichtig);
+  // Die E-Mail-Pflicht wird hier NICHT mehr umgeschaltet: sie gilt seit 1.9 -- wie
+  // Geburtsdatum, Anschrift und Telefon -- für beide Einreichungsarten und steht fest
+  // als Klasse "required" im HTML.
   intro.textContent = currentVertragspflichtig
     ? _introTextTrainer
     : "Bitte hinterleg hier deine Kontaktdaten, damit der Verein dich erreichen kann. " +
@@ -288,6 +288,66 @@ function _initTrainerForm() {
   });
 }
 
+// Die Stammdaten, die JEDER hinterlegen muss -- unabhängig davon, ob am Konto ein
+// Trainervertrag hängt. Die Geschäftsstelle braucht Anschrift, Telefon und E-Mail von
+// allen, die sich anmelden, und ohne Geburtsdatum lässt sich eine Person nicht sicher
+// von einer namensgleichen unterscheiden.
+//
+// EINE Quelle für Formular-Validierung, Karten-Badge und den Hinweis auf dem
+// Bestätigungs-Screen -- vorher standen dieselben Bedingungen mehrfach im Code.
+// ⚠️ Muss zu `pflichtfelder` in handleSubmit (submit-worker.js) und zur Ampel im
+// Gateway (handleMyTrainerdatenStatus in ToolsUebersicht/admin-worker.js) passen,
+// sonst lässt eine Stelle durch, was die nächste ablehnt.
+// ⚠️ Die Reihenfolge ist zugleich die Reihenfolge im Formular: gemeldet wird immer
+// das oberste fehlende Feld, damit man beim Ausfüllen nicht springen muss.
+const TRAINER_STAMMDATEN_PFLICHT = [
+  { key: "vorname",      feld: "tf-vorname",      label: "Vorname" },
+  { key: "nachname",     feld: "tf-nachname",     label: "Nachname" },
+  { key: "geburtsdatum", feld: "tf-geburtsdatum", label: "Geburtsdatum" },
+  { key: "strasse",      feld: "tf-strasse",      label: "Straße und Hausnummer" },
+  { key: "plz",          feld: "tf-plz",          label: "PLZ" },
+  { key: "ort",          feld: "tf-ort",          label: "Ort" },
+  { key: "telefon",      feld: "tf-telefon",      label: "Telefonnummer" },
+  { key: "email",        feld: "tf-email",        label: "E-Mail-Adresse" }
+];
+
+// Zusätzlich für alle mit Trainervertrag. Der BIC steht bewusst NICHT hier: bei
+// Inlands-SEPA wird er nicht gebraucht (dort steht NOTPROVIDED im XML), und wer ihn
+// nicht auswendig weiß, käme sonst gar nicht durch das Formular.
+// ⚠️ Die Nebentätigkeit hat kein `feld`: sie hängt an zwei Radios statt an einem
+// Input und wird im Formular deshalb weiter einzeln geprüft -- im gespeicherten
+// Datensatz aber wie die übrigen über `key`.
+const TRAINER_VERTRAGSFELDER_PFLICHT = [
+  { key: "iban",            feld: "tf-iban",     label: "IBAN" },
+  { key: "bankname",        feld: "tf-bankname", label: "Bankname" },
+  { key: "nebentaetigkeit", feld: null,          label: "Erklärung zur Nebentätigkeit" }
+];
+
+// Liefert das erste fehlende Pflichtfeld des Formulars als Label -- oder null.
+function _fehlendesFormularfeld() {
+  for (const f of TRAINER_STAMMDATEN_PFLICHT) {
+    if (!document.getElementById(f.feld).value.trim()) return f.label;
+  }
+  if (!currentVertragspflichtig) return null;
+  for (const f of TRAINER_VERTRAGSFELDER_PFLICHT) {
+    if (!f.feld) continue;
+    if (!document.getElementById(f.feld).value.trim()) return f.label;
+  }
+  return null;
+}
+
+// Dieselbe Prüfung auf einem GESPEICHERTEN Datensatz statt auf dem Formular -- für den
+// Bestätigungs-Screen, der Bestandsdaten zeigt, die vor dieser Regel entstanden sind.
+// Liefert alle fehlenden Labels, nicht nur das erste: dort soll man auf einen Blick
+// sehen, was insgesamt nachzutragen ist.
+function _fehlendeFelderImDatensatz(t) {
+  if (!t) return [];
+  const liste = currentVertragspflichtig
+    ? TRAINER_STAMMDATEN_PFLICHT.concat(TRAINER_VERTRAGSFELDER_PFLICHT)
+    : TRAINER_STAMMDATEN_PFLICHT;
+  return liste.filter(f => !String(t[f.key] || "").trim()).map(f => f.label);
+}
+
 // Aktualisiert das EINE Gesamt-Badge des Hauptformulars live bei jeder Eingabe (alle
 // vier Bereiche zusammen in einer Karte, kein Einzel-Badge pro Bereich) -- anders als
 // die übrigen Karten (Server-Status) ist das hier reiner Client-Zustand, noch nicht
@@ -296,16 +356,10 @@ function _initTrainerForm() {
 // einen eigenen ausgefüllt/nicht-Status) -- "✓" heißt hier also strenger als "Absenden
 // würde durchgehen": wirklich alles inkl. Unterschrift ist da.
 function _updateTrainerFormBadges() {
-  const vorname  = document.getElementById("tf-vorname").value.trim();
-  const nachname = document.getElementById("tf-nachname").value.trim();
-  const persoenlichOk = !!(vorname && nachname);
+  const pflichtOk = !_fehlendesFormularfeld();
 
-  // Ohne Vertragspflicht zählt nur, was die Person auch sieht: Name + E-Mail. Würde
-  // hier weiter die IBAN geprüft, stünde das Badge dauerhaft auf "offen" für ein Feld,
-  // das gar nicht im Formular ist.
   if (!currentVertragspflichtig) {
-    const emailOk = !!document.getElementById("tf-email").value.trim();
-    _setAccordionState("tf-hauptformular-card", (persoenlichOk && emailOk) ? "done" : "open", "tf-hauptformular-badge");
+    _setAccordionState("tf-hauptformular-card", pflichtOk ? "done" : "open", "tf-hauptformular-badge");
     return;
   }
 
@@ -318,7 +372,7 @@ function _updateTrainerFormBadges() {
 
   const unterschriftOk = !trainerSigPad.isEmpty();
 
-  const alles = persoenlichOk && ibanOk && nebenOk && unterschriftOk;
+  const alles = pflichtOk && ibanOk && nebenOk && unterschriftOk;
   _setAccordionState("tf-hauptformular-card", alles ? "done" : "open", "tf-hauptformular-badge");
 }
 
@@ -330,8 +384,11 @@ async function _handleTrainerSubmit(e) {
   const nachname = document.getElementById("tf-nachname").value.trim();
   const email    = document.getElementById("tf-email").value.trim().toLowerCase();
 
-  if (!vorname)  return _setTrainerError("Bitte Vorname eingeben.");
-  if (!nachname) return _setTrainerError("Bitte Nachname eingeben.");
+  // Stammdaten gelten für beide Einreichungsarten, die Vertragsfelder nur für
+  // Vertragspflichtige -- eine Quelle für Formular, Badge und Bestätigungs-Screen
+  // (siehe TRAINER_STAMMDATEN_PFLICHT). Der Worker prüft dasselbe noch einmal.
+  const fehlendesFeld = _fehlendesFormularfeld();
+  if (fehlendesFeld) return _setTrainerError("Bitte " + fehlendesFeld + " eingeben.");
 
   // Die Basisdaten sind für beide Einreichungsarten gleich; alles Weitere hängt am
   // Trainervertrag und wird nur geprüft/mitgeschickt, wenn es einen gibt. Die
@@ -367,14 +424,11 @@ async function _handleTrainerSubmit(e) {
 
     payload.iban = iban;
     payload.bankname = document.getElementById("tf-bankname").value.trim();
+    // BIC bleibt freiwillig, siehe TRAINER_VERTRAGSFELDER_PFLICHT.
     payload.bic = document.getElementById("tf-bic").value.trim().toUpperCase();
     payload.nebentaetigkeit = nebentaetigkeit;
     payload.nebentaetigkeitBetrag = nebentaetigkeit === "andere" ? nebentaetigkeitBetrag : "";
     payload.signatureDataUrl = trainerSigPad.toDataURL();
-  } else if (!email) {
-    // Einziges zusätzliches Pflichtfeld dieser Einreichungsart — ohne E-Mail wäre der
-    // Datensatz zwecklos, sie ist der Grund für das Formular (Kontaktaufnahme).
-    return _setTrainerError("Bitte E-Mail-Adresse eingeben, damit der Verein dich erreichen kann.");
   }
 
   const btn = document.getElementById("btn-trainer-submit");
@@ -472,6 +526,16 @@ function _setTrainerError(msg) {
 // Absenden und beim späteren Wiederkommen (Einreichung wird seit 1.6 serverseitig
 // über das Login-Konto wiedergefunden).
 function _renderTrainerReceipt(payload) {
+  // Bestandsdaten aus der Zeit vor den erweiterten Pflichtfeldern (1.9) sind lückenhaft.
+  // Ohne diesen Hinweis erführe niemand davon: der Bestätigungs-Screen sähe aus wie
+  // "alles erledigt", und das Formular meckerte erst beim nächsten Speichern.
+  const fehlend = _fehlendeFelderImDatensatz(payload);
+  const hinweis = document.getElementById("receipt-fehlend");
+  hinweis.textContent = fehlend.length
+    ? "Es fehlen noch Pflichtangaben: " + fehlend.join(", ") + ". Bitte unten auf „Bearbeiten“ klicken und ergänzen."
+    : "";
+  hinweis.style.display = fehlend.length ? "" : "none";
+
   document.getElementById("r-vorname").textContent = payload.vorname || "—";
   document.getElementById("r-nachname").textContent = payload.nachname || "—";
   document.getElementById("r-geburtsdatum").textContent = _fmtDateOnly(payload.geburtsdatum) || "—";

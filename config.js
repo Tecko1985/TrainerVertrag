@@ -228,6 +228,22 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.9",
+    groups: [
+      {
+        title: "Vollständige Angaben sind jetzt Pflicht",
+        items: [
+          "Wer sich zum ersten Mal anmeldet, landet hier und legt seine Daten an. Bisher reichten dafür Vorname und Nachname — der Rest war freiwillig. Ergebnis: Lücken bei Anschrift und Telefon, und die Geschäftsstelle musste hinterhertelefonieren.",
+          "Neu müssen alle ausfüllen: Vorname, Nachname, Geburtsdatum, Straße und Hausnummer, PLZ, Ort, Telefonnummer und E-Mail-Adresse.",
+          "Wer einen Trainervertrag bekommt, braucht zusätzlich IBAN, Bankname und die Erklärung zur Nebentätigkeit.",
+          "Der BIC bleibt absichtlich freiwillig: Bei einer deutschen IBAN wird er für die Überweisung nicht gebraucht, und die wenigsten kennen ihn auswendig.",
+          "Alle Pflichtfelder sind im Formular mit einem Sternchen gekennzeichnet. Fehlt eines, sagt die App beim Speichern, welches — und zwar immer das oberste, damit man nicht springen muss.",
+          "Wer seine Daten früher schon eingereicht hat, sieht auf der Bestätigungsseite jetzt einen gelben Hinweis mit genau den Angaben, die noch fehlen. Nachtragen geht über „Bearbeiten“."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.8",
     groups: [
       {

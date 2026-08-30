@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.6" />
+<link rel="stylesheet" href="style.css?v=1.7" />
 </head>
 <body>
 
@@ -78,19 +78,22 @@
         <div class="form-grid">
           <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
           <div class="form-field required"><label>Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
-          <div class="form-field"><label>Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
+          <div class="form-field required"><label>Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field" style="grid-column:1/-1;"><label>Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
-          <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
-          <div class="form-field"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
+          <div class="form-field required" style="grid-column:1/-1;"><label>Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
+          <div class="form-field required" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
+          <div class="form-field required"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
-          <!-- Für Nicht-Vertragspflichtige wird die E-Mail zum Pflichtfeld (Klasse
-               "required" setzt _applyVertragspflichtGate): sie ist der einzige Zweck
-               ihres Datensatzes und die Bedingung des Ampel-Badges im Dashboard. -->
-          <div class="form-field" id="tf-email-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
+          <div class="form-field required"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
+          <!-- Seit 1.9 sind Geburtsdatum, Anschrift, Telefon und E-Mail für BEIDE
+               Einreichungsarten Pflicht: die Geschäftsstelle braucht diese Angaben von
+               jedem, der sich anmeldet. Die Klasse "required" steht deshalb fest im
+               HTML und wird nicht mehr von _applyVertragspflichtGate() umgeschaltet.
+               BIC bleibt bewusst freiwillig — bei Inlands-SEPA nicht nötig, und die
+               wenigsten kennen ihn auswendig. -->
+          <div class="form-field required" id="tf-email-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
         </div>
 
         <!-- Bankverbindung / Anlage 1 / Unterschrift dienen ausschließlich dem
@@ -104,7 +107,7 @@
             <label>IBAN</label>
             <input type="text" id="tf-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
           </div>
-          <div class="form-field"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
+          <div class="form-field required"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
           <div class="form-field"><label>BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
         </div>
 
@@ -150,6 +153,11 @@
     <div class="success-icon">✅</div>
     <h2 id="success-heading">Danke!</h2>
     <p id="success-text">Deine Daten wurden erfolgreich eingereicht. Der Verein wird sich bei dir melden, sobald dein Trainervertrag fertig ist.</p>
+
+    <!-- Nur sichtbar, wenn im gespeicherten Datensatz Pflichtangaben fehlen -- das
+         betrifft Einträge aus der Zeit vor 1.9. Text und Sichtbarkeit setzt
+         _renderTrainerReceipt() in app.js. -->
+    <div class="hinweis-banner" id="receipt-fehlend" style="display:none;"></div>
 
     <div class="card receipt-card">
       <h3>Deine übermittelten Daten</h3>
@@ -933,13 +941,13 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.29"></script>
+<script src="config.js?v=1.30"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <script src="jugendschutz-text.js?v=1.2"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.6"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=3.5"></script>
+<script src="app.js?v=3.6"></script>
 </body>
 </html>
