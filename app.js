@@ -115,12 +115,29 @@ async function _initTrainerGateway() {
     // landete ein Nicht-Trainer nach dem Einreichen wieder auf dem leeren Formular
     // statt auf seiner Bestätigung, weil er nie eine iban bekommt.
     const eigenesPflichtfeldDa = saved && (currentVertragspflichtig ? saved.iban : saved.email);
-    if (eigenesPflichtfeldDa) {
+
+    // Seit 1.10: Lücken in den Pflichtangaben führen direkt ins vorausgefüllte
+    // Formular statt auf die Bestätigung. Das Gateway schickt Konten mit Lücken beim
+    // Anmelden hierher (`?pflichtdaten=1`) -- landeten sie dann auf einer Seite, die
+    // "Danke, bereits eingereicht" sagt, wäre die Weiterleitung sinnlos.
+    // ⚠️ Deshalb reicht `eigenesPflichtfeldDa` allein nicht mehr: das beantwortet
+    // "hat schon einmal eingereicht", nicht "ist vollständig".
+    const fehlendeAngaben = _fehlendeFelderImDatensatz(saved);
+
+    if (eigenesPflichtfeldDa && !fehlendeAngaben.length) {
       myTrainerRecord = saved;
       _renderTrainerReceipt(myTrainerRecord);
       _showReceiptScreen({ justSubmitted: false });
+    } else if (eigenesPflichtfeldDa) {
+      // Hat eingereicht, aber es fehlt etwas. _startEditTrainer() füllt ALLE
+      // bekannten Werte ein -- niemand soll sein Formular neu tippen, nur weil eine
+      // Angabe fehlt.
+      myTrainerRecord = saved;
+      _setFormularPflichtHinweis(fehlendeAngaben);
+      _startEditTrainer();
     } else {
       myTrainerRecord = saved || null;
+      _setFormularPflichtHinweis(saved ? fehlendeAngaben : []);
       // Vorbefüllung MUSS vor _showTrainerFormScreen() passieren -- die ruft am Ende
       // _updateTrainerFormBadges() auf, das sonst mit noch leeren Feldern rechnet.
       document.getElementById("tf-vorname").value  = (saved && saved.vorname) || currentVorname  || "";
@@ -444,6 +461,9 @@ async function _handleTrainerSubmit(e) {
     // Führungszeugnis hochgeladen wurde) erhalten — payload kennt diese Felder nicht.
     myTrainerRecord = { ...(myTrainerRecord || {}), ...payload, id: data.id, username: currentUsername };
 
+    // Der Hinweis oben im Formular ist damit erledigt -- bliebe er stehen, zeigte ihn
+    // ein späteres "Bearbeiten" mit einer Liste, die es nicht mehr gibt.
+    _setFormularPflichtHinweis([]);
     _renderTrainerReceipt(myTrainerRecord);
     _showReceiptScreen({ justSubmitted: true });
   } catch (err) {
@@ -506,6 +526,27 @@ function _startEditTrainer() {
 
   _setTrainerError("");
   _showTrainerFormScreen();
+}
+
+// Sagt oben im Formular, was noch fehlt. Zwei Anlässe, ein Banner:
+//   1. Der Datensatz hat Lücken -> die fehlenden Felder beim Namen nennen.
+//   2. Das Gateway hat hierher weitergeleitet (`?pflichtdaten=1`), es gibt aber noch
+//      gar keinen Datensatz -> erklären, warum man hier steht.
+// ⚠️ Ohne Fall 2 stünde ein Erstanmelder ohne jede Erklärung in einem fremden
+// Formular, in das ihn etwas anderes geschoben hat.
+function _setFormularPflichtHinweis(fehlend) {
+  const el = document.getElementById("tf-pflicht-hinweis");
+  if (!el) return;
+  const geschickt = new URLSearchParams(location.search).has("pflichtdaten");
+  let text = "";
+  if (fehlend && fehlend.length) {
+    text = "Bitte ergänze noch: " + fehlend.join(", ") + ".";
+  } else if (geschickt) {
+    text = "Bitte trag hier einmal deine Daten ein — der Verein braucht sie vollständig, "
+         + "um dich erreichen zu können.";
+  }
+  el.textContent = text;
+  el.style.display = text ? "" : "none";
 }
 
 // Blendet das Betrags-Feld nur ein, wenn "andere Einnahmen" gewählt ist. Gemeinsam

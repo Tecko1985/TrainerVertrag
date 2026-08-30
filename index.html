@@ -74,6 +74,12 @@
 
         <div class="error-banner" id="trainer-error"></div>
 
+        <!-- Sagt beim Öffnen, welche Pflichtangaben noch fehlen. Wird auch gesetzt,
+             wenn das Gateway hierher weitergeleitet hat (`?pflichtdaten=1`) — sonst
+             stünde man ohne Erklärung in einem fremden Formular.
+             Text und Sichtbarkeit setzt _setFormularPflichtHinweis() in app.js. -->
+        <div class="hinweis-banner" id="tf-pflicht-hinweis" style="display:none;"></div>
+
         <div class="section-divider">Persönliche Daten</div>
         <div class="form-grid">
           <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
@@ -941,13 +947,13 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.30"></script>
+<script src="config.js?v=1.31"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <script src="jugendschutz-text.js?v=1.2"></script>
 <script src="checkliste-schema.js?v=1.0"></script>
 <script src="db.js?v=1.6"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=3.6"></script>
+<script src="app.js?v=3.7"></script>
 </body>
 </html>

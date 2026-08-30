@@ -228,6 +228,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.10",
+    groups: [
+      {
+        title: "Fehlt etwas, geht es direkt ins Formular",
+        items: [
+          "Wer sich in der Tools-Übersicht anmeldet und hier noch nicht alle Pflichtangaben hinterlegt hat, wird einmal pro Anmeldung hierher gebracht.",
+          "Früher landete man dann auf der Seite „Bereits eingereicht“ und musste erst auf „Bearbeiten“ klicken. Jetzt öffnet sich sofort das Formular — mit allen Angaben, die schon bekannt sind.",
+          "Oben im Formular steht, was genau noch fehlt. Es muss also niemand suchen.",
+          "Wer alles vollständig hat, sieht wie bisher zuerst seine Bestätigungsseite."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.9",
     groups: [
       {
