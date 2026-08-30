@@ -73,13 +73,13 @@ function getSessionToken() {
 
 async function gatewayRequest(payload) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(GATEWAY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify(payload)
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Gateway-Fehler (HTTP ${resp.status})`);
   return resp.json();
 }
@@ -110,13 +110,13 @@ async function fetchMyChecklisteStatus() {
 // Transport, keine vertrauenswürdige Client-Behauptung.
 async function fetchMySubmission() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-submission" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Serverfehler (HTTP ${resp.status})`);
   const body = await resp.json();
   return body.data || null;
@@ -127,14 +127,14 @@ async function fetchMySubmission() {
 // Token und legt/aktualisiert damit immer genau den eigenen Trainer-Datensatz.
 async function submitTrainerData(payload) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "submit", ...payload })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -162,7 +162,7 @@ async function submitDocument(docType, file, vorname, nachname) {
     throw new Error("Datei ist zu groß (max. " + Math.round(MAX_FILE_BYTES / 1024 / 1024) + " MB).");
   }
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const dataBase64 = await _blobToBase64(file);
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
@@ -177,7 +177,7 @@ async function submitDocument(docType, file, vorname, nachname) {
     })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -188,7 +188,7 @@ async function submitDocument(docType, file, vorname, nachname) {
 // server-seitig über vorname/nachname).
 async function setTrainerlizenzDetails(details, vorname, nachname) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -202,7 +202,7 @@ async function setTrainerlizenzDetails(details, vorname, nachname) {
     })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -212,7 +212,7 @@ async function setTrainerlizenzDetails(details, vorname, nachname) {
 // Stub-Matching server-seitig über vorname/nachname).
 async function submitKodex(signatureDataUrl, vorname, nachname) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -224,7 +224,7 @@ async function submitKodex(signatureDataUrl, vorname, nachname) {
     })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -264,7 +264,7 @@ async function ladeJugendschutzKonzept() {
 // (eigenständige Aktion, eigenes Dokument, gleiches Stub-Matching server-seitig).
 async function submitJugendschutzkonzept(signatureDataUrl, vorname, nachname, version) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -282,7 +282,7 @@ async function submitJugendschutzkonzept(signatureDataUrl, vorname, nachname, ve
     })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -290,13 +290,13 @@ async function submitJugendschutzkonzept(signatureDataUrl, vorname, nachname, ve
 // Eigene Führerschein-Datei als Blob holen (für "Ansehen").
 async function fetchMyFuehrerscheinBlob() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-fuehrerschein-file" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
   return resp.blob();
 }
@@ -305,13 +305,13 @@ async function fetchMyFuehrerscheinBlob() {
 // bewusst keine Entsprechung (nur Admin durfte ansehen), siehe CLAUDE.md.
 async function fetchMyFuehrungszeugnisBlob() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-fuehrungszeugnis-file" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
   return resp.blob();
 }
@@ -320,13 +320,13 @@ async function fetchMyFuehrungszeugnisBlob() {
 // fetchMyFuehrerscheinBlob.
 async function fetchMyTrainerlizenzBlob() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "my-trainerlizenz-file" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
   return resp.blob();
 }
@@ -335,13 +335,13 @@ async function fetchMyTrainerlizenzBlob() {
 // vom Skript bereitgestellte Original, signed=true das selbst unterschriebene PDF.
 async function fetchMyVertragBlob(signed) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: signed ? "my-vertrag-signiert-file" : "my-vertrag-file" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Vertrag nicht abrufbar (HTTP ${resp.status})`);
   return resp.blob();
 }
@@ -359,7 +359,7 @@ async function submitVertragUnterschrift(signedPdfBlob) {
     throw new Error("PDF ist zu groß (max. " + Math.round(MAX_FILE_BYTES / 1024 / 1024) + " MB).");
   }
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const dataBase64 = await _blobToBase64(signedPdfBlob);
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
@@ -370,7 +370,7 @@ async function submitVertragUnterschrift(signedPdfBlob) {
     })
   });
   const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
@@ -379,13 +379,13 @@ async function submitVertragUnterschrift(signedPdfBlob) {
 // die Berechtigung serverseitig erneut, hier nur UI-seitiges Ein-/Ausblenden.
 async function fetchFuehrerscheinRegister() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "list-fuehrerscheine" })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (resp.status === 403) return null; // nicht berechtigt -> Panel bleibt einfach verborgen
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const data = await resp.json();
@@ -394,13 +394,13 @@ async function fetchFuehrerscheinRegister() {
 
 async function fetchFuehrerscheinFileForOwner(trainerId) {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   const resp = await fetch(SUBMIT_WORKER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: JSON.stringify({ action: "fuehrerschein-file-for-owner", trainerId })
   });
-  if (resp.status === 401) throw new NotLoggedInError("Sitzung abgelaufen");
+  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
   if (!resp.ok) throw new Error(`Datei nicht abrufbar (HTTP ${resp.status})`);
   return resp.blob();
 }
@@ -414,14 +414,19 @@ async function fetchFuehrerscheinFileForOwner(trainerId) {
 // gibt es im Client nicht mehr.
 function davAuthHeader() {
   const token = getSessionToken();
-  if (!token) throw new NotLoggedInError();
+  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
   return "Bearer " + token;
 }
 
 // 401/403 stammen vom CORS-Proxy (Session tot bzw. keine Administrieren-Stufe),
 // nicht von Nextcloud — mit sprechender Meldung statt rohem HTTP-Code.
 function davHttpError(resp, verbLabel) {
-  if (resp.status === 401) return new NotLoggedInError("Sitzung abgelaufen — bitte in der Tools-Übersicht neu anmelden.");
+  if (resp.status === 401) {
+    // ⚠️ Diese Funktion GIBT den Fehler zurueck, statt ihn zu werfen -- der
+    // Haken gehoert deshalb hierher und nicht an die fuenf werfenden Stellen.
+    if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust();
+    return new NotLoggedInError("Sitzung abgelaufen — bitte in der Tools-Übersicht neu anmelden.");
+  }
   if (resp.status === 403) return new Error("Kein Administrieren-Recht für Trainerdaten (Häkchen „Administrieren“ in der Tools-Übersicht nötig).");
   return new Error(`WebDAV-${verbLabel} (HTTP ${resp.status})`);
 }

@@ -156,6 +156,72 @@ async function _initTrainerGateway() {
   }
 }
 
+// ---------- Sitzungsverlust: räumen, nicht nur verstecken ----------
+
+// ⚠️ Diese App hat KEINE app-shell, sondern zwei Abläufe nebeneinander:
+// #trainer-flow (die eigenen Daten) und #admin-flow (ALLE Trainer, mit IBAN,
+// Anschrift und Geburtsdatum).
+//
+// Der Trainer-Ablauf räumt seit dem 25.08. seine fünf Bildschirme. Im
+// Admin-Ablauf landete ein Sitzungsverlust dagegen nur als Fehlertext im
+// Detail-Banner -- und die Liste blieb vollständig stehen.
+//
+// ⚠️ Geräumt wird über den CONTAINER, nie über eine Liste von Feld-Ids:
+// eine Liste veraltet lautlos, sobald jemand ein Feld ergänzt.
+let bildschirmGeraeumt = false;
+
+// Vor dem ersten Aufbau gibt es nichts zu räumen -- und wer gar nicht angemeldet
+// ist, soll nicht "Sitzung abgelaufen" lesen. Gesetzt wird das erst, wenn
+// wirklich Daten auf dem Bildschirm stehen.
+let appLaeuft = false;
+
+function raeumeAdminBildschirm() {
+  bildschirmGeraeumt = true;
+  const panel = document.getElementById("admin-panel");
+  if (panel) {
+    // Formularwerte stehen nicht im Markup -- ein leeres innerHTML allein
+    // erwischt sie nicht, und genau dort liegt die IBAN.
+    panel.querySelectorAll("input, textarea").forEach((f) => {
+      if (f.type === "checkbox" || f.type === "radio") f.checked = false; else f.value = "";
+    });
+    panel.innerHTML = "";
+    panel.style.display = "none";
+  }
+  const status = document.getElementById("file-status");
+  if (status) status.style.display = "none";
+  // ⚠️ Die Zwischenspeicher mit: ohne das hält der nächste Tab-Klick die
+  // Verbindung für gültig und zeichnet die Liste aus appData neu.
+  davConfig = null;
+  appData = { version: 1, trainer: [] };
+  const connect = document.getElementById("admin-connect-screen");
+  if (connect) connect.style.display = "";
+  const fehler = document.getElementById("admin-connect-error");
+  if (fehler) { fehler.textContent = "Die Sitzung ist abgelaufen. Bitte über die Tools-Übersicht neu anmelden."; fehler.style.display = "block"; }
+}
+
+// ⚠️ Gerufen aus db.js -- an den Stellen, an denen die 401 ankommt. Sonst
+// müsste jeder einzelne Fehlerweg daran denken, und einer vergisst es: im
+// Admin-Teil dachte bisher KEINER daran.
+function raeumeBeiSitzungsverlust() {
+  if (!appLaeuft) return;
+  const adminFlow = document.getElementById("admin-flow");
+  if (adminFlow && adminFlow.style.display !== "none") raeumeAdminBildschirm();
+  // Der Trainer-Ablauf wird IMMER mitgeräumt: seine Daten stehen auch dann im
+  // DOM, wenn gerade der Verwaltungsteil oben liegt.
+  bildschirmGeraeumt = true;
+  myTrainerRecord = null;
+  _showTrainerConnectScreen("Die Sitzung ist abgelaufen. Bitte über die Tools-Übersicht neu anmelden.");
+}
+
+// ⚠️ Nach dem Räumen gibt es dieses Element nicht mehr. Ein blindes
+// getElementById(...).textContent würfe dann mitten im catch einen TypeError.
+function _setAdminDetailFehler(text) {
+  const el = document.getElementById("admin-detail-error");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add("visible");
+}
+
 function _showTrainerConnectScreen(errorMsg) {
   // ⚠️ Verstecken ist nicht Räumen. Diese Funktion wird auch MITTEN IM BETRIEB
   // gerufen (_handleTrainerSubmit, _handleKodexSubmit und weitere) — dann steht
@@ -203,6 +269,7 @@ function _showTrainerVertragsPanels() {
 }
 
 function _showTrainerFormScreen() {
+  appLaeuft = true;
   document.getElementById("trainer-connect-screen").style.display = "none";
   document.getElementById("trainer-form-screen").style.display = "";
   document.getElementById("trainer-success-screen").style.display = "none";
@@ -488,6 +555,7 @@ async function _handleTrainerSubmit(e) {
 }
 
 function _showReceiptScreen(opts) {
+  appLaeuft = true;
   const justSubmitted = !!(opts && opts.justSubmitted);
   document.getElementById("success-heading").textContent = justSubmitted ? "Danke!" : "Bereits eingereicht";
   // Ohne Vertragspflicht gibt es auch keinen Vertrag, auf den man warten könnte.
@@ -1646,6 +1714,7 @@ async function _tryRestoreAdminSession() {
 }
 
 function _onAdminConnected() {
+  appLaeuft = true;
   document.getElementById("admin-connect-screen").style.display = "none";
   document.getElementById("admin-panel").style.display = "";
   _updateFileStatus(true);
@@ -4273,9 +4342,7 @@ async function _saveDetailNow() {
   btn.disabled = false;
   if (error) {
     btn.textContent = "Speichern";
-    const errEl = document.getElementById("admin-detail-error");
-    errEl.textContent = "Speichern fehlgeschlagen: " + error;
-    errEl.classList.add("visible");
+    _setAdminDetailFehler("Speichern fehlgeschlagen: " + error);
   } else {
     btn.textContent = "Gespeichert ✓";
     setTimeout(() => { btn.textContent = "Speichern"; }, 2000);
@@ -4295,8 +4362,7 @@ async function _deleteCurrentTrainer() {
     await _saveMerged();
   } catch (err) {
     _deletedTrainerIds.delete(currentTrainerId);
-    document.getElementById("admin-detail-error").textContent = "Fehler beim Löschen: " + err.message;
-    document.getElementById("admin-detail-error").classList.add("visible");
+    _setAdminDetailFehler("Fehler beim Löschen: " + err.message);
     return;
   }
   _showAdminListe();
@@ -4334,8 +4400,7 @@ async function _generatePdf() {
     document.getElementById("admin-detail-title").textContent =
       `${trainer.vorname} ${trainer.nachname}`;
   } catch (err) {
-    document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;
-    document.getElementById("admin-detail-error").classList.add("visible");
+    _setAdminDetailFehler("Fehler: " + err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = "Word-Vertrag generieren";
@@ -4367,8 +4432,7 @@ async function _generatePdfEinzeln() {
   try {
     await generiereVertrag(await _trainerMitSignatur(appData.trainer[idx]));
   } catch (err) {
-    document.getElementById("admin-detail-error").textContent = "Fehler: " + err.message;
-    document.getElementById("admin-detail-error").classList.add("visible");
+    _setAdminDetailFehler("Fehler: " + err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = "PDF herunterladen";

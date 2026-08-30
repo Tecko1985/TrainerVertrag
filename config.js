@@ -228,6 +228,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.12",
+    groups: [
+      {
+        title: "Beim Sitzungsende wird auch der Verwaltungsteil geräumt",
+        items: [
+          "Lief die Anmeldung ab, während der Verwaltungsteil offen war, blieb die Liste aller Trainer auf dem Bildschirm stehen — mit Anschrift, Geburtsdatum und Bankverbindung. Gemeldet wurde nur ein kleiner Fehlertext. Jetzt wird der Verwaltungsteil geleert und der Anmelde-Hinweis gezeigt.",
+          "Der eigene Bereich verhielt sich schon vorher richtig. Neu ist, dass der Hinweis an jeder Stelle kommt, an der die Anmeldung wegfällt — vorher nur bei einem Teil der Wege."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.11",
     groups: [
       {
