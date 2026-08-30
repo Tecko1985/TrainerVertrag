@@ -362,7 +362,16 @@ function _fehlendeFelderImDatensatz(t) {
   const liste = currentVertragspflichtig
     ? TRAINER_STAMMDATEN_PFLICHT.concat(TRAINER_VERTRAGSFELDER_PFLICHT)
     : TRAINER_STAMMDATEN_PFLICHT;
-  return liste.filter(f => !String(t[f.key] || "").trim()).map(f => f.label);
+  const fehlend = liste.filter(f => !String(t[f.key] || "").trim()).map(f => f.label);
+
+  // Bei "andere Einnahmen" gehört der Betrag dazu -- ohne ihn ist die Erklärung
+  // unvollständig, und genau das lehnt handleSubmit im Worker auch ab. Steht hier
+  // gesondert, weil die Bedingung an einem ANDEREN Feld hängt als dem geprüften.
+  if (currentVertragspflichtig && t.nebentaetigkeit === "andere" &&
+      !String(t.nebentaetigkeitBetrag || "").trim()) {
+    fehlend.push("Höhe der anderen Einnahmen");
+  }
+  return fehlend;
 }
 
 // Aktualisiert das EINE Gesamt-Badge des Hauptformulars live bei jeder Eingabe (alle

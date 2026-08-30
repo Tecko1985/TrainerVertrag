@@ -228,6 +228,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.11",
+    groups: [
+      {
+        title: "Auch der Betrag bei „andere Einnahmen“ wird genannt",
+        items: [
+          "Wer bei der Erklärung zur Nebentätigkeit „andere Einnahmen“ angekreuzt, die Höhe aber nicht eingetragen hat, sieht das jetzt im Hinweis oben im Formular.",
+          "Vorher fehlte dieser Punkt in der Liste — man suchte dann, warum das Speichern trotzdem nicht ging."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.10",
     groups: [
       {
