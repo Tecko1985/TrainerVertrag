@@ -228,6 +228,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.13",
+    groups: [
+      {
+        title: "Wenn eine Unterschrift nicht gelöscht werden kann, steht das jetzt da",
+        items: [
+          "Beim Zurücksetzen einer Kodex- oder Jugendschutz-Bestätigung wird auch die gespeicherte Unterschrift aus der Vereins-Cloud entfernt. Schlug das fehl — etwa weil die Cloud gerade nicht erreichbar war — passierte bisher nichts Sichtbares: der Eintrag war zurückgesetzt, die Datei mit der Unterschrift lag aber weiter dort.",
+          "Jetzt erscheint ein Hinweis, welche Datei liegen geblieben ist und warum. Das Zurücksetzen selbst bricht deswegen nicht ab.",
+          "Gleiches gilt beim Zurücksetzen eines Vertrags für die abgelegten PDFs."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.12",
     groups: [
       {

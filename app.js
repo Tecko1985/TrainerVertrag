@@ -3892,6 +3892,30 @@ function _renderKodexSection(t) {
   }
 }
 
+// Eine Loeschung, die nur nebenbei laeuft: der Hauptvorgang (der Datensatz) ist
+// schon durch und soll nicht scheitern, bloss weil eine Datei liegen bleibt.
+// Verschluckt werden darf der Fehlschlag trotzdem nicht -- in diesen Dateien
+// stehen Unterschriften, und wer nichts davon erfaehrt, kann sie auch nicht aus
+// der Vereins-Cloud raeumen. Bis zur Bugjagd am 2026-08-30 standen an den drei
+// Aufrufstellen leere catch-Bloecke.
+// Rueckgabe: null = geloescht, sonst der Grund als Text.
+async function _davDeleteVersuch(config) {
+  try {
+    await davDeleteFile(config);
+    return null;
+  } catch (err) {
+    return (err && err.message) || String(err);
+  }
+}
+
+// Absichtlich ohne Singular/Plural-Bezug formuliert -- derselbe Satz traegt eine
+// einzelne Unterschrift und eine Liste mehrerer PDFs.
+function _meldeLiegengeblieben(errEl, was, grund) {
+  if (!errEl) return;
+  errEl.textContent = `Zurückgesetzt. In der Vereins-Cloud liegen geblieben: ${was} (${grund}).`;
+  errEl.style.display = "block";
+}
+
 async function _resetKodexAdmin() {
   if (!currentTrainerId) return;
   const t = appData.trainer.find(x => x.id === currentTrainerId);
@@ -3906,9 +3930,13 @@ async function _resetKodexAdmin() {
   appData.trainer[idx] = { ...appData.trainer[idx], kodexBestaetigtAm: "", kodexSignatureDataUrl: "", kodexVersion: "" };
   try {
     await _saveMerged();
-    // Ausgelagerte Unterschrift-Datei mitentfernen (best-effort; die Anzeige ist ohnehin
-    // an kodexBestaetigtAm gegated, eine verwaiste Datei würde nie mehr gezeigt).
-    try { await davDeleteFile(_trainerDocConfig(SIGNATUR_SUBDIR.kodex, currentTrainerId)); } catch (_) {}
+    // Ausgelagerte Unterschrift-Datei mitentfernen. Die Anzeige ist zwar an
+    // kodexBestaetigtAm gegated, eine verwaiste Datei wuerde also nie mehr
+    // gezeigt -- sie liegt aber weiter in der Vereins-Cloud, mit einer
+    // Unterschrift darin. Deshalb wird ein Fehlschlag gemeldet, statt den
+    // Vorgang abzubrechen.
+    const grund = await _davDeleteVersuch(_trainerDocConfig(SIGNATUR_SUBDIR.kodex, currentTrainerId));
+    if (grund) _meldeLiegengeblieben(errEl, "die gespeicherte Unterschrift", grund);
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
@@ -3963,8 +3991,9 @@ async function _resetJugendschutzAdmin() {
   appData.trainer[idx] = { ...appData.trainer[idx], jugendschutzBestaetigtAm: "", jugendschutzSignatureDataUrl: "", jugendschutzVersion: "" };
   try {
     await _saveMerged();
-    // Ausgelagerte Unterschrift-Datei mitentfernen (best-effort, siehe _resetKodexAdmin).
-    try { await davDeleteFile(_trainerDocConfig(SIGNATUR_SUBDIR.jugendschutz, currentTrainerId)); } catch (_) {}
+    // Ausgelagerte Unterschrift-Datei mitentfernen (siehe _resetKodexAdmin).
+    const grund = await _davDeleteVersuch(_trainerDocConfig(SIGNATUR_SUBDIR.jugendschutz, currentTrainerId));
+    if (grund) _meldeLiegengeblieben(errEl, "die gespeicherte Unterschrift", grund);
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";
@@ -4024,11 +4053,20 @@ async function _resetVertragAdmin() {
   };
   try {
     await _saveMerged();
-    // Abgelegte PDFs best-effort mitentfernen (wie _resetKodexAdmin) -- sonst blieben
-    // bei einer Namenskorrektur verwaiste Dateien im alten vertraege/-Ordner zurueck.
+    // Abgelegte PDFs mitentfernen (wie _resetKodexAdmin) -- sonst blieben bei
+    // einer Namenskorrektur verwaiste Dateien im alten vertraege/-Ordner zurueck.
+    // Gesammelt gemeldet, nicht je Datei: sonst ueberschriebe die letzte Meldung
+    // alle vorherigen und man saehe nur die letzte liegengebliebene Datei.
     const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
+    const liegengeblieben = [];
     for (const rel of altePfade) {
-      try { await davDeleteFile({ ...davConfig, url: dir + "/" + rel }); } catch (_) {}
+      const grund = await _davDeleteVersuch({ ...davConfig, url: dir + "/" + rel });
+      if (grund) liegengeblieben.push(rel);
+    }
+    if (liegengeblieben.length) {
+      _meldeLiegengeblieben(errEl,
+        liegengeblieben.length === 1 ? `die abgelegte Datei ${liegengeblieben[0]}` : `${liegengeblieben.length} abgelegte Dateien (${liegengeblieben.join(", ")})`,
+        "Löschen abgelehnt");
     }
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
