@@ -11,7 +11,8 @@ let currentTrainerId = null;
 let trainerSigPad = null;
 let kodexSigPad = null; // Signatur-Pad für die Trainerkodex-Bestätigung (seit 1.6, migriert aus trainerkodex)
 let vertragSigPad = null; // Signatur-Pad für die Trainervertrags-Unterschrift (seit 1.10)
-let jugendschutzSigPad = null; // Signatur-Pad für die Jugendschutzkonzept-Bestätigung (seit 1.7, gleiches Muster wie Kodex)
+// (Kein jugendschutzSigPad mehr: unterschrieben wird seit 2026-08-31 in der
+// Kinderschutz-App, siehe den Block bei _renderTrainerJugendschutzStatus.)
 let myTrainerRecord = null; // eigene Einreichung, serverseitig per Login-Konto geladen
 let currentUsername = null;
 let currentVorname   = null;
@@ -49,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
   _initTrainerForm();
   _initTrainerDocuments();
   _initTrainerKodex();
-  _initTrainerJugendschutz();
   _initTrainerVertrag();
   _initMainNav();
   _initAdminConnect();
@@ -278,7 +278,6 @@ function _showTrainerFormScreen() {
     // reale Größe also noch nicht kennen (siehe signature-pad.js) -> jetzt nachholen.
     trainerSigPad.resize();
     kodexSigPad.resize();
-    jugendschutzSigPad.resize();
     vertragSigPad.resize();
     _renderTrainerDocumentsStatus();
     _renderMyChecklisteStatus();
@@ -569,7 +568,6 @@ function _showReceiptScreen(opts) {
   document.getElementById("trainer-success-screen").style.display = "";
   if (!_showTrainerVertragsPanels()) return;
   kodexSigPad.resize();
-  jugendschutzSigPad.resize();
   vertragSigPad.resize();
   _renderTrainerDocumentsStatus();
   _renderMyChecklisteStatus();
@@ -950,92 +948,25 @@ async function _handleKodexSubmit() {
   }
 }
 
-// Kinder- und Jugendschutzkonzept (seit 1.7) -- eigenständiges Dokument neben dem
-// Trainerkodex, aber 1:1 gleiches Muster (Text + Signatur + Bestätigen-Button, gleiche
-// 6-Monats-Frist, unabhängig vom Kodex berechnet).
-function _initTrainerJugendschutz() {
-  const canvas = document.getElementById("tf-jugendschutz-sig-canvas");
-  jugendschutzSigPad = createSignaturePad(canvas, () => {});
-  document.getElementById("btn-tf-jugendschutz-sig-clear").addEventListener("click", () => {
-    jugendschutzSigPad.clear();
-  });
-  document.getElementById("btn-tf-jugendschutz-submit").addEventListener("click", _handleJugendschutzSubmit);
-  _ladeJugendschutzText();
-}
-
-// Die Fassung, die dem Trainer WIRKLICH auf dem Schirm steht. Sie wird beim
-// Bestätigen mitgeschickt und dort gegengeprüft — siehe db.js.
-let jugendschutzAngezeigteVersion = JUGENDSCHUTZKONZEPT_VERSION;
-
-// ⚠️ Seit 2026-08-29 kommt der Wortlaut aus der Kinderschutz-App, nicht mehr aus
-// jugendschutz-text.js. Die lokale Datei ist nur noch die Rückfallebene für den
-// Fall, dass die Kinderschutz-App nicht erreichbar ist oder dort noch nichts
-// gespeichert wurde.
+// Kinder- und Jugendschutzkonzept.
 //
-// ⚠️ Im Rückfall wird der Warnbanner GEZEIGT, auch wenn
-// JUGENDSCHUTZKONZEPT_IS_PLACEHOLDER false ist. Jemanden einen Text
-// unterschreiben zu lassen, ohne dass geprüft ist, ob er noch gilt, wäre genau
-// der stille Fehler, den die Fassungsnummer verhindern soll.
-async function _ladeJugendschutzText() {
-  const textEl = document.getElementById("jugendschutz-text");
-  const banner = document.getElementById("jugendschutz-placeholder-banner");
-  textEl.innerHTML = "<p class='muted'>Der Wortlaut wird geladen …</p>";
-  try {
-    const k = await ladeJugendschutzKonzept();
-    if (k) {
-      textEl.innerHTML = k.html;
-      jugendschutzAngezeigteVersion = k.version;
-      banner.style.display = k.istEntwurf ? "flex" : "none";
-      if (k.istEntwurf) {
-        banner.textContent = "Dieser Wortlaut ist noch ein Entwurf und vom Verein noch nicht freigegeben.";
-      }
-      return;
-    }
-    throw new Error("in der Kinderschutz-App ist noch kein Konzept hinterlegt");
-  } catch (e) {
-    textEl.innerHTML = JUGENDSCHUTZKONZEPT_HTML;
-    jugendschutzAngezeigteVersion = JUGENDSCHUTZKONZEPT_VERSION;
-    banner.style.display = "flex";
-    banner.textContent = "Achtung: Der Wortlaut konnte nicht aus der Kinderschutz-App geladen werden (" +
-      (e && e.message ? e.message : "unbekannter Grund") + "). Angezeigt wird die zuletzt bekannte Fassung " +
-      JUGENDSCHUTZKONZEPT_VERSION + ". Bitte prüfe vor dem Unterschreiben, ob sie noch gilt.";
-  }
-}
-
-async function _handleJugendschutzSubmit() {
-  const errEl = document.getElementById("tf-jugendschutz-error");
-  errEl.classList.remove("visible");
-  if (jugendschutzSigPad.isEmpty()) {
-    errEl.textContent = "Bitte unterschreibe, um zu bestätigen.";
-    errEl.classList.add("visible");
-    return;
-  }
-  const btn = document.getElementById("btn-tf-jugendschutz-submit");
-  btn.disabled = true;
-  const prevLabel = btn.textContent;
-  btn.textContent = "Wird übermittelt …";
-  try {
-    const signatureDataUrl = jugendschutzSigPad.toDataURL();
-    const data = await submitJugendschutzkonzept(signatureDataUrl, currentVorname, currentNachname, jugendschutzAngezeigteVersion);
-    myTrainerRecord = {
-      ...(myTrainerRecord || {}),
-      jugendschutzBestaetigtAm: data.jugendschutzBestaetigtAm,
-      jugendschutzVersion: data.jugendschutzVersion
-    };
-    jugendschutzSigPad.clear();
-    _renderTrainerJugendschutzStatus();
-  } catch (err) {
-    if (err instanceof NotLoggedInError) {
-      _showTrainerConnectScreen("Deine Sitzung ist abgelaufen. Bitte erneut anmelden, dann kannst du erneut bestätigen.");
-    } else {
-      errEl.textContent = "Bestätigung fehlgeschlagen: " + err.message;
-      errEl.classList.add("visible");
-    }
-  } finally {
-    btn.disabled = false;
-    if (btn.textContent === "Wird übermittelt …") btn.textContent = prevLabel;
-  }
-}
+// ⚠️ Seit 2026-08-31 gibt es hier NICHTS mehr zu verdrahten: Wortlaut, Schulung
+// und Unterschrift stehen zusammen in der Kinderschutz-App
+// (https://sc1911heiligenstadt.github.io/kinderschutz/), das Panel hier zeigt nur
+// noch den Stand und verweist dorthin. Entfallen sind mit dem Umbau:
+// _initTrainerJugendschutz(), _ladeJugendschutzText(), _handleJugendschutzSubmit(),
+// jugendschutzSigPad und jugendschutzAngezeigteVersion.
+//
+// ⚠️ Gespeichert wird weiterhin HIER — jugendschutzBestaetigtAm/-Version und die
+// Unterschriftsdatei in jugendschutz-unterschriften/. Die Kinderschutz-App ruft
+// dafür dieselbe Worker-Aktion submit-jugendschutzkonzept auf, die vorher dieses
+// Panel gerufen hat. Am Datenmodell, an der Frist und am Admin-Detail hat sich
+// deshalb nichts geändert, und jede früher geleistete Unterschrift bleibt gültig.
+//
+// ⚠️ Wer den Weg wieder hierher zurückholt, braucht drei Dinge zusammen: den
+// Wortlaut über ladeJugendschutzKonzept() (⚠️ nur über kinderschutz-info, damit
+// er durch ksHtmlSicher() läuft), das Signatur-Pad und den Fassungsabgleich über
+// angezeigteVersion. Zwei davon allein sind ein stiller Fehler.
 
 // Speichert Checkbox + Lizenzart + Gültig-bis zusammen (immer alle drei aktuellen
 // DOM-Werte, kein Teil-Update) — reine Selbstauskunft ohne Datei-Upload.
@@ -1209,24 +1140,24 @@ function _renderTrainerKodexStatus() {
 
 // Gleiches Muster wie _renderTrainerKodexStatus(), JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE
 // statt KODEX_GUELTIGKEIT_MONATE, eigenes Feld-Trio (jugendschutz* statt kodex*).
+//
+// ⚠️ Anders als beim Kodex gibt es hier seit 2026-08-31 KEINEN Bestätigen-Knopf
+// mehr, dessen Beschriftung mitzupflegen wäre — unterschrieben wird in der
+// Kinderschutz-App, dieses Panel zeigt nur den Stand. Die Frist, die Ampel und
+// das Datenfeld sind unverändert geblieben; die Bestätigung aus der anderen App
+// schreibt genau dieselben Felder.
 function _renderTrainerJugendschutzStatus() {
   const t = myTrainerRecord || {};
-  document.getElementById("tf-jugendschutz-name").textContent =
-    [currentVorname, currentNachname].filter(Boolean).join(" ") || currentUsername || "";
-
   const statusEl = document.getElementById("tf-jugendschutz-status");
-  const submitBtn = document.getElementById("btn-tf-jugendschutz-submit");
   if (t.jugendschutzBestaetigtAm) {
     const faelligAm = _addMonths(new Date(t.jugendschutzBestaetigtAm), JUGENDSCHUTZKONZEPT_GUELTIGKEIT_MONATE);
     const gueltig = faelligAm.getTime() > Date.now();
     statusEl.innerHTML = gueltig
       ? `✅ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge generiert">Gültig bis ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span>`
-      : `⚠️ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte erneut bestätigen.`;
-    submitBtn.textContent = "Erneut bestätigen";
+      : `⚠️ Bestätigt am ${_esc(_fmtIso(t.jugendschutzBestaetigtAm))} · <span class="badge abgelaufen">Abgelaufen seit ${_esc(faelligAm.toLocaleDateString("de-DE"))}</span> — bitte in der Kinderschutz-App erneut bestätigen.`;
     _setAccordionState("tf-jugendschutz-card", gueltig ? "done" : "open", "tf-jugendschutz-badge");
   } else {
     statusEl.textContent = "⚠️ Noch nicht bestätigt.";
-    submitBtn.textContent = "Ich bestätige";
     _setAccordionState("tf-jugendschutz-card", "open", "tf-jugendschutz-badge");
   }
 }

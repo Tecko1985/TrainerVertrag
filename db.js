@@ -229,63 +229,21 @@ async function submitKodex(signatureDataUrl, vorname, nachname) {
   return data;
 }
 
-// Den geltenden Wortlaut des Kinder- und Jugendschutzkonzepts holen.
+// ⚠️ Hier standen bis 2026-08-31 ladeJugendschutzKonzept() (Wortlaut holen) und
+// submitJugendschutzkonzept() (Bestätigung absenden). Beide sind mit dem Umzug
+// entfallen: unterschrieben wird jetzt in der Kinderschutz-App, die dieselbe
+// Worker-Aktion submit-jugendschutzkonzept selbst aufruft.
 //
-// ⚠️ Seit 2026-08-29 lebt der Text NICHT mehr in jugendschutz-text.js, sondern in
-// der Kinderschutz-App (E:\kinderschutz). Dort wird er gepflegt, dort steht er
-// für Eltern und Kinder, und dort hängt die Fassungsnummer dran. Trainerdaten ist
-// nur noch der Ort, an dem UNTERSCHRIEBEN wird.
+// ⚠️ Der Worker-Handler bleibt und wird weiter gebraucht — nur der Aufrufer ist
+// ein anderer. Gespeichert wird nach wie vor in trainerdaten.json
+// (jugendschutzBestaetigtAm/-Version) plus Unterschriftsdatei; diese App liest
+// den Stand über my-submission wie bisher und zeigt ihn nur noch an.
 //
-// ⚠️ Die Aktion kinderschutz-info ist bewusst OHNE Anmeldung erreichbar. Der
-// Token wird trotzdem mitgeschickt, schadet aber nicht — die Antwort ist für
-// diesen Zweck dieselbe.
-//
-// Kommt nichts zurück oder ist dort noch nichts gespeichert, fällt der Aufrufer
-// auf die lokale Fassung in jugendschutz-text.js zurück UND zeigt einen Hinweis.
-// Stillschweigend die alte Fassung anzuzeigen wäre der schlimmere Weg: dann
-// unterschriebe jemand einen Text, der nicht mehr gilt.
-async function ladeJugendschutzKonzept() {
-  const token = getSessionToken();
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = "Bearer " + token;
-  const resp = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ action: "kinderschutz-info", app: "kinderschutz" })
-  });
-  if (!resp.ok) throw new Error("Kinderschutz-App nicht erreichbar (HTTP " + resp.status + ")");
-  const daten = await resp.json();
-  const k = daten && daten.konzept;
-  if (!k || !k.html || !k.version) return null;
-  return { html: String(k.html), version: String(k.version), istEntwurf: k.istEntwurf !== false };
-}
-
-// Trainer bestätigt das Jugendschutzkonzept -- 1:1 gleiches Muster wie submitKodex()
-// (eigenständige Aktion, eigenes Dokument, gleiches Stub-Matching server-seitig).
-async function submitJugendschutzkonzept(signatureDataUrl, vorname, nachname, version) {
-  const token = getSessionToken();
-  if (!token) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError(); }
-  const resp = await fetch(SUBMIT_WORKER_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-    body: JSON.stringify({
-      action: "submit-jugendschutzkonzept",
-      signatureDataUrl,
-      vorname: vorname || "",
-      nachname: nachname || "",
-      // ⚠️ Die Fassung, die dem Trainer TATSÄCHLICH angezeigt wurde. Der Worker
-      // vergleicht sie mit der gerade geltenden und lehnt bei Abweichung ab
-      // (gleiches Muster wie agbStand beim Fußballcamp). Ohne diesen Abgleich
-      // stünde in der Akte eine Bestätigung für einen Text, den die Person nie
-      // zu sehen bekam — und genau das soll die Fassungsnummer ja belegen.
-      angezeigteVersion: String(version || "")
-    })
-  });
-  const data = await resp.json().catch(() => ({}));
-  if (resp.status === 401) { if (typeof raeumeBeiSitzungsverlust === "function") raeumeBeiSitzungsverlust(); throw new NotLoggedInError("Sitzung abgelaufen"); }
-  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-  return data;
-}
+// Wer den Weg zurückholt, braucht drei Dinge zusammen: den Wortlaut über
+// kinderschutz-info (⚠️ nur darüber — der Worker reinigt ihn dort mit
+// ksHtmlSicher(), ein zweiter Leseweg stellt den XSS-Fund vom 29.08.2026
+// wieder her), ein Signatur-Pad und den Fassungsabgleich über
+// angezeigteVersion. Zwei davon allein sind ein stiller Fehler.
 
 // Eigene Führerschein-Datei als Blob holen (für "Ansehen").
 async function fetchMyFuehrerscheinBlob() {

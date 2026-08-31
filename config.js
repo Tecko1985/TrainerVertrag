@@ -228,6 +228,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.15",
+    groups: [
+      {
+        title: "Das Jugendschutzkonzept wird jetzt in der Kinderschutz-App bestätigt",
+        items: [
+          "Bisher stand der Wortlaut in der Kinderschutz-App, unterschrieben wurde aber hier. Zwei Orte für dieselbe Sache — und wenn dort noch kein Konzept gespeichert war, erschien hier ein gelber Warnkasten mit einer alten Fassung.",
+          "Jetzt steht alles beieinander: Wortlaut, Schulung und Unterschrift in der Kinderschutz-App. Der Abschnitt hier zeigt nur noch, ob und wann du bestätigt hast und bis wann es gilt — mit einem Knopf, der direkt zur Schulung führt.",
+          "Deine bisherige Bestätigung bleibt gültig. Es ändert sich nur der Weg dorthin, nicht das Gespeicherte: Datum, Fassung und Unterschrift liegen weiterhin in deiner Akte hier.",
+          "Für die Verwaltung ändert sich nichts — Status, Unterschriftsbild und der Knopf zum Zurücksetzen stehen unverändert im Trainer-Detail.",
+          "Der Warnkasten mit der alten Fassung ist damit weg."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.14",
     groups: [
       {

@@ -368,8 +368,17 @@
     </details>
   </div>
 
-  <!-- Kinder- und Jugendschutzkonzept (seit 1.7, gleiches Muster wie Trainerkodex:
-       eigenständiges Dokument, eigene Bestätigung mit Unterschrift, eigene 6-Monats-Frist) -->
+  <!-- Kinder- und Jugendschutzkonzept.
+       ⚠️ Seit 2026-08-31 wird hier NICHT mehr unterschrieben. Wortlaut, Schulung
+       und Unterschrift stehen zusammen in der Kinderschutz-App; dieses Panel
+       zeigt nur noch den Stand aus der eigenen Akte und weist den Weg dorthin.
+       Michel-Entscheidung: ein Ort für die Sache, aber die Abfrage, ob es
+       passiert ist, bleibt hier in der Akte.
+
+       Gespeichert wird weiterhin HIER (jugendschutzBestaetigtAm/-Version plus
+       die Unterschriftsdatei) — es ist die Bedienung umgezogen, nicht der
+       Bestand. Das Admin-Detail unten samt Unterschriftsbild und
+       Zurücksetzen-Knopf ist deshalb unverändert geblieben. -->
   <div id="trainer-jugendschutz-panel" class="trainer-form-screen" style="display:none;">
     <details class="card accordion-card" id="tf-jugendschutz-card">
       <summary class="accordion-summary">
@@ -377,26 +386,14 @@
         <span class="accordion-badge na" id="tf-jugendschutz-badge">–</span>
       </summary>
       <div class="accordion-body">
-      <div class="placeholder-banner" id="jugendschutz-placeholder-banner" style="display:none;">
-        ⚠️ Platzhaltertext — dies ist noch nicht der endgültige Text.
-      </div>
-      <div class="kodex-text" id="jugendschutz-text"></div>
-
-      <div class="section-divider">Bestätigung</div>
       <p class="muted" id="tf-jugendschutz-status" style="margin-bottom:14px;">—</p>
       <p class="muted" style="margin-bottom:14px;">
-        Ich, <strong id="tf-jugendschutz-name">…</strong>, bestätige, dass ich das obenstehende Kinder- und Jugendschutzkonzept gelesen und verstanden habe.
+        Der Wortlaut des Konzepts, die Schulung und die Bestätigung stehen seit August 2026
+        zusammen in der Kinderschutz-App. Dort liest du den Text, machst die sechs
+        Schulungskapitel und unterschreibst. Deine Bestätigung landet danach hier in deiner Akte.
       </p>
-      <div class="signature-box">
-        <label>Unterschrift</label>
-        <canvas id="tf-jugendschutz-sig-canvas"></canvas>
-        <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
-          <button type="button" class="btn secondary small" id="btn-tf-jugendschutz-sig-clear">Löschen</button>
-        </div>
-      </div>
-      <p class="error-banner" id="tf-jugendschutz-error"></p>
-      <div class="btn-row" style="justify-content:flex-start; margin-top:16px;">
-        <button type="button" class="btn success" id="btn-tf-jugendschutz-submit">Ich bestätige</button>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <a class="btn success" href="https://sc1911heiligenstadt.github.io/kinderschutz/#schulung">Zur Kinderschutz-App</a>
       </div>
       </div>
     </details>
@@ -953,13 +950,16 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.35"></script>
+<script src="config.js?v=1.36"></script>
 <script src="kodex-text.js?v=1.1"></script>
-<script src="jugendschutz-text.js?v=1.2"></script>
+<!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
+     Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
+     Die Datei bleibt trotzdem im Repo — sie ist der Beleg, was in Fassung 1.1
+     stand, und darauf verweisen die Akten aller, die sie bestätigt haben. -->
 <script src="checkliste-schema.js?v=1.0"></script>
-<script src="db.js?v=1.7"></script>
+<script src="db.js?v=1.8"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=4.0"></script>
+<script src="app.js?v=4.1"></script>
 </body>
 </html>

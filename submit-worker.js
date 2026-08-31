@@ -81,6 +81,22 @@
 //     schmaler Leseweg: eigene Freigabe + eigene Kontaktwerte (Name, Telefon, E-Mail,
 //     Anschrift), NIE iban/bank/geburtsdatum/Dokumente. Bewusst nicht "my-submission",
 //     das den ganzen Datensatz liefert. Legt keinen Datensatz an.
+//   { action: "my-jugendschutz-stand" }
+//     -> { vorhanden, bestaetigtAm, version, geltendeVersion, aktuell }
+//     Schmaler Leseweg fuer die Kinderschutz-App, die seit 2026-08-31 den Ort des
+//     UNTERSCHREIBENS stellt (Trainerdaten zeigt den Stand nur noch an).
+//     ⚠️ Bewusst nicht "my-submission": die Kinderschutz-App hat KEIN Login-Gate und
+//     ist fuer Kinder und Eltern offen — der ganze Datensatz mit IBAN und
+//     Geburtsdatum hat dort nichts zu suchen, auch nicht der eigene.
+//     ⚠️ Legt KEINEN Datensatz an (gleiches Versprechen wie my-kontakt-freigabe):
+//     das blosse Oeffnen des Schulungs-Tabs darf keine Zeile in trainerdaten.json
+//     erzeugen. Ohne Datensatz kommt vorhanden:false.
+//     Steht in NUR_VERTRAGSPFLICHTIG_ACTIONS — ein Spieler bekommt 403 und die
+//     Kinderschutz-App blendet den Bestaetigungsblock daraufhin ganz aus. Das Gate
+//     ist damit serverseitig, nicht nur Anzeige.
+//     `geltendeVersion` kommt additiv mit (statt eines zweiten Requests): nur damit
+//     kann die App "bestaetigt, aber fuer eine aeltere Fassung" von "aktuell"
+//     unterscheiden.
 //   { action: "kontakt-freigabe-speichern", name, telefon, email, adresse, vorname?, nachname? }
 //     -> setzt kontaktFreigabe = {name, telefon, email, adresse, aktualisiertAm} auf dem
 //     EIGENEN Datensatz (immer alle vier zusammen, kein Teil-Update; gleiches Stub-
@@ -251,6 +267,7 @@ const NUR_VERTRAGSPFLICHTIG_ACTIONS = new Set([
   "upload-fuehrerschein", "upload-fuehrungszeugnis", "upload-trainerlizenz",
   "my-fuehrerschein-file", "my-fuehrungszeugnis-file", "my-trainerlizenz-file",
   "set-trainerlizenz-details", "submit-kodex", "submit-jugendschutzkonzept",
+  "my-jugendschutz-stand",
   "my-vertrag-file", "my-vertrag-signiert-file", "submit-vertrag-unterschrift"
 ]);
 
@@ -418,6 +435,9 @@ export default {
     }
     if (body.action === "submit-jugendschutzkonzept") {
       return handleSubmitJugendschutzkonzept(body, session, env, corsHeaders);
+    }
+    if (body.action === "my-jugendschutz-stand") {
+      return handleMyJugendschutzStand(session, env, corsHeaders);
     }
     if (body.action === "my-vertrag-file") {
       return handleMyVertragFile(session, env, corsHeaders, false);
@@ -1134,6 +1154,61 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
   }
 
   return json({ success: true, jugendschutzBestaetigtAm: nowIso, jugendschutzVersion: geltendeVersion }, 200, corsHeaders);
+}
+
+// Eigener Bestätigungsstand zum Jugendschutzkonzept -- schmaler Leseweg für die
+// Kinderschutz-App (siehe Aktionsliste oben).
+//
+// ⚠️ Sucht nur, legt NICHTS an. resolveOwnTrainerRecord() wäre hier falsch: das
+// legt bei fehlendem Treffer einen Datensatz an, und das Öffnen eines Tabs darf
+// keine Zeile in trainerdaten.json erzeugen (gleiches Versprechen wie
+// handleMyKontaktFreigabe).
+//
+// ⚠️ vorhanden:false heißt "noch nichts bestätigt", NICHT "darf nicht". Wer
+// überhaupt bestätigen darf, entscheidet allein NUR_VERTRAGSPFLICHTIG_ACTIONS
+// weiter oben (403). Ein Trainer, der noch nie eingereicht hat, hat keinen
+// Datensatz und muss trotzdem unterschreiben können.
+async function handleMyJugendschutzStand(session, env, corsHeaders) {
+  if (!env.NEXTCLOUD_URL || !env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_PASSWORD) {
+    return json({ error: "Worker-Secrets nicht konfiguriert" }, 500, corsHeaders);
+  }
+  const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
+
+  let appData;
+  try {
+    appData = await loadAppData(env, authHeader);
+  } catch (e) {
+    return json({ error: e.message }, 502, corsHeaders);
+  }
+
+  const t = (appData.trainer || []).find((x) => x.username === session.username) || null;
+  const bestaetigtAm = t && t.jugendschutzBestaetigtAm ? String(t.jugendschutzBestaetigtAm) : "";
+  const version = t && t.jugendschutzVersion ? String(t.jugendschutzVersion) : "";
+
+  // Additiv mitgeliefert statt zweiter Request: ohne die geltende Fassung kann der
+  // Client "bestätigt" nicht von "bestätigt, aber die Fassung gilt nicht mehr"
+  // unterscheiden. Ist sie gerade nicht abrufbar, bleibt sie leer und `aktuell`
+  // false -- der Client zeigt dann den Stand ohne Gültigkeitsaussage.
+  const geltendeVersion = await ksGeltendeKonzeptVersion(authHeader);
+
+  // ⚠️ Vor-/Nachname gehen mit, obwohl der Stand sie nicht braucht: der Aufrufer
+  // muss sie beim Bestätigen zurückschicken (Stub-Matching in
+  // resolveOwnTrainerRecord). Die Kinderschutz-App kennt nur den ZUSAMMEN-
+  // gesetzten Klarnamen aus der Sitzung und müsste ihn sonst raten — bei
+  // "Anna Maria Schmidt" landete die Trennung falsch in der Akte. Sind sie hier
+  // leer, fällt der Aufrufer auf das Raten zurück; für den Namensabgleich im
+  // Worker genügt das, weil dort ohnehin wieder zusammengesetzt wird.
+  // Datenschutzlich unbedenklich: der eigene Klarname steht in derselben
+  // Sitzung ohnehin in der Kopfzeile.
+  return json({
+    vorhanden: !!bestaetigtAm,
+    bestaetigtAm,
+    version,
+    vorname: t && t.vorname ? String(t.vorname) : "",
+    nachname: t && t.nachname ? String(t.nachname) : "",
+    geltendeVersion: geltendeVersion || "",
+    aktuell: !!(bestaetigtAm && geltendeVersion && version === geltendeVersion)
+  }, 200, corsHeaders);
 }
 
 // Eigene Führerschein-Datei abrufen (Trainer sieht immer nur seine eigene).
