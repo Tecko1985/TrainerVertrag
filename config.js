@@ -228,6 +228,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.17",
+    groups: [
+      {
+        title: "Ohne Trainervertrag verschwinden jetzt auch die Vertragsfelder",
+        items: [
+          "Wer keinen Trainervertrag bekommt (Geschäftsstelle, Funktionäre), sah in der Verwaltungsansicht trotzdem IBAN, Bank, BIC, Pauschale, die Anlage 1 und die Unterschrift — Felder, die die Person selbst nie zu Gesicht bekommt und die auch nie befüllt werden.",
+          "Diese Felder sind jetzt ausgeblendet, ebenso die Knöpfe „Word-Vertrag generieren“ und „PDF herunterladen“ sowie die Zeile „Trainervertrag“ bei den Dokumenten.",
+          "An ihrer Stelle steht ein kurzer Hinweis. Soll die Person doch einen Vertrag bekommen, genügt der Status „Ausstehend“ weiter unten — dann sind alle Felder sofort wieder da."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.16",
     groups: [
       {

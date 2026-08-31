@@ -3633,7 +3633,14 @@ async function _openAdminDetail(id) {
   const statusFresh = statusSel.cloneNode(true);
   statusFresh.value = statusSel.value;
   statusSel.parentNode.replaceChild(statusFresh, statusSel);
-  statusFresh.addEventListener("change", () => { _statusTouched = true; _scheduleAutosave(); });
+  statusFresh.addEventListener("change", () => {
+    _statusTouched = true;
+    // Der Vertragsblock hängt am Status, nicht an t.vertragspflichtig — also hier
+    // sofort nachziehen, statt erst beim nächsten Öffnen des Details.
+    _applyDetailVertragsGate();
+    _scheduleAutosave();
+  });
+  _applyDetailVertragsGate();
 
   if (!t.lizenz) _prefillLizenzFromProfile(t);
 
@@ -3641,6 +3648,40 @@ async function _openAdminDetail(id) {
   _renderKodexSection(t);
   _renderJugendschutzSection(t);
   _renderChecklisteStatus(t);
+}
+
+// Gegenstück zu _applyVertragspflichtGate() (Trainer-Formular) auf der Admin-Seite:
+// blendet im Detail alles aus, was ausschließlich dem Trainervertrag dient, wenn für
+// den Eintrag gar keiner vorgesehen ist. Ohne das sah die Geschäftsstelle bei einem
+// Konto ohne Vertragspflicht IBAN, BIC, Bank, Pauschale und Anlage 1 — Felder, die die
+// Person selbst nie zu sehen bekommt und die der submit-worker bei ihr sogar aktiv
+// verwirft (handleSubmit: iban/bankname/bic nur für Vertragspflichtige).
+//
+// „Word-Vertrag generieren“ und „PDF herunterladen“ gehen mit: beide erzeugen einen
+// Trainervertrag, der hier ohne IBAN und ohne Pauschale bliebe — und der erste setzt
+// zusätzlich status="generiert" und hätte den Eintrag damit still aus „Nur
+// Kontaktdaten“ herausbefördert.
+//
+// Gegated wird am ABGELEITETEN Status (_trainerStatus), nicht direkt an
+// t.vertragspflichtig: so greift dieselbe Regel auch für Einträge, die der Admin von
+// Hand auf „Nur Kontaktdaten“ gestellt hat. Der Weg zurück ist genau der in
+// _trainerStatus beschriebene — Status auf „Ausstehend“ —, deshalb bleibt der
+// Status-Select IMMER sichtbar und der Hinweistext nennt ihn ausdrücklich.
+//
+// Bewusst symmetrisch (setzt beide Richtungen): sonst hängt der Zustand des zuletzt
+// geöffneten Trainers in der Seite fest.
+//
+// — Ausblenden räumt hier bewusst NICHT: eine bereits gespeicherte IBAN bleibt im
+// Datensatz. Ein Statuswechsel darf keine Bankdaten wegwerfen, und der Bank-Export
+// filtert ohnehin auf befüllte iban + pauschale.
+function _applyDetailVertragsGate() {
+  const vertragslauf = document.getElementById("d-status").value !== "kontaktdaten";
+  const anzeige = vertragslauf ? "" : "none";
+  document.getElementById("d-vertragsblock").style.display    = anzeige;
+  document.getElementById("d-doc-row-vertrag").style.display  = anzeige;
+  document.getElementById("btn-pdf-generieren").style.display = anzeige;
+  document.getElementById("btn-pdf-einzeln").style.display    = anzeige;
+  document.getElementById("d-kontaktdaten-notice").style.display = vertragslauf ? "none" : "";
 }
 
 // ─── Dokumente (Admin-Detail: Führerschein/Führungszeugnis) ────────────────────

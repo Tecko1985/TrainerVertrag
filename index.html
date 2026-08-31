@@ -670,6 +670,16 @@
               <div class="form-field"><label>E-Mail</label><input type="email" id="d-email" /></div>
             </div>
 
+            <!-- Für Einträge ohne Trainervertrag („Nur Kontaktdaten“) ausgeblendet,
+                 siehe _applyDetailVertragsGate() in app.js. Der Hinweis steht bewusst
+                 AUSSERHALB des Blocks, sonst verschwände er mit ihm. -->
+            <p class="muted" id="d-kontaktdaten-notice" style="display:none; font-size:13px; margin:0 0 16px; padding:10px 12px; background:var(--gray); border-radius:6px;">
+              Für diesen Eintrag ist kein Trainervertrag vorgesehen. Bankverbindung, Vertragsdaten, Anlage 1 und Unterschrift sind deshalb ausgeblendet, ebenso die beiden Vertrags-Knöpfe oben. Soll die Person doch einen Vertrag bekommen: unten den Status auf „Ausstehend“ stellen — oder im Gateway das Häkchen „Vertrag benötigt“ setzen. Dann sind alle Felder wieder da.
+            </p>
+            <!-- Klammer nur für das Gate: Bankverbindung, Vertragsdaten, Anlage 1 und
+                 Unterschrift hängen alle am Trainervertrag und werden gemeinsam
+                 ein- bzw. ausgeblendet. -->
+            <div id="d-vertragsblock">
             <div class="section-divider">Bankverbindung</div>
             <div class="form-grid">
               <div class="form-field" style="grid-column:1/-1;">
@@ -703,6 +713,7 @@
             <div class="section-divider">Unterschrift (vorschau)</div>
             <div id="d-signature-preview" style="margin-bottom:6px;"></div>
             <p class="muted" id="d-signature-hint" style="font-size:12px;"></p>
+            </div><!-- /#d-vertragsblock -->
 
             <div class="section-divider">Dokumente</div>
             <div class="doc-row">
@@ -780,7 +791,7 @@
                 <button type="button" class="btn danger small" id="btn-d-jugendschutz-reset" disabled>Bestätigung zurücksetzen</button>
               </div>
             </div>
-            <div class="doc-row">
+            <div class="doc-row" id="d-doc-row-vertrag">
               <div class="doc-row-main">
                 <span class="doc-row-label">Trainervertrag</span>
                 <span class="muted" id="d-vertrag-status">—</span>
@@ -950,7 +961,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.37"></script>
+<script src="config.js?v=1.38"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
@@ -960,6 +971,6 @@
 <script src="db.js?v=1.8"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=4.1"></script>
+<script src="app.js?v=4.2"></script>
 </body>
 </html>
