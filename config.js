@@ -228,6 +228,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.16",
+    groups: [
+      {
+        title: "Unterschriften werden jetzt wirklich auf ein Bild geprüft",
+        items: [
+          "Bisher hat der Server nur geglaubt, was der Browser über die hochgeladene Unterschrift behauptet hat. Jetzt schaut er selbst in die ersten Bytes und lehnt alles ab, was kein echtes PNG-Bild ist.",
+          "Dazu eine Obergrenze von 2 MB. Eine gezeichnete Unterschrift ist normalerweise 8 bis 60 Kilobyte groß — die Grenze merkt im Alltag niemand.",
+          "Gilt für alle drei Unterschriften: Stammdaten, Verhaltenskodex und Jugendschutzkonzept.",
+          "Wird etwas abgelehnt, steht der Grund jetzt im Klartext da, statt „Speicherfehler“."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.15",
     groups: [
       {

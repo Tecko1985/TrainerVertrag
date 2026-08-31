@@ -307,8 +307,57 @@ const SIGNATURE_SUBDIRS = {
 // Schreibt eine Unterschrift (validierte PNG-DataURL) nach <subdir>/<trainerId>.
 // MKCOL-Retry-einmal falls der Unterordner noch fehlt (wie handleUploadDocument).
 // Wirft bei Nextcloud-Fehler, damit der Aufrufer VOR dem JSON-PUT abbrechen kann.
+// Wie groß eine Canvas-Unterschrift höchstens sein darf, nach dem Dekodieren.
+// Gemessene Größenordnung: 8-60 KB je Strich-Unterschrift, bei dreifacher
+// Geräteauflösung auf einem großen Schirm auch mal 300 KB. 2 MB ist also
+// reichlich Luft und trotzdem eine Grenze.
+const SIGNATUR_MAX_BYTES = 2 * 1024 * 1024;
+
+// Die ersten acht Bytes jeder echten PNG-Datei.
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+// ⚠️ Ergänzt bei der Abnahme am 2026-08-31. Vorher prüften die drei Aufrufer nur,
+// ob die Zeichenkette mit "data:image/png;base64," ANFÄNGT — also eine Behauptung
+// des Clients, keinen Nachweis. Dahinter konnten beliebige Bytes in beliebiger
+// Menge stehen und landeten mit Content-Type image/png in der Vereins-Nextcloud.
+// Kein anonymer Weg (Sitzung + Vertragspflicht nötig, und es überschreibt immer
+// dieselbe Datei), aber die Flotten-Regel lautet: Dateityp an den ersten Bytes
+// prüfen, nie an dem, was der Client behauptet — dasselbe tut die Kinderschutz-App
+// bei Meldungs-Anhängen.
+//
+// Zentral hier, nicht bei den Aufrufern: es gibt drei (Haupt-, Kodex- und
+// Jugendschutz-Unterschrift), und der nächste würde sie sonst wieder vergessen.
+//
+// Der geworfene Fehler trägt `eingabe = true`, damit die Aufrufer 400 statt 502
+// melden können — eine zu große Datei ist keine Störung des Speichers.
+function signaturBytesPruefen(bytes) {
+  if (!bytes || bytes.length === 0) return "Die Unterschrift ist leer.";
+  if (bytes.length > SIGNATUR_MAX_BYTES) {
+    return "Die Unterschrift ist zu groß (" + Math.round(bytes.length / 1024) +
+      " KB, erlaubt sind " + Math.round(SIGNATUR_MAX_BYTES / 1024) + " KB).";
+  }
+  for (let i = 0; i < PNG_MAGIC.length; i++) {
+    if (bytes[i] !== PNG_MAGIC[i]) return "Die Unterschrift ist kein PNG-Bild.";
+  }
+  return "";
+}
+
 async function putSignatureFile(env, authHeader, subdir, trainerId, dataUrl) {
-  const bytes = base64ToBytes(dataUrl.slice(dataUrl.indexOf(",") + 1));
+  let bytes;
+  try {
+    bytes = base64ToBytes(dataUrl.slice(dataUrl.indexOf(",") + 1));
+  } catch (_) {
+    // atob() wirft bei ungültigem base64 -- das ist eine Eingabe, kein Speicherfehler.
+    const e = new Error("Die Unterschrift ist nicht lesbar.");
+    e.eingabe = true;
+    throw e;
+  }
+  const grund = signaturBytesPruefen(bytes);
+  if (grund) {
+    const e = new Error(grund);
+    e.eingabe = true;
+    throw e;
+  }
   const dir = trainerdatenDir(env) + "/" + subdir;
   const fileUrl = dir + "/" + trainerId;
   const headers = { Authorization: authHeader, "Content-Type": "image/png" };
@@ -702,7 +751,12 @@ async function handleSubmit(body, session, env, corsHeaders) {
     try {
       await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.haupt, resultId, sig);
     } catch (e) {
-      return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+      // e.eingabe === true kommt aus signaturBytesPruefen (zu groß, kein PNG,
+    // nicht lesbar). Das ist eine schlechte Eingabe, keine Störung des Speichers
+    // -- deshalb 400 und der Grund im Klartext, statt 502 "Speicherfehler".
+    return e && e.eingabe
+      ? json({ error: e.message }, 400, corsHeaders)
+      : json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
     }
   }
 
@@ -1079,7 +1133,12 @@ async function handleSubmitKodex(body, session, env, corsHeaders) {
   try {
     await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.kodex, appData.trainer[idx].id, signatureDataUrl);
   } catch (e) {
-    return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+    // e.eingabe === true kommt aus signaturBytesPruefen (zu groß, kein PNG,
+    // nicht lesbar). Das ist eine schlechte Eingabe, keine Störung des Speichers
+    // -- deshalb 400 und der Grund im Klartext, statt 502 "Speicherfehler".
+    return e && e.eingabe
+      ? json({ error: e.message }, 400, corsHeaders)
+      : json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
   }
   appData.trainer[idx].kodexBestaetigtAm = nowIso;
   appData.trainer[idx].kodexVersion = KODEX_VERSION;
@@ -1126,7 +1185,12 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
   try {
     await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.jugendschutz, appData.trainer[idx].id, signatureDataUrl);
   } catch (e) {
-    return json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
+    // e.eingabe === true kommt aus signaturBytesPruefen (zu groß, kein PNG,
+    // nicht lesbar). Das ist eine schlechte Eingabe, keine Störung des Speichers
+    // -- deshalb 400 und der Grund im Klartext, statt 502 "Speicherfehler".
+    return e && e.eingabe
+      ? json({ error: e.message }, 400, corsHeaders)
+      : json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
   }
   // ⚠️ Was hier gespeichert wird, MUSS die Fassung sein, die der Trainer eben
   // auf dem Schirm hatte. Sonst belegt die Akte etwas, das nie stattgefunden hat.
