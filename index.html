@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.8" />
+<link rel="stylesheet" href="style.css?v=1.9" />
 </head>
 <body>
 
@@ -25,9 +25,13 @@
      Berechtigte ein (Admin oder Administrieren-Stufe für Trainerdaten). -->
 <nav id="main-nav">
   <button data-tab="meine" class="active" type="button">Meine Daten</button>
-  <button data-tab="liste" class="admin-only-tab" style="display:none;" type="button">Trainer</button>
-  <button data-tab="import" class="admin-only-tab" style="display:none;" type="button">Import</button>
+  <!-- Die drei Verwaltungs-Reiter stehen zusammen rechts: sie sind nur mit der Stufe
+       "Administrieren" sichtbar und gehoeren damit nicht neben "Meine Daten", das jeder
+       sieht. Ausgeblendet werden sie weiterhin ueber .admin-only-tab, unabhaengig von
+       der Position (_initAdminZugang selektiert per Klasse, nicht per Reihenfolge). -->
   <div class="nav-right">
+    <button data-tab="liste" class="admin-only-tab" style="display:none;" type="button">Trainer</button>
+    <button data-tab="import" class="admin-only-tab" style="display:none;" type="button">Import</button>
     <button data-tab="einstellungen" class="admin-only-tab" style="display:none;" type="button">Einstellungen</button>
     <button data-tab="info" type="button">Info</button>
   </div>
@@ -967,7 +971,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.40"></script>
+<script src="config.js?v=1.41"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.

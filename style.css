@@ -262,6 +262,11 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
 }
 @media (max-width: 640px) {
   .trainer-row, .trainer-row-header { grid-template-columns: 1fr 1fr; }
+  /* Rechts stehen fuer Berechtigte vier Reiter (Trainer/Import/Einstellungen/Info).
+     Bei 375 px brauchen sie mit dem normalen Innenabstand 349 px, verfuegbar sind
+     347 — "Info" faellt dadurch allein in eine dritte Zeile. Schmalere Knoepfe
+     halten die .nav-right-Gruppe zusammen; gemessen statt geschaetzt. */
+  nav button { padding: 10px 12px; }
 }
 
 /* Wohnort-Auswahl im CSV-Export-Panel (Häkchen, Mehrfachauswahl).

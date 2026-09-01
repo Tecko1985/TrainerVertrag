@@ -247,6 +247,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.20",
+    groups: [
+      {
+        title: "Die Verwaltungs-Reiter stehen jetzt zusammen rechts",
+        items: [
+          "„Trainer“ und „Import“ standen links direkt neben „Meine Daten“ — obwohl sie nur sichtbar sind, wer die Stufe „Administrieren“ hat. Wer sie sah, konnte sie leicht für etwas halten, das jeder hat.",
+          "Beide stehen jetzt rechts neben „Einstellungen“, dem dritten Reiter mit derselben Bedingung. Links bleibt nur „Meine Daten“, ganz rechts „Info“ — beide sieht jeder.",
+          "An den Rechten selbst ändert sich nichts: Ohne die Stufe „Administrieren“ sind die drei Reiter wie bisher gar nicht da."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.19",
     groups: [
       {
