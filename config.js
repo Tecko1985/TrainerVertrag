@@ -247,6 +247,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.19",
+    groups: [
+      {
+        title: "„Führungszeugnis fehlt“ zählt Kontakt-Einträge nicht mehr mit",
+        items: [
+          "Die Auswahl „Führungszeugnis fehlt“ im CSV-Export nahm auch Personen mit, für die gar kein Trainervertrag vorgesehen ist (Status „Nur Kontaktdaten“ — Geschäftsstelle, Funktionäre). Die sollen gar keins einreichen und standen trotzdem auf der Nachfassliste.",
+          "Sie bleiben jetzt draußen. Der Hinweistext über den beiden Kästchen sagt das auch ausdrücklich.",
+          "„Führungszeugnis eingereicht“ bleibt unverändert: Wer eins abgegeben hat, wird weiter exportiert — egal welchen Status er hat.",
+          "Dieselbe Korrektur steckt in der App „Dokumentenvorlagen“ im Filter „Noch keins hinterlegt“ — daraus entsteht das Bestätigungsschreiben fürs Meldeamt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.18",
     groups: [
       {

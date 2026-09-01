@@ -2126,11 +2126,26 @@ function _filteredTrainerList() {
 // fuehrungszeugnisEingereichtAm — dasselbe Feld, das _renderDocumentsSection und
 // die Worker-Aktionen prüfen. Keins oder beide angekreuzt = keine Einschränkung
 // (gleiche Konvention wie die Gruppen-Auswahl darunter).
+//
+// ⚠️ Die beiden Häkchen sind NICHT symmetrisch:
+//
+// „Eingereicht" ist eine Bestandsaufnahme — ein vorhandenes Zeugnis ist eine
+// Tatsache und wird nicht wegen eines Status unterschlagen.
+//
+// „Fehlt" ist dagegen eine Nachfassliste. Wer gar keinen Trainervertrag hat
+// (Status „Nur Kontaktdaten": Geschäftsstelle, Funktionäre), soll gar keins
+// einreichen und gehört deshalb nicht darauf — sonst schreibt die
+// Geschäftsstelle Leute an, von denen sie nie eines wollte. Gegated am
+// ABGELEITETEN Status (_trainerStatus), nicht an t.vertragspflichtig: so greift
+// die Regel auch bei Einträgen, die der Admin von Hand auf „Nur Kontaktdaten"
+// gestellt hat — gleiche Linie wie _applyDetailVertragsGate().
 function _fzExportGefiltert(liste) {
   const ja   = document.getElementById("export-fz-ja").checked;
   const nein = document.getElementById("export-fz-nein").checked;
   if (ja === nein) return liste;
-  return liste.filter(t => !!t.fuehrungszeugnisEingereichtAm === ja);
+  const gefiltert = liste.filter(t => !!t.fuehrungszeugnisEingereichtAm === ja);
+  if (ja) return gefiltert;
+  return gefiltert.filter(t => _trainerStatus(t) !== "kontaktdaten");
 }
 
 // Exportmenge = sichtbare Liste, zusätzlich verengt auf die im Export-Panel

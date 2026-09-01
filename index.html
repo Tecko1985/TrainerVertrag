@@ -505,7 +505,7 @@
                    nicht die Bildschirmliste. Keins oder beide angekreuzt = alle. -->
               <div id="export-fz-section">
                 <div class="section-divider" style="margin:14px 0 8px;">Führungszeugnis – nur ausgewählte exportieren</div>
-                <p class="muted" style="margin:0 0 8px; font-size:12px;">Nichts angekreuzt = alle exportieren. Beides angekreuzt wirkt genauso.</p>
+                <p class="muted" style="margin:0 0 8px; font-size:12px;">Nichts angekreuzt = alle exportieren. Beides angekreuzt wirkt genauso. „Führungszeugnis fehlt“ lässt Einträge mit dem Status „Nur Kontaktdaten“ weg — für sie ist keins vorgesehen. Bei „eingereicht“ sind sie weiter dabei.</p>
                 <div class="form-grid" style="margin-bottom:0;">
                   <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:0;">
                     <input type="checkbox" class="export-fz-cb" id="export-fz-ja" /> Führungszeugnis eingereicht
@@ -967,7 +967,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.39"></script>
+<script src="config.js?v=1.40"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
@@ -977,6 +977,6 @@
 <script src="db.js?v=1.8"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=4.3"></script>
+<script src="app.js?v=4.4"></script>
 </body>
 </html>
