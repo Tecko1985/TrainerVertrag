@@ -257,6 +257,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.24",
+    groups: [
+      {
+        title: "Umlaute in der Zahlungsdatei: aus „Müller“ wurde „Mu ller“",
+        items: [
+          "Ein „ü“ kann auf zwei Arten im Rechner stehen: als ein Zeichen, oder als „u“ mit einem getrennt gespeicherten Pünktchen-Zeichen dahinter. Beides sieht auf dem Bildschirm gleich aus.",
+          "Die Zahlungsdatei kennt keine Umlaute, deshalb schreibt die App sie um. Das griff nur bei der ersten Art. Bei der zweiten blieb das Pünktchen-Zeichen übrig und wurde zu einem Leerzeichen — aus „Müller“ wurde „Mu ller“ im Empfängernamen, aus „Beitrag März für Jörg“ wurde „Beitrag Ma rz fu r Jo rg“ im Verwendungszweck.",
+          "Die zweite Art entsteht beim Kopieren von einem Mac oder iPhone und beim Import aus älteren Dateien. Am Namen war nichts zu sehen — der Fehler stand erst in der fertigen Datei bei der Bank.",
+          "Jetzt werden beide Arten gleich behandelt. Schon heruntergeladene Dateien ändern sich dadurch nicht; wer eine mit „Mu ller“ noch nicht eingereicht hat, erzeugt sie am besten neu.",
+          "Dieselbe Korrektur steckt in der Vereinsverwaltung, die die Beitrags-Lastschriften erzeugt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.23",
     groups: [
       {

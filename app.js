@@ -2459,8 +2459,17 @@ function _fmtBetrag(n, trenner) {
 // Bringt Text in den SEPA-Zeichensatz: erst die lesbare Transliteration aus
 // SEPA_UMLAUT_MAP (ü -> ue), danach alles Verbliebene außerhalb des erlaubten
 // Vorrats auf ein Leerzeichen. Zum Schluss auf die erlaubte Länge kürzen.
+//
+// ⚠️ normalize("NFC") MUSS vor der Transliteration stehen. Ein "ü" kann als ein
+// Zeichen (U+00FC) oder als "u" + Trema (U+0308) ankommen — macOS und iOS
+// liefern beim Kopieren aus Dateinamen und Adressbüchern die zerlegte Form. Die
+// Map trifft nur die erste; bei der zweiten bleibt das Trema stehen, fällt in
+// die Zeichenvorrats-Ersetzung und wird zum LEERZEICHEN. Aus "Müller" wurde so
+// "Mu ller" im Empfängernamen einer echten Überweisung, aus "Beitrag März für
+// Jörg" wurde "Beitrag Ma rz fu r Jo rg".
 function _sepaText(roh, maxLaenge) {
   const s = String(roh == null ? "" : roh)
+    .normalize("NFC")
     .split("")
     .map(z => (Object.prototype.hasOwnProperty.call(SEPA_UMLAUT_MAP, z) ? SEPA_UMLAUT_MAP[z] : z))
     .join("")
