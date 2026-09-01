@@ -1935,6 +1935,11 @@ let _exportOrte = new Set();
 // Wortgleich mit normOrt() in der Dokumentenvorlagen-App.
 function _normOrt(s) {
   return String(s || "")
+    // ⚠️ Erst zusammensetzen: ein "ö" kann ein Zeichen sein (U+00F6) oder "o"
+    // + Trema (U+0308). Die Umlaut-Ersetzung unten trifft nur die erste Form,
+    // die zweite bliebe ein eigener Schlüssel -- also zwei Zeilen für denselben
+    // Ort, und der Haken erwischt nur die Hälfte. Gleiche Zeile wie in _sepaText.
+    .normalize("NFC")
     .toLowerCase()
     // ⚠️ Umlaute umschreiben, sonst sind "Göttingen" und "Goettingen" zwei
     // Zeilen in der Auswahl und ein Haken erwischt nur die eine Hälfte — genau

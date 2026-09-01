@@ -257,6 +257,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.25",
+    groups: [
+      {
+        title: "Wohnort-Auswahl: derselbe Ort stand in einem Sonderfall doch noch doppelt",
+        items: [
+          "Ein „ö“ kann auf zwei Arten im Rechner stehen: als ein Zeichen, oder als „o“ mit einem getrennt gespeicherten Pünktchen-Zeichen dahinter. Auf dem Bildschirm sieht beides gleich aus.",
+          "Die Zusammenfassung von „Göttingen“ und „Goettingen“ griff nur bei der ersten Art. Bei der zweiten stand der Ort trotzdem doppelt da — genau der Fehler, der zuletzt behoben werden sollte.",
+          "Die zweite Art entsteht beim Kopieren von einem Mac oder iPhone und beim Import aus älteren Dateien.",
+          "Jetzt werden beide Arten gleich behandelt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.24",
     groups: [
       {
