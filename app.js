@@ -2531,7 +2531,7 @@ function _setBankExportError(text) {
 // CSV) rufen dieselbe Prüfung auf.
 function _bankExportFehlerBic(bic) {
   if (!bic) return "";
-  if (SEPA_BIC_MUSTER.test(bic)) return "";
+  if (sepaBicGueltig(bic)) return "";
   return "Der BIC des Auftraggebers hat nicht die zulässige Form: 8 oder 11 Zeichen, " +
          "nur Großbuchstaben und Ziffern, keine Leerzeichen (Beispiel: GENODEF1EIC). " +
          "Mit einem krummen BIC weist die Bank die ganze Datei ab. Feld leer lassen " +
@@ -2878,8 +2878,9 @@ function _buildSepaXml(o) {
   // Kind davon ist optional. Mit hinterlegtem BIC geht in beiden Fällen der
   // echte BIC raus, das ist der sicherste Weg.
   //
-  // ⚠️ Ein BIC kommt nur in die Datei, wenn er die Schema-Form hat
-  // (SEPA_BIC_MUSTER, config.js). Ein krummer Wert — 10 statt 11 Zeichen, ein
+  // ⚠️ Ein BIC kommt nur in die Datei, wenn er die Schema-Form hat UND kein
+  // Platzhalter ist (sepaBicGueltig, config.js — "NOTPROVIDED" besteht das
+  // Muster zufällig). Ein krummer Wert — 10 statt 11 Zeichen, ein
   // Leerzeichen, ein Umlaut — macht die GANZE Sammelüberweisung ungültig, und
   // zwar mit derselben 0390-Meldung wie das alte NOTPROVIDED. Weglassen ist
   // dagegen folgenlos: CdtrAgt ist optional, seit IBAN-Only braucht die Bank
@@ -2888,7 +2889,7 @@ function _buildSepaXml(o) {
   // CSV-Weg und für jeden späteren Aufrufer.
   const bicOderLeer = (roh) => {
     const b = String(roh || "").trim().toUpperCase();
-    return SEPA_BIC_MUSTER.test(b) ? b : "";
+    return sepaBicGueltig(b) ? b : "";
   };
   const cdtrAgtEl = (bic) => bic
     ? `\n        <CdtrAgt><FinInstnId><BIC>${_xmlEsc(bic)}</BIC></FinInstnId></CdtrAgt>`

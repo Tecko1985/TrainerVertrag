@@ -212,6 +212,25 @@ const SEPA_MAX_VERWENDUNGSZWECK = 140;
 // bis 1.22 nicht — ein Tippfehler reichte für eine unbrauchbare Datei.
 const SEPA_BIC_MUSTER = /^[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3})?$/;
 
+// ⚠️ Das Muster allein reicht nicht: "NOTPROVIDED" besteht es zufällig
+// (NOTPRO + V + I + DED ist eine formal gültige 11-stellige BIC-Form). Genau
+// dieser Wert war es aber, den das VR-Banking mit 0390 abwies — er stand bis
+// 1.21 als Platzhalter in der erzeugten Datei. Landet er über einen Import
+// oder von Hand in einem BIC-Feld, ginge er hier ungeprüft wieder durch.
+// Deshalb prüft alles, was einen BIC annimmt, über diese Funktion statt
+// direkt über das Muster.
+const SEPA_BIC_PLATZHALTER = ["NOTPROVIDED"];
+
+// ⚠️ Bewusst OHNE trim/toUpperCase: die Funktion soll genau so streng bleiben
+// wie das Muster allein, damit sich am bisherigen Verhalten nichts ausser dem
+// Platzhalter aendert. Wer einen rohen Wert prueft, normiert ihn vorher selbst
+// (so macht es bicOderLeer im XML-Weg).
+function sepaBicGueltig(bic) {
+  const b = String(bic == null ? "" : bic);
+  if (!SEPA_BIC_MUSTER.test(b)) return false;
+  return SEPA_BIC_PLATZHALTER.indexOf(b) === -1;
+}
+
 // Kennung, mit der jede von uns erzeugte SEPA-Datei ihre MsgId und ihre
 // EndToEndIds beginnt (_buildSepaXml in app.js). Der Kontoauszug-Abgleich
 // erkennt daran später eine Buchung wieder, die aus unserem eigenen Export
@@ -256,6 +275,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.26",
+    groups: [
+      {
+        title: "BIC-Prüfung: der alte Platzhalter kommt nicht mehr durch",
+        items: [
+          "Bis 1.21 stand in der Zahlungsdatei „NOTPROVIDED“, wo kein BIC hinterlegt war — genau das wies das VR-Banking ab.",
+          "Die BIC-Prüfung aus 1.22 hätte diesen Wert nicht abgefangen: er hat zufällig die zulässige Form (11 Zeichen, nur Großbuchstaben). Wäre er über einen Import in ein BIC-Feld geraten, wäre er wieder in die Datei gewandert.",
+          "Jetzt wird er ausdrücklich abgelehnt. Am normalen Betrieb ändert sich nichts."
+        ]
+      }
+    ]
+  },
   {
     version: "1.25",
     groups: [
