@@ -3001,7 +3001,7 @@ function _parseCsvText(text) {
 // ist, gilt die Reihenfolge aus BANK_EXPORT_CSV_SPALTEN.
 const BANK_CSV_SPALTEN_ALIAS = {
   auftraggeberIban:  ["ibandesauftraggebers", "auftraggeberiban"],
-  empfaenger:        ["empfaenger", "empfangername", "name", "beguenstigter"],
+  empfaenger:        ["empfaenger", "empfaengername", "name", "beguenstigter"],
   iban:              ["ibandesempfaengers", "empfaengeriban", "iban"],
   bic:               ["bic", "bicdesempfaengers", "swift"],
   betrag:            ["betrag", "betragineur", "summe"],
@@ -3010,6 +3010,13 @@ const BANK_CSV_SPALTEN_ALIAS = {
 
 function _normalisiereSpaltenname(s) {
   return String(s || "")
+    // NFC zuerst: in "IBAN des Empfängers" kann das "ä" zerlegt ankommen
+    // (a + Trema). Dann greift .replace(/ä/) nicht, das Trema faellt der
+    // Saeuberung unten zum Opfer, und aus "ibandesempfaengers" wird
+    // "ibandesempfangers" -- die Pflichtspalte iban wird nicht erkannt, die
+    // Zeile gilt nicht als Kopfzeile, und _ermittleCsvSpalten faellt auf
+    // feste Spaltenpositionen zurueck.
+    .normalize("NFC")
     .toLowerCase()
     .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
     .replace(/[^a-z0-9]/g, "");

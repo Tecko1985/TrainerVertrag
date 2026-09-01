@@ -276,6 +276,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.27",
+    groups: [
+      {
+        title: "Bank-CSV: die Spalte „Empfängername“ wurde nie erkannt",
+        items: [
+          "Der CSV-Konverter ordnet die Spalten über die Kopfzeile zu, damit eine verschobene Spalte nichts kaputtmacht. In der Liste der erkannten Schreibweisen stand „empfangername“ — mit einem „a“, wo die Umschrift ein „ae“ erzeugt. Der Eintrag konnte deshalb nie greifen.",
+          "Bei einer Bank-Datei mit dieser Spaltenüberschrift blieb der Empfängername leer, und jede Zeile wurde mit dem Grund „kein Empfänger“ übersprungen — obwohl die Spalte da war. Die eigene Vorlagendatei war nicht betroffen, sie heißt „Empfänger“.",
+          "Zusätzlich: Ein „ä“ kann auf zwei Arten im Rechner stehen, und die Kopfzeile kann in beiden ankommen. Bisher wurde nur die eine erkannt; bei der anderen fiel „IBAN des Empfängers“ durch, die Zeile galt nicht mehr als Kopfzeile, und der Konverter nahm feste Spaltenpositionen an. Bei einer Datei mit anderer Spaltenreihenfolge las er dann die falschen Spalten.",
+          "Beides ist behoben. An der eigenen Vorlagendatei ändert sich nichts."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.26",
     groups: [
       {
