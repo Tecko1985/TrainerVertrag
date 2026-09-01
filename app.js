@@ -1936,6 +1936,11 @@ let _exportOrte = new Set();
 function _normOrt(s) {
   return String(s || "")
     .toLowerCase()
+    // ⚠️ Umlaute umschreiben, sonst sind "Göttingen" und "Goettingen" zwei
+    // Zeilen in der Auswahl und ein Haken erwischt nur die eine Hälfte — genau
+    // das, was diese Funktion verhindern soll. Steht VOR allem anderen, damit
+    // auch "Mühlhausen/Thür." und "Muehlhausen Thur" zusammenfallen.
+    .replace(/[äöüß]/g, z => ({ "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss" }[z]))
     .replace(/\([^)]*\)/g, " ")     // Klammerzusatz
     .replace(/^\s*\d{4,5}\s+/, "")  // vorangestellte Postleitzahl
     .replace(/^heilbad\s+/, "")     // erst NACH der PLZ, sonst greift es nicht

@@ -257,6 +257,20 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.23",
+    groups: [
+      {
+        title: "„Göttingen“ und „Goettingen“ sind jetzt eine Zeile in der Wohnort-Auswahl",
+        items: [
+          "Wer den Umlaut tippt und wer ihn umschreibt, standen im CSV-Export als zwei getrennte Orte untereinander — mit je einer Person dahinter. Ein Haken auf den einen ließ den anderen im Export fehlen.",
+          "Die Zusammenfassung kennt jetzt ä/ö/ü/ß. „Mühlhausen“ und „Muehlhausen“, „Weißensee“ und „Weissensee“ fallen zusammen, genau wie die Heiligenstädter Schreibweisen es schon vorher taten.",
+          "An den Ortsteilen ändert sich nichts: ein Haken auf Heilbad Heiligenstadt nimmt weiter Kalteneber, Rengelrode und die übrigen mit.",
+          "Dieselbe Korrektur steckt im Wohnort-Filter der App „Dokumentenvorlagen“ — beide müssen bei gleicher Datenlage gleich filtern."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.22",
     groups: [
       {
