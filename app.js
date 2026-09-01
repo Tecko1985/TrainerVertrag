@@ -2503,6 +2503,22 @@ function _setBankExportError(text) {
   el.classList.toggle("visible", !!text);
 }
 
+// Auftraggeber-BIC aus dem Panel prüfen. Leer ist erlaubt (das Feld ist bewusst
+// nur „empfohlen"), ein AUSGEFÜLLTER Wert muss aber die Schema-Form haben —
+// sonst weist das Bankprogramm die fertige Datei ab, und zwar erst nach dem
+// Herunterladen, beim Import. Die IBAN daneben wird seit jeher so geprüft; hier
+// stand bis 1.22 nichts, obwohl ein BIC dieselbe Datei genauso ungültig macht.
+// Liefert den Fehlertext oder "" — beide SEPA-Wege (Trainerliste und eingelesene
+// CSV) rufen dieselbe Prüfung auf.
+function _bankExportFehlerBic(bic) {
+  if (!bic) return "";
+  if (SEPA_BIC_MUSTER.test(bic)) return "";
+  return "Der BIC des Auftraggebers hat nicht die zulässige Form: 8 oder 11 Zeichen, " +
+         "nur Großbuchstaben und Ziffern, keine Leerzeichen (Beispiel: GENODEF1EIC). " +
+         "Mit einem krummen BIC weist die Bank die ganze Datei ab. Feld leer lassen " +
+         "geht auch — dann bleibt die Bankangabe weg.";
+}
+
 function _handleBankExport(format) {
   _setBankExportError("");
 
@@ -2559,6 +2575,11 @@ function _handleBankExport(format) {
   }
   if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(auftraggeberIban)) {
     _setBankExportError("Die IBAN des Auftraggebers scheint ungültig zu sein. Bitte prüfen.");
+    return;
+  }
+  const bicFehler = _bankExportFehlerBic(auftraggeberBic);
+  if (bicFehler) {
+    _setBankExportError(bicFehler);
     return;
   }
   if (ausfuehrungsdatum < _heuteIsoDatum()) {
@@ -2837,17 +2858,31 @@ function _buildSepaXml(o) {
   // Bank) ist dagegen Pflicht, sein <FinInstnId> darf aber leer bleiben — jedes
   // Kind davon ist optional. Mit hinterlegtem BIC geht in beiden Fällen der
   // echte BIC raus, das ist der sicherste Weg.
+  //
+  // ⚠️ Ein BIC kommt nur in die Datei, wenn er die Schema-Form hat
+  // (SEPA_BIC_MUSTER, config.js). Ein krummer Wert — 10 statt 11 Zeichen, ein
+  // Leerzeichen, ein Umlaut — macht die GANZE Sammelüberweisung ungültig, und
+  // zwar mit derselben 0390-Meldung wie das alte NOTPROVIDED. Weglassen ist
+  // dagegen folgenlos: CdtrAgt ist optional, seit IBAN-Only braucht die Bank
+  // den Empfänger-BIC nicht. Der Auftraggeber-BIC wird zusätzlich schon im
+  // Panel geprüft (_bankExportFehlerBic) — hier steht das zweite Netz für den
+  // CSV-Weg und für jeden späteren Aufrufer.
+  const bicOderLeer = (roh) => {
+    const b = String(roh || "").trim().toUpperCase();
+    return SEPA_BIC_MUSTER.test(b) ? b : "";
+  };
   const cdtrAgtEl = (bic) => bic
     ? `\n        <CdtrAgt><FinInstnId><BIC>${_xmlEsc(bic)}</BIC></FinInstnId></CdtrAgt>`
     : "";
-  const dbtrAgtEl = o.auftraggeberBic
-    ? `<DbtrAgt><FinInstnId><BIC>${_xmlEsc(o.auftraggeberBic)}</BIC></FinInstnId></DbtrAgt>`
+  const auftraggeberBicGeprueft = bicOderLeer(o.auftraggeberBic);
+  const dbtrAgtEl = auftraggeberBicGeprueft
+    ? `<DbtrAgt><FinInstnId><BIC>${_xmlEsc(auftraggeberBicGeprueft)}</BIC></FinInstnId></DbtrAgt>`
     : `<DbtrAgt><FinInstnId/></DbtrAgt>`;
 
   const transaktionen = o.zahlbar.map((k, i) => {
     const t = k.trainer;
     const name = _sepaText(`${t.vorname || ""} ${t.nachname || ""}`.trim(), SEPA_MAX_NAME);
-    const bic  = (t.bic || "").trim().toUpperCase();
+    const bic  = bicOderLeer(t.bic);
     // Zweck je Zahlung schlägt den gemeinsamen: aus der Trainerliste kommt nur
     // der gemeinsame, eine eingelesene CSV kann pro Zeile einen eigenen haben.
     const zweck = _sepaText(k.zweck || o.verwendungszweck, SEPA_MAX_VERWENDUNGSZWECK);
@@ -3093,6 +3128,12 @@ async function _konvertiereCsvZuXml(datei) {
   }
   if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(auftraggeberIban)) {
     _setBankExportError("Die IBAN des Auftraggebers scheint ungültig zu sein. Bitte prüfen.");
+    return;
+  }
+  const bicFehlerCsv = _bankExportFehlerBic(auftraggeberBic);
+  if (bicFehlerCsv) {
+    _setBankExportError(bicFehlerCsv);
+    _zeigeCsvBericht(berichtEl, zahlbar.length, uebersprungen, datei.name);
     return;
   }
   if (ausfuehrungsdatum < _heuteIsoDatum()) {

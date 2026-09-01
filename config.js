@@ -202,6 +202,16 @@ const SEPA_UMLAUT_MAP = {
 const SEPA_MAX_NAME = 70;
 const SEPA_MAX_VERWENDUNGSZWECK = 140;
 
+// Zulässige Form eines BIC, wortgleich mit der Restriktion "BICIdentifier" aus
+// dem Schema pain.001.001.03: sechs Buchstaben (Bank + Land), dann eine Stelle
+// ohne 0/1 und eine ohne O, optional drei Zeichen für die Filiale. Also genau
+// 8 oder 11 Zeichen — nichts dazwischen, keine Leerzeichen, keine Umlaute.
+// ⚠️ Ein BIC, der hier durchfällt, darf NICHT in die Datei: das Bankprogramm
+// prüft gegen dasselbe Muster und weist die ganze Sammelüberweisung ab
+// (Fehler 0390, siehe Changelog 1.21). Die IBAN wurde immer geprüft, der BIC
+// bis 1.22 nicht — ein Tippfehler reichte für eine unbrauchbare Datei.
+const SEPA_BIC_MUSTER = /^[A-Z]{6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3})?$/;
+
 // Kennung, mit der jede von uns erzeugte SEPA-Datei ihre MsgId und ihre
 // EndToEndIds beginnt (_buildSepaXml in app.js). Der Kontoauszug-Abgleich
 // erkennt daran später eine Buchung wieder, die aus unserem eigenen Export
@@ -246,6 +256,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.22",
+    groups: [
+      {
+        title: "Ein falsch getippter BIC macht die Zahlungsdatei nicht mehr kaputt",
+        items: [
+          "Die IBAN wurde beim Bank-Export immer geprüft, der BIC nie. Ein Tippfehler reichte deshalb für eine Datei, die das Banking-Programm komplett abweist — und zwar erst beim Import, nachdem sie schon heruntergeladen war.",
+          "Ein BIC hat genau 8 oder 11 Zeichen, nur Großbuchstaben und Ziffern. Werte wie „GENODEF1EI“ (zehn Zeichen), „GENODEF1 EIC“ (mit Leerzeichen) oder ein Umlaut darin gingen bisher ungeprüft in die Datei.",
+          "Beim BIC des Auftraggebers meldet sich der Export jetzt vorher und sagt, was falsch ist. Das Feld darf weiter leer bleiben — dann bleibt die Bankangabe einfach weg, wie seit der letzten Fassung.",
+          "Beim BIC eines einzelnen Trainers wird der Export nicht angehalten: ein krummer Wert wird für diese Zahlung weggelassen. Die Überweisung geht trotzdem raus, die IBAN allein genügt.",
+          "Gilt für beide Wege in die SEPA-Datei — aus der Trainerliste und aus einer eingelesenen CSV."
+        ]
+      }
+    ]
+  },
   {
     version: "1.21",
     groups: [
