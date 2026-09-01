@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trainerdaten</title>
 <meta name="theme-color" content="#1a56a0" />
-<link rel="stylesheet" href="style.css?v=1.7" />
+<link rel="stylesheet" href="style.css?v=1.8" />
 </head>
 <body>
 
@@ -516,6 +516,12 @@
                 </div>
               </div>
               <div id="export-gruppen-section"></div>
+              <!-- Wohnort: bewusst Häkchen statt Auswahlfeld, gleiche Linie wie in
+                   der Dokumentenvorlagen-App. Gefragt ist "diese paar Dörfer"
+                   bzw. "alle außer Heiligenstadt" (erweitertes Führungszeugnis),
+                   und das ist mit einem einzelnen Auswahlfeld nicht zu treffen.
+                   Inhalt kommt aus _renderExportOrtSection(). -->
+              <div id="export-ort-section"></div>
               <p class="muted" id="export-info-line" style="margin:10px 0 14px;"></p>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn success small" id="btn-export-csv">CSV exportieren</button>
@@ -961,7 +967,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.38"></script>
+<script src="config.js?v=1.39"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
@@ -971,6 +977,6 @@
 <script src="db.js?v=1.8"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=4.2"></script>
+<script src="app.js?v=4.3"></script>
 </body>
 </html>

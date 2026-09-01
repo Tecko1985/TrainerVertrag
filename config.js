@@ -123,6 +123,25 @@ const EXPORT_FIELD_GROUPS = [
   }
 ];
 
+// ─── Ortsgruppen für den Wohnort-Filter des CSV-Exports ───────────────────
+// Ein Ortsteil zählt zu seiner Gemeinde: ein Haken auf "Heilbad Heiligenstadt"
+// nimmt Kalteneber und Rengelrode mit. Anlass ist dieselbe Frage wie in der
+// Dokumentenvorlagen-App — wer nicht hier gemeldet ist, muss das erweiterte
+// Führungszeugnis beim eigenen Meldeamt beantragen.
+// ⚠️ Wortgleich mit ORT_GRUPPEN in E:\dokumentenvorlagen\config.js. Wird dort
+// ein Ortsteil ergänzt, gehört er auch hierher — sonst filtern die beiden Apps
+// bei identischer Datenlage unterschiedlich.
+const ORT_GRUPPEN = [
+  {
+    name: "Heilbad Heiligenstadt",
+    orte: [
+      "Heilbad Heiligenstadt", "Heiligenstadt",
+      "Bernterode", "Bischhagen", "Flinsberg", "Glasehausen", "Günterode",
+      "Kalteneber", "Mengelrode", "Rengelrode", "Siemerode", "Streitholz"
+    ]
+  }
+];
+
 // ─── Bank-Export (Überweisungsliste für die Bank) ─────────────────────────────
 // Zweiter, vom konfigurierbaren CSV-Export getrennter Export: erzeugt aus den
 // Trainern der aktuellen Liste eine Zahlungsdatei (Empfänger + IBAN + BIC +
@@ -227,6 +246,22 @@ const VERTRAG_SIGNATURE_STELLEN = [
 ];
 
 const APP_CHANGELOG = [
+  {
+    version: "1.18",
+    groups: [
+      {
+        title: "CSV-Export lässt sich jetzt auf einzelne Wohnorte einschränken",
+        items: [
+          "Im Export-Panel steht unter den Gruppen ein neuer Block „Wohnort“: je Ort ein Kästchen, dahinter die Anzahl der Trainer, die dort wohnen.",
+          "Kein Ort angekreuzt = alle exportieren, genau wie bei Führungszeugnis und Gruppen.",
+          "Verschiedene Schreibweisen desselben Ortes stehen in einer Zeile — „37308 Heiligenstadt“, „Heilbad Heiligenstadt“ und „heiligenstadt“ werden zusammengefasst statt dreimal aufgeführt.",
+          "Ein Haken auf eine Gemeinde nimmt ihre Ortsteile mit. Welche das sind, steht klein unter dem Namen.",
+          "Der Knopf „Umkehren“ ist der kurze Weg zu „alle außer Heiligenstadt“: eigenen Ort anhaken, umkehren, fertig. Gedacht für das erweiterte Führungszeugnis — wer nicht hier gemeldet ist, beantragt es beim eigenen Meldeamt.",
+          "Die Zahl rechts zählt den Gesamtbestand, unabhängig von Filter und Suche. Wie viele am Ende wirklich exportiert werden, steht wie bisher in der Zeile über dem Export-Knopf."
+        ]
+      }
+    ]
+  },
   {
     version: "1.17",
     groups: [

@@ -1706,6 +1706,17 @@ function _initAdminPanel() {
       _updateBankExportInfo(); // Gruppen-Auswahl verengt auch die Bank-Exportmenge
     }
   });
+  // Wohnort-Auswahl: ebenfalls Delegation, die Kästchen werden bei jedem
+  // Listen-Render neu gebaut. ⚠️ Maßgeblich ist die Menge _exportOrte, nicht der
+  // DOM-Zustand — "Auswahl leeren" und "Umkehren" ändern sie ohne Klick auf ein
+  // Kästchen, und danach zeichnet die Sektion sich selbst neu.
+  document.getElementById("export-ort-section").addEventListener("change", (e) => {
+    const cb = e.target;
+    if (!cb || !cb.classList.contains("export-ort-cb")) return;
+    if (cb.checked) _exportOrte.add(cb.dataset.value); else _exportOrte.delete(cb.dataset.value);
+    _updateExportInfoLine();
+    _updateBankExportInfo(); // Wohnort-Auswahl verengt auch die Bank-Exportmenge
+  });
   _initExportPanel();
   _initBankExportPanel();
 
@@ -1903,6 +1914,153 @@ function _renderExportGruppenSection() {
     </div>`;
 }
 
+// ─── Wohnort-Auswahl im Export-Panel ───────────────────────────────
+// Gleiche Konvention wie Führungszeugnis und Gruppen: verengt NUR die
+// Exportmenge, nichts angekreuzt = alle. Anlass ist das erweiterte
+// Führungszeugnis — wer nicht in Heiligenstadt gemeldet ist, muss es beim
+// eigenen Meldeamt beantragen, und dafür braucht die Geschäftsstelle genau
+// die Liste "alle außer Heiligenstadt".
+
+const _EXPORT_ORT_OHNE = "__ohne__"; // Sentinel für "ohne Angabe"
+
+// Gewählte Wohnorte. Leer = alle. ⚠️ Eigene Menge statt Auslesen der Checkboxen
+// (wie bei den Gruppen), weil "Auswahl leeren" und "Umkehren" die Auswahl auch
+// ohne Klick auf ein Kästchen ändern.
+let _exportOrte = new Set();
+
+// Vergleichsform eines Ortsnamens. ⚠️ Sie muss großzügig sein, weil die Orte von
+// Hand getippt sind: "37308 Heiligenstadt", "Heilbad Heiligenstadt",
+// "heiligenstadt" und "Heiligenstadt (Eichsfeld)" meinen alle dasselbe und
+// dürfen nicht als vier Zeilen in der Auswahl stehen.
+// Wortgleich mit normOrt() in der Dokumentenvorlagen-App.
+function _normOrt(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")     // Klammerzusatz
+    .replace(/^\s*\d{4,5}\s+/, "")  // vorangestellte Postleitzahl
+    .replace(/^heilbad\s+/, "")     // erst NACH der PLZ, sonst greift es nicht
+    .replace(/[-–—.,/]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Ortsteil -> Gruppenname, einmal aus ORT_GRUPPEN (config.js) aufgebaut.
+const _ORT_GRUPPE_MAP = (() => {
+  const m = new Map();
+  (typeof ORT_GRUPPEN !== "undefined" ? ORT_GRUPPEN : []).forEach(g => {
+    (g.orte || []).forEach(o => m.set(_normOrt(o), g.name));
+  });
+  return m;
+})();
+
+// Gruppenname -> zugehörige Ortsteile ohne die Schreibvarianten des Hauptorts.
+// ⚠️ Aus der KONFIGURATION, nicht aus den geladenen Daten — die Zeile soll
+// sagen, was die Gruppe umfasst, nicht wer gerade zufällig im Bestand steht.
+const _ORT_GRUPPE_TEILE = (() => {
+  const m = new Map();
+  (typeof ORT_GRUPPEN !== "undefined" ? ORT_GRUPPEN : []).forEach(g => {
+    const n = _normOrt(g.name);
+    m.set(g.name, (g.orte || []).filter(o => _normOrt(o) !== n));
+  });
+  return m;
+})();
+
+// ⚠️ Der Schlüssel ist die Gruppe, sonst die NORMIERTE Form — nicht der rohe
+// Text. Zwei Schreibweisen desselben Ortes wären sonst zwei Zeilen, und ein
+// Haken erwischte nur die Hälfte der Leute.
+function _ortSchluessel(t) {
+  const roh = String(t.ort || "").trim();
+  if (!roh) return _EXPORT_ORT_OHNE;
+  const n = _normOrt(roh);
+  if (!n) return _EXPORT_ORT_OHNE;
+  return _ORT_GRUPPE_MAP.get(n) || n;
+}
+
+// Baut die Sektion "Wohnort" im CSV-Export-Panel: eine Checkbox je Ort, der im
+// Bestand vorkommt, mit Anzahl — sonst hakt man blind an und weiß erst nach dem
+// Export, ob überhaupt jemand dort wohnt. ⚠️ Liste und Anzahl kommen aus dem
+// GESAMTBESTAND, nicht aus der gefilterten Liste: sonst verschwänden angehakte
+// Orte beim Tippen im Suchfeld wieder aus der Auswahl.
+function _renderExportOrtSection() {
+  const wrap = document.getElementById("export-ort-section");
+  if (!wrap) return;
+
+  const zaehler = new Map(); // Schlüssel -> Anzahl Personen
+  const label   = new Map(); // Schlüssel -> Anzeigename (erste gesehene Schreibweise)
+  appData.trainer.forEach(t => {
+    const roh = String(t.ort || "").trim();
+    const k = _ortSchluessel(t);
+    zaehler.set(k, (zaehler.get(k) || 0) + 1);
+    if (k === _EXPORT_ORT_OHNE) { label.set(k, "(ohne Ort)"); return; }
+    const grp = _ORT_GRUPPE_MAP.get(_normOrt(roh));
+    if (grp) label.set(k, grp);
+    else if (!label.has(k)) label.set(k, roh); // Originalschreibweise, nicht die Vergleichsform
+  });
+
+  // ⚠️ Orte, die es im Bestand nicht mehr gibt, aus der Auswahl werfen: ein
+  // Haken auf einen verschwundenen Ort filterte den Export auf null, ohne dass
+  // irgendwo ein gesetztes Kästchen zu sehen wäre.
+  [..._exportOrte].forEach(k => { if (!zaehler.has(k)) _exportOrte.delete(k); });
+
+  const name = k => label.get(k) || k;
+  const keys = [...zaehler.keys()].sort((a, b) => {
+    if (a === _EXPORT_ORT_OHNE) return 1;  // "ohne Ort" immer ans Ende
+    if (b === _EXPORT_ORT_OHNE) return -1;
+    return name(a).localeCompare(name(b), "de");
+  });
+
+  const liste = keys.length
+    ? keys.map(k => {
+        // Welche Orte stecken hier drin? Ohne diese Zeile ist nicht zu sehen,
+        // dass ein Haken auf Heiligenstadt auch Kalteneber und Rengelrode
+        // mitnimmt.
+        const teile = [...(_ORT_GRUPPE_TEILE.get(k) || [])].sort((a, b) => a.localeCompare(b, "de"));
+        return `
+        <label class="export-ort-zeile">
+          <input type="checkbox" class="export-ort-cb" data-value="${_esc(k)}"${_exportOrte.has(k) ? " checked" : ""} />
+          <span class="export-ort-name">${_esc(name(k))}${
+            teile.length ? `<span class="export-ort-teile">mit ${_esc(teile.join(", "))}</span>` : ""
+          }</span>
+          <span class="export-ort-zahl">${zaehler.get(k)}</span>
+        </label>`;
+      }).join("")
+    : `<p class="muted" style="margin:0; font-size:13px;">Bei keinem Trainer ist ein Wohnort hinterlegt.</p>`;
+
+  wrap.innerHTML = `
+    <div class="section-divider" style="margin:14px 0 8px;">Wohnort – nur ausgewählte exportieren</div>
+    <p class="muted" style="margin:0 0 8px; font-size:12px;">Kein Ort angekreuzt = alle exportieren. Ein Haken auf eine Gemeinde nimmt ihre Ortsteile mit. Die Zahl rechts ist die Anzahl im Gesamtbestand, unabhängig von Filter und Suche.</p>
+    <div class="export-ort-kopf">
+      <button type="button" class="btn secondary small" id="btn-export-ort-leeren">Auswahl leeren</button>
+      <button type="button" class="btn secondary small" id="btn-export-ort-umkehren">Umkehren</button>
+    </div>
+    <div class="export-ort-liste">${liste}</div>`;
+
+  // "Umkehren" ist der kurze Weg zu "alle außer Heiligenstadt": den eigenen Ort
+  // anhaken, umkehren, fertig. Ohne den Knopf wären zwei Dutzend Dörfer einzeln
+  // anzuklicken.
+  document.getElementById("btn-export-ort-umkehren").addEventListener("click", () => {
+    const neu = new Set();
+    keys.forEach(k => { if (!_exportOrte.has(k)) neu.add(k); });
+    _exportOrte = neu;
+    _renderExportOrtSection();
+    _updateExportInfoLine();
+    _updateBankExportInfo();
+  });
+  document.getElementById("btn-export-ort-leeren").addEventListener("click", () => {
+    _exportOrte.clear();
+    _renderExportOrtSection();
+    _updateExportInfoLine();
+    _updateBankExportInfo();
+  });
+}
+
+// Wohnort-Auswahl aus dem Export-Panel anwenden. Nichts angekreuzt = keine
+// Einschränkung (gleiche Konvention wie Führungszeugnis und Gruppen).
+function _ortExportGefiltert(liste) {
+  if (!_exportOrte.size) return liste;
+  return liste.filter(t => _exportOrte.has(_ortSchluessel(t)));
+}
+
 // Namen aller Gruppen, in denen die Person Mitglied ist (kommasepariert,
 // alphabetisch) — Wert der CSV-Export-Spalte "Gruppen". Leer, solange die
 // Gruppen nicht geladen sind (kein Gateway-Admin-Login) oder die Person
@@ -1976,12 +2134,13 @@ function _fzExportGefiltert(liste) {
 }
 
 // Exportmenge = sichtbare Liste, zusätzlich verengt auf die im Export-Panel
-// angekreuzten Gruppen (ODER-verknüpft; "__ohne__" = ohne Gruppenzuordnung)
-// und auf den Führungszeugnis-Stand. Nichts angekreuzt = keine Einschränkung.
+// angekreuzten Gruppen (ODER-verknüpft; "__ohne__" = ohne Gruppenzuordnung),
+// auf den Führungszeugnis-Stand und auf die angekreuzten Wohnorte. Nichts
+// angekreuzt = keine Einschränkung.
 // Genutzt vom CSV-Export, vom Bank-Export und von der Info-Zeile, damit der
 // Zähler immer die echte Exportmenge zeigt.
 function _exportTrainerList() {
-  const basis = _fzExportGefiltert(_filteredTrainerList());
+  const basis = _ortExportGefiltert(_fzExportGefiltert(_filteredTrainerList()));
   const auswahl = new Set(
     Array.from(document.querySelectorAll("#export-gruppen-section .export-gruppen-cb:checked")).map(cb => cb.dataset.value)
   );
@@ -2008,6 +2167,7 @@ function _renderAdminListe() {
     noMatch.style.display = "none";
     header.style.display = "none";
     filterbar.style.display = "none";
+    _renderExportOrtSection(); // sonst bliebe die Ortsliste des alten Bestands stehen
     _updateExportInfoLine();
     _updateBankExportInfo();
     return;
@@ -2018,6 +2178,7 @@ function _renderAdminListe() {
   _populateLizenzFilterOptions();
   _ensureFilterGruppen(); // async, erster Aufruf lädt die Gruppen und baut danach die Export-Sektion
   _renderExportGruppenSection();
+  _renderExportOrtSection();
 
   const filtered = _filteredTrainerList();
   _updateExportInfoLine();
@@ -2069,6 +2230,7 @@ function _renderAdminListe() {
 
 function _initExportPanel() {
   _renderExportFieldCheckboxes();
+  _renderExportOrtSection();
 
   document.getElementById("btn-export-toggle").addEventListener("click", () => {
     const panel = document.getElementById("export-panel");
@@ -2126,7 +2288,7 @@ function _handleExportCsv() {
   const rows = _exportTrainerList().slice().sort((a, b) =>
     ((a.nachname || "") + (a.vorname || "")).localeCompare((b.nachname || "") + (b.vorname || ""), "de")
   );
-  if (!rows.length) { alert("Die aktuelle Filterung/Suche/Gruppen-Auswahl ergibt keine Treffer zum Exportieren."); return; }
+  if (!rows.length) { alert("Die aktuelle Filterung/Suche und die Auswahl im Export-Panel (Führungszeugnis, Gruppen, Wohnort) ergeben keine Treffer zum Exportieren."); return; }
 
   const fieldLookup = new Map(EXPORT_FIELD_GROUPS.flatMap(g => g.fields).map(f => [f.key, f]));
   const cols = selectedKeys.map(key => fieldLookup.get(key)).filter(Boolean);

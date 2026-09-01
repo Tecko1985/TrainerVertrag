@@ -264,6 +264,31 @@ button.btn:disabled { opacity: 0.5; cursor: default; }
   .trainer-row, .trainer-row-header { grid-template-columns: 1fr 1fr; }
 }
 
+/* Wohnort-Auswahl im CSV-Export-Panel (Häkchen, Mehrfachauswahl).
+   ⚠️ Bewusst eine eigene Zeile statt .form-grid wie bei den Gruppen: hier
+   hängt an jedem Ort eine Anzahl am rechten Rand und ggf. eine Zeile mit den
+   Ortsteilen — im Vierspalter bräche das um. */
+.export-ort-kopf {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 8px;
+}
+/* In sich scrollen: bei zwei Dutzend Dörfern schöbe die Liste sonst die
+   Info-Zeile und den Export-Knopf aus dem Bild. */
+.export-ort-liste {
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+.export-ort-zeile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 2px; cursor: pointer; font-size: 13px; margin-bottom: 0;
+}
+.export-ort-zeile input { width: 16px; height: 16px; flex: 0 0 auto; }
+.export-ort-name { min-width: 0; overflow-wrap: anywhere; }
+/* Die Ortsteile stehen UNTER dem Gruppennamen, nicht dahinter — dahinter träfen
+   sie bei "Heilbad Heiligenstadt mit Bernterode, Bischhagen, …" am Handy auf
+   die Zahl am rechten Rand. */
+.export-ort-teile { display: block; font-size: 11px; color: var(--muted); line-height: 1.35; }
+.export-ort-zahl { margin-left: auto; color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+
 .badge {
   display: inline-flex;
   align-items: center;
