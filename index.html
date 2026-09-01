@@ -571,9 +571,18 @@
                   <label for="bank-auftraggeber-iban">IBAN des Auftraggebers</label>
                   <input type="text" id="bank-auftraggeber-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
                 </div>
+                <!-- Nicht mehr „optional“: das VR-Banking hat eine Datei ohne BIC mit
+                     Fehler 0390 abgewiesen. Die Bank des EMPFÄNGERS lässt die SEPA-XML
+                     seitdem ganz weg (seit IBAN-Only zulässig), die eigene Bank ist im
+                     Schema aber Pflicht — mit BIC steht dort ein echter Wert statt eines
+                     leeren Elements. Ein Feld, einmal ausgefüllt. -->
                 <div class="form-field">
-                  <label for="bank-auftraggeber-bic">BIC des Auftraggebers (optional)</label>
-                  <input type="text" id="bank-auftraggeber-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" />
+                  <label for="bank-auftraggeber-bic">BIC des Auftraggebers (empfohlen)</label>
+                  <input type="text" id="bank-auftraggeber-bic" placeholder="z.B. GENODEF1ESW" autocomplete="off" />
+                  <p class="muted" style="margin:6px 0 0; font-size:12px;">
+                    Nur für die SEPA-XML. Ohne ihn kann das Banking-Programm die Datei
+                    ablehnen — der BIC steht auf jedem Kontoauszug des Vereins.
+                  </p>
                 </div>
                 <div class="form-field">
                   <label for="bank-ausfuehrungsdatum">Ausführungsdatum</label>
@@ -971,7 +980,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.41"></script>
+<script src="config.js?v=1.42"></script>
 <script src="kodex-text.js?v=1.1"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
@@ -981,6 +990,6 @@
 <script src="db.js?v=1.8"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.1"></script>
-<script src="app.js?v=4.4"></script>
+<script src="app.js?v=4.5"></script>
 </body>
 </html>

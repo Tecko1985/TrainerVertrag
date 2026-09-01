@@ -247,6 +247,21 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.21",
+    groups: [
+      {
+        title: "SEPA-XML: das Banking-Programm nimmt die Datei jetzt an",
+        items: [
+          "Beim ersten Testimport im VR-Banking wurde die Sammelüberweisung abgewiesen: „Das Tag ‚Othr‘ wird an dieser Stelle nicht erwartet. Stattdessen wird das Tag ‚BIC‘ erwartet.“ (Fehler 0390).",
+          "Ursache: Wo kein BIC hinterlegt war, stand in der Datei der Vermerk „NOTPROVIDED“. Das ist die offizielle Schreibweise — das Prüfprogramm der Bank kennt sie aber nicht.",
+          "Seit der Umstellung auf IBAN-Only braucht die Datei die Bank des Empfängers gar nicht mehr. Sie steht jetzt nur noch drin, wenn wirklich ein BIC hinterlegt ist. Sonst bleibt sie einfach weg.",
+          "Am Ablauf ändert sich nichts: dieselben Knöpfe, dieselben Daten, dieselben Beträge. Nur die erzeugte Datei ist eine andere.",
+          "Das Feld „BIC des Auftraggebers“ im Bank-Export heißt jetzt „empfohlen“ statt „optional“ und erklärt, warum. Der BIC steht auf jedem Kontoauszug des Vereins."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.20",
     groups: [
       {

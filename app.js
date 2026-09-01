@@ -2824,11 +2824,25 @@ function _buildSepaXml(o) {
   // MsgId/PmtInfId: max. 35 Zeichen, muss je Einreichung eindeutig sein.
   const lfdId = `${SEPA_MSG_PRAEFIX}-${creDtTm.replace(/[-:T]/g, "")}`.slice(0, 35);
 
-  // Ohne BIC verlangt das Schema den ausdrücklichen Vermerk "NOTPROVIDED" —
-  // ein leeres BIC-Element wäre ungültig. Bei Inlands-SEPA ist das der Normalfall.
-  const agent = (bic) => bic
-    ? `<FinInstnId><BIC>${_xmlEsc(bic)}</BIC></FinInstnId>`
-    : `<FinInstnId><Othr><Id>NOTPROVIDED</Id></Othr></FinInstnId>`;
+  // ⚠️ Ohne BIC steht hier KEIN <Othr><Id>NOTPROVIDED</Id></Othr> mehr. Das
+  // Bankprogramm der Geschäftsstelle hat die Datei genau damit abgewiesen:
+  // Fehler 0390, "Das Tag 'Othr' wird an dieser Stelle nicht erwartet.
+  // Stattdessen wird das Tag 'BIC' erwartet." Sein Schema lässt unter
+  // <FinInstnId> also ausschließlich den BIC zu — NOTPROVIDED ist zwar die
+  // ISO-20022-Schreibweise, hilft aber nichts, wenn der Prüfer sie nicht kennt.
+  //
+  // Seit der SEPA-Umstellung auf IBAN-Only (Februar 2016) braucht die Datei die
+  // Bank des EMPFÄNGERS gar nicht mehr: <CdtrAgt> ist im Schema optional und
+  // entfällt jetzt komplett, wenn kein BIC hinterlegt ist. <DbtrAgt> (die eigene
+  // Bank) ist dagegen Pflicht, sein <FinInstnId> darf aber leer bleiben — jedes
+  // Kind davon ist optional. Mit hinterlegtem BIC geht in beiden Fällen der
+  // echte BIC raus, das ist der sicherste Weg.
+  const cdtrAgtEl = (bic) => bic
+    ? `\n        <CdtrAgt><FinInstnId><BIC>${_xmlEsc(bic)}</BIC></FinInstnId></CdtrAgt>`
+    : "";
+  const dbtrAgtEl = o.auftraggeberBic
+    ? `<DbtrAgt><FinInstnId><BIC>${_xmlEsc(o.auftraggeberBic)}</BIC></FinInstnId></DbtrAgt>`
+    : `<DbtrAgt><FinInstnId/></DbtrAgt>`;
 
   const transaktionen = o.zahlbar.map((k, i) => {
     const t = k.trainer;
@@ -2839,8 +2853,7 @@ function _buildSepaXml(o) {
     const zweck = _sepaText(k.zweck || o.verwendungszweck, SEPA_MAX_VERWENDUNGSZWECK);
     return `      <CdtTrfTxInf>
         <PmtId><EndToEndId>${_xmlEsc(`${lfdId}-${i + 1}`.slice(0, 35))}</EndToEndId></PmtId>
-        <Amt><InstdAmt Ccy="EUR">${_fmtBetrag(k.betrag, ".")}</InstdAmt></Amt>
-        <CdtrAgt>${agent(bic)}</CdtrAgt>
+        <Amt><InstdAmt Ccy="EUR">${_fmtBetrag(k.betrag, ".")}</InstdAmt></Amt>${cdtrAgtEl(bic)}
         <Cdtr><Nm>${_xmlEsc(name)}</Nm></Cdtr>
         <CdtrAcct><Id><IBAN>${_xmlEsc(k.iban)}</IBAN></Id></CdtrAcct>${zweck ? `
         <RmtInf><Ustrd>${_xmlEsc(zweck)}</Ustrd></RmtInf>` : ""}
@@ -2867,7 +2880,7 @@ function _buildSepaXml(o) {
       <ReqdExctnDt>${_xmlEsc(o.ausfuehrungsdatum)}</ReqdExctnDt>
       <Dbtr><Nm>${_xmlEsc(_sepaText(o.auftraggeberName, SEPA_MAX_NAME))}</Nm></Dbtr>
       <DbtrAcct><Id><IBAN>${_xmlEsc(o.auftraggeberIban)}</IBAN></Id></DbtrAcct>
-      <DbtrAgt>${agent(o.auftraggeberBic)}</DbtrAgt>
+      ${dbtrAgtEl}
       <ChrgBr>SLEV</ChrgBr>
 ${transaktionen}
     </PmtInf>
