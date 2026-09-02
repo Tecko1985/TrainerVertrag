@@ -276,519 +276,97 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
-    version: "1.27",
-    groups: [
-      {
-        title: "Bank-CSV: die Spalte „Empfängername“ wurde nie erkannt",
-        items: [
-          "Der CSV-Konverter ordnet die Spalten über die Kopfzeile zu, damit eine verschobene Spalte nichts kaputtmacht. In der Liste der erkannten Schreibweisen stand „empfangername“ — mit einem „a“, wo die Umschrift ein „ae“ erzeugt. Der Eintrag konnte deshalb nie greifen.",
-          "Bei einer Bank-Datei mit dieser Spaltenüberschrift blieb der Empfängername leer, und jede Zeile wurde mit dem Grund „kein Empfänger“ übersprungen — obwohl die Spalte da war. Die eigene Vorlagendatei war nicht betroffen, sie heißt „Empfänger“.",
-          "Zusätzlich: Ein „ä“ kann auf zwei Arten im Rechner stehen, und die Kopfzeile kann in beiden ankommen. Bisher wurde nur die eine erkannt; bei der anderen fiel „IBAN des Empfängers“ durch, die Zeile galt nicht mehr als Kopfzeile, und der Konverter nahm feste Spaltenpositionen an. Bei einer Datei mit anderer Spaltenreihenfolge las er dann die falschen Spalten.",
-          "Beides ist behoben. An der eigenen Vorlagendatei ändert sich nichts."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.26",
-    groups: [
-      {
-        title: "BIC-Prüfung: der alte Platzhalter kommt nicht mehr durch",
-        items: [
-          "Bis 1.21 stand in der Zahlungsdatei „NOTPROVIDED“, wo kein BIC hinterlegt war — genau das wies das VR-Banking ab.",
-          "Die BIC-Prüfung aus 1.22 hätte diesen Wert nicht abgefangen: er hat zufällig die zulässige Form (11 Zeichen, nur Großbuchstaben). Wäre er über einen Import in ein BIC-Feld geraten, wäre er wieder in die Datei gewandert.",
-          "Jetzt wird er ausdrücklich abgelehnt. Am normalen Betrieb ändert sich nichts."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.25",
-    groups: [
-      {
-        title: "Wohnort-Auswahl: derselbe Ort stand in einem Sonderfall doch noch doppelt",
-        items: [
-          "Ein „ö“ kann auf zwei Arten im Rechner stehen: als ein Zeichen, oder als „o“ mit einem getrennt gespeicherten Pünktchen-Zeichen dahinter. Auf dem Bildschirm sieht beides gleich aus.",
-          "Die Zusammenfassung von „Göttingen“ und „Goettingen“ griff nur bei der ersten Art. Bei der zweiten stand der Ort trotzdem doppelt da — genau der Fehler, der zuletzt behoben werden sollte.",
-          "Die zweite Art entsteht beim Kopieren von einem Mac oder iPhone und beim Import aus älteren Dateien.",
-          "Jetzt werden beide Arten gleich behandelt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.24",
-    groups: [
-      {
-        title: "Umlaute in der Zahlungsdatei: aus „Müller“ wurde „Mu ller“",
-        items: [
-          "Ein „ü“ kann auf zwei Arten im Rechner stehen: als ein Zeichen, oder als „u“ mit einem getrennt gespeicherten Pünktchen-Zeichen dahinter. Beides sieht auf dem Bildschirm gleich aus.",
-          "Die Zahlungsdatei kennt keine Umlaute, deshalb schreibt die App sie um. Das griff nur bei der ersten Art. Bei der zweiten blieb das Pünktchen-Zeichen übrig und wurde zu einem Leerzeichen — aus „Müller“ wurde „Mu ller“ im Empfängernamen, aus „Beitrag März für Jörg“ wurde „Beitrag Ma rz fu r Jo rg“ im Verwendungszweck.",
-          "Die zweite Art entsteht beim Kopieren von einem Mac oder iPhone und beim Import aus älteren Dateien. Am Namen war nichts zu sehen — der Fehler stand erst in der fertigen Datei bei der Bank.",
-          "Jetzt werden beide Arten gleich behandelt. Schon heruntergeladene Dateien ändern sich dadurch nicht; wer eine mit „Mu ller“ noch nicht eingereicht hat, erzeugt sie am besten neu.",
-          "Dieselbe Korrektur steckt in der Vereinsverwaltung, die die Beitrags-Lastschriften erzeugt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.23",
-    groups: [
-      {
-        title: "„Göttingen“ und „Goettingen“ sind jetzt eine Zeile in der Wohnort-Auswahl",
-        items: [
-          "Wer den Umlaut tippt und wer ihn umschreibt, standen im CSV-Export als zwei getrennte Orte untereinander — mit je einer Person dahinter. Ein Haken auf den einen ließ den anderen im Export fehlen.",
-          "Die Zusammenfassung kennt jetzt ä/ö/ü/ß. „Mühlhausen“ und „Muehlhausen“, „Weißensee“ und „Weissensee“ fallen zusammen, genau wie die Heiligenstädter Schreibweisen es schon vorher taten.",
-          "An den Ortsteilen ändert sich nichts: ein Haken auf Heilbad Heiligenstadt nimmt weiter Kalteneber, Rengelrode und die übrigen mit.",
-          "Dieselbe Korrektur steckt im Wohnort-Filter der App „Dokumentenvorlagen“ — beide müssen bei gleicher Datenlage gleich filtern."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.22",
-    groups: [
-      {
-        title: "Ein falsch getippter BIC macht die Zahlungsdatei nicht mehr kaputt",
-        items: [
-          "Die IBAN wurde beim Bank-Export immer geprüft, der BIC nie. Ein Tippfehler reichte deshalb für eine Datei, die das Banking-Programm komplett abweist — und zwar erst beim Import, nachdem sie schon heruntergeladen war.",
-          "Ein BIC hat genau 8 oder 11 Zeichen, nur Großbuchstaben und Ziffern. Werte wie „GENODEF1EI“ (zehn Zeichen), „GENODEF1 EIC“ (mit Leerzeichen) oder ein Umlaut darin gingen bisher ungeprüft in die Datei.",
-          "Beim BIC des Auftraggebers meldet sich der Export jetzt vorher und sagt, was falsch ist. Das Feld darf weiter leer bleiben — dann bleibt die Bankangabe einfach weg, wie seit der letzten Fassung.",
-          "Beim BIC eines einzelnen Trainers wird der Export nicht angehalten: ein krummer Wert wird für diese Zahlung weggelassen. Die Überweisung geht trotzdem raus, die IBAN allein genügt.",
-          "Gilt für beide Wege in die SEPA-Datei — aus der Trainerliste und aus einer eingelesenen CSV."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.21",
-    groups: [
-      {
-        title: "SEPA-XML: das Banking-Programm nimmt die Datei jetzt an",
-        items: [
-          "Beim ersten Testimport im VR-Banking wurde die Sammelüberweisung abgewiesen: „Das Tag ‚Othr‘ wird an dieser Stelle nicht erwartet. Stattdessen wird das Tag ‚BIC‘ erwartet.“ (Fehler 0390).",
-          "Ursache: Wo kein BIC hinterlegt war, stand in der Datei der Vermerk „NOTPROVIDED“. Das ist die offizielle Schreibweise — das Prüfprogramm der Bank kennt sie aber nicht.",
-          "Seit der Umstellung auf IBAN-Only braucht die Datei die Bank des Empfängers gar nicht mehr. Sie steht jetzt nur noch drin, wenn wirklich ein BIC hinterlegt ist. Sonst bleibt sie einfach weg.",
-          "Am Ablauf ändert sich nichts: dieselben Knöpfe, dieselben Daten, dieselben Beträge. Nur die erzeugte Datei ist eine andere.",
-          "Das Feld „BIC des Auftraggebers“ im Bank-Export heißt jetzt „empfohlen“ statt „optional“ und erklärt, warum. Der BIC steht auf jedem Kontoauszug des Vereins."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.20",
-    groups: [
-      {
-        title: "Die Verwaltungs-Reiter stehen jetzt zusammen rechts",
-        items: [
-          "„Trainer“ und „Import“ standen links direkt neben „Meine Daten“ — obwohl sie nur sichtbar sind, wer die Stufe „Administrieren“ hat. Wer sie sah, konnte sie leicht für etwas halten, das jeder hat.",
-          "Beide stehen jetzt rechts neben „Einstellungen“, dem dritten Reiter mit derselben Bedingung. Links bleibt nur „Meine Daten“, ganz rechts „Info“ — beide sieht jeder.",
-          "An den Rechten selbst ändert sich nichts: Ohne die Stufe „Administrieren“ sind die drei Reiter wie bisher gar nicht da."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.19",
-    groups: [
-      {
-        title: "„Führungszeugnis fehlt“ zählt Kontakt-Einträge nicht mehr mit",
-        items: [
-          "Die Auswahl „Führungszeugnis fehlt“ im CSV-Export nahm auch Personen mit, für die gar kein Trainervertrag vorgesehen ist (Status „Nur Kontaktdaten“ — Geschäftsstelle, Funktionäre). Die sollen gar keins einreichen und standen trotzdem auf der Nachfassliste.",
-          "Sie bleiben jetzt draußen. Der Hinweistext über den beiden Kästchen sagt das auch ausdrücklich.",
-          "„Führungszeugnis eingereicht“ bleibt unverändert: Wer eins abgegeben hat, wird weiter exportiert — egal welchen Status er hat.",
-          "Dieselbe Korrektur steckt in der App „Dokumentenvorlagen“ im Filter „Noch keins hinterlegt“ — daraus entsteht das Bestätigungsschreiben fürs Meldeamt."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.18",
-    groups: [
-      {
-        title: "CSV-Export lässt sich jetzt auf einzelne Wohnorte einschränken",
-        items: [
-          "Im Export-Panel steht unter den Gruppen ein neuer Block „Wohnort“: je Ort ein Kästchen, dahinter die Anzahl der Trainer, die dort wohnen.",
-          "Kein Ort angekreuzt = alle exportieren, genau wie bei Führungszeugnis und Gruppen.",
-          "Verschiedene Schreibweisen desselben Ortes stehen in einer Zeile — „37308 Heiligenstadt“, „Heilbad Heiligenstadt“ und „heiligenstadt“ werden zusammengefasst statt dreimal aufgeführt.",
-          "Ein Haken auf eine Gemeinde nimmt ihre Ortsteile mit. Welche das sind, steht klein unter dem Namen.",
-          "Der Knopf „Umkehren“ ist der kurze Weg zu „alle außer Heiligenstadt“: eigenen Ort anhaken, umkehren, fertig. Gedacht für das erweiterte Führungszeugnis — wer nicht hier gemeldet ist, beantragt es beim eigenen Meldeamt.",
-          "Die Zahl rechts zählt den Gesamtbestand, unabhängig von Filter und Suche. Wie viele am Ende wirklich exportiert werden, steht wie bisher in der Zeile über dem Export-Knopf."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.17",
-    groups: [
-      {
-        title: "Ohne Trainervertrag verschwinden jetzt auch die Vertragsfelder",
-        items: [
-          "Wer keinen Trainervertrag bekommt (Geschäftsstelle, Funktionäre), sah in der Verwaltungsansicht trotzdem IBAN, Bank, BIC, Pauschale, die Anlage 1 und die Unterschrift — Felder, die die Person selbst nie zu Gesicht bekommt und die auch nie befüllt werden.",
-          "Diese Felder sind jetzt ausgeblendet, ebenso die Knöpfe „Word-Vertrag generieren“ und „PDF herunterladen“ sowie die Zeile „Trainervertrag“ bei den Dokumenten.",
-          "An ihrer Stelle steht ein kurzer Hinweis. Soll die Person doch einen Vertrag bekommen, genügt der Status „Ausstehend“ weiter unten — dann sind alle Felder sofort wieder da."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.16",
-    groups: [
-      {
-        title: "Unterschriften werden jetzt wirklich auf ein Bild geprüft",
-        items: [
-          "Bisher hat der Server nur geglaubt, was der Browser über die hochgeladene Unterschrift behauptet hat. Jetzt schaut er selbst in die ersten Bytes und lehnt alles ab, was kein echtes PNG-Bild ist.",
-          "Dazu eine Obergrenze von 2 MB. Eine gezeichnete Unterschrift ist normalerweise 8 bis 60 Kilobyte groß — die Grenze merkt im Alltag niemand.",
-          "Gilt für alle drei Unterschriften: Stammdaten, Verhaltenskodex und Jugendschutzkonzept.",
-          "Wird etwas abgelehnt, steht der Grund jetzt im Klartext da, statt „Speicherfehler“."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.15",
-    groups: [
-      {
-        title: "Das Jugendschutzkonzept wird jetzt in der Kinderschutz-App bestätigt",
-        items: [
-          "Bisher stand der Wortlaut in der Kinderschutz-App, unterschrieben wurde aber hier. Zwei Orte für dieselbe Sache — und wenn dort noch kein Konzept gespeichert war, erschien hier ein gelber Warnkasten mit einer alten Fassung.",
-          "Jetzt steht alles beieinander: Wortlaut, Schulung und Unterschrift in der Kinderschutz-App. Der Abschnitt hier zeigt nur noch, ob und wann du bestätigt hast und bis wann es gilt — mit einem Knopf, der direkt zur Schulung führt.",
-          "Deine bisherige Bestätigung bleibt gültig. Es ändert sich nur der Weg dorthin, nicht das Gespeicherte: Datum, Fassung und Unterschrift liegen weiterhin in deiner Akte hier.",
-          "Für die Verwaltung ändert sich nichts — Status, Unterschriftsbild und der Knopf zum Zurücksetzen stehen unverändert im Trainer-Detail.",
-          "Der Warnkasten mit der alten Fassung ist damit weg."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.14",
-    groups: [
-      {
-        title: "Der Reiter „Info“ erklärt jetzt, was die App wirklich tut",
-        items: [
-          "Dort stand bisher ein einzelner Satz. Jetzt steht da, wofür die einzelnen Reiter da sind, was die App mit den Eingaben macht und wo etwas anderes hingehört.",
-          "Am Funktionsumfang ändert sich nichts — nur an der Beschreibung."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.13",
-    groups: [
-      {
-        title: "Wenn eine Unterschrift nicht gelöscht werden kann, steht das jetzt da",
-        items: [
-          "Beim Zurücksetzen einer Kodex- oder Jugendschutz-Bestätigung wird auch die gespeicherte Unterschrift aus der Vereins-Cloud entfernt. Schlug das fehl — etwa weil die Cloud gerade nicht erreichbar war — passierte bisher nichts Sichtbares: der Eintrag war zurückgesetzt, die Datei mit der Unterschrift lag aber weiter dort.",
-          "Jetzt erscheint ein Hinweis, welche Datei liegen geblieben ist und warum. Das Zurücksetzen selbst bricht deswegen nicht ab.",
-          "Gleiches gilt beim Zurücksetzen eines Vertrags für die abgelegten PDFs."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.12",
-    groups: [
-      {
-        title: "Beim Sitzungsende wird auch der Verwaltungsteil geräumt",
-        items: [
-          "Lief die Anmeldung ab, während der Verwaltungsteil offen war, blieb die Liste aller Trainer auf dem Bildschirm stehen — mit Anschrift, Geburtsdatum und Bankverbindung. Gemeldet wurde nur ein kleiner Fehlertext. Jetzt wird der Verwaltungsteil geleert und der Anmelde-Hinweis gezeigt.",
-          "Der eigene Bereich verhielt sich schon vorher richtig. Neu ist, dass der Hinweis an jeder Stelle kommt, an der die Anmeldung wegfällt — vorher nur bei einem Teil der Wege."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.11",
-    groups: [
-      {
-        title: "Auch der Betrag bei „andere Einnahmen“ wird genannt",
-        items: [
-          "Wer bei der Erklärung zur Nebentätigkeit „andere Einnahmen“ angekreuzt, die Höhe aber nicht eingetragen hat, sieht das jetzt im Hinweis oben im Formular.",
-          "Vorher fehlte dieser Punkt in der Liste — man suchte dann, warum das Speichern trotzdem nicht ging."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.10",
-    groups: [
-      {
-        title: "Fehlt etwas, geht es direkt ins Formular",
-        items: [
-          "Wer sich in der Tools-Übersicht anmeldet und hier noch nicht alle Pflichtangaben hinterlegt hat, wird einmal pro Anmeldung hierher gebracht.",
-          "Früher landete man dann auf der Seite „Bereits eingereicht“ und musste erst auf „Bearbeiten“ klicken. Jetzt öffnet sich sofort das Formular — mit allen Angaben, die schon bekannt sind.",
-          "Oben im Formular steht, was genau noch fehlt. Es muss also niemand suchen.",
-          "Wer alles vollständig hat, sieht wie bisher zuerst seine Bestätigungsseite."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.9",
-    groups: [
-      {
-        title: "Vollständige Angaben sind jetzt Pflicht",
-        items: [
-          "Wer sich zum ersten Mal anmeldet, landet hier und legt seine Daten an. Bisher reichten dafür Vorname und Nachname — der Rest war freiwillig. Ergebnis: Lücken bei Anschrift und Telefon, und die Geschäftsstelle musste hinterhertelefonieren.",
-          "Neu müssen alle ausfüllen: Vorname, Nachname, Geburtsdatum, Straße und Hausnummer, PLZ, Ort, Telefonnummer und E-Mail-Adresse.",
-          "Wer einen Trainervertrag bekommt, braucht zusätzlich IBAN, Bankname und die Erklärung zur Nebentätigkeit.",
-          "Der BIC bleibt absichtlich freiwillig: Bei einer deutschen IBAN wird er für die Überweisung nicht gebraucht, und die wenigsten kennen ihn auswendig.",
-          "Alle Pflichtfelder sind im Formular mit einem Sternchen gekennzeichnet. Fehlt eines, sagt die App beim Speichern, welches — und zwar immer das oberste, damit man nicht springen muss.",
-          "Wer seine Daten früher schon eingereicht hat, sieht auf der Bestätigungsseite jetzt einen gelben Hinweis mit genau den Angaben, die noch fehlen. Nachtragen geht über „Bearbeiten“."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.8",
-    groups: [
-      {
-        title: "Das Schutzkonzept lebt jetzt in der Kinderschutz-App",
-        items: [
-          "Der Wortlaut des Kinder- und Jugendschutzkonzepts wird nicht mehr hier gepflegt, sondern in der neuen App „Kinder- und Jugendschutz“. Hier wird er nur noch angezeigt und unterschrieben.",
-          "Der Vorteil: Es gibt den Text nur noch an einer Stelle. Vorher hätte man ihn an zwei Orten gleich halten müssen — das geht auf Dauer schief.",
-          "Beim Bestätigen wird geprüft, ob die angezeigte Fassung noch die geltende ist. Wurde der Text in der Zwischenzeit geändert, sagt die App das und bittet um erneutes Lesen, statt eine Bestätigung für einen anderen Text abzulegen.",
-          "Ist die Kinderschutz-App gerade nicht erreichbar, zeigt dieser Reiter die zuletzt bekannte Fassung mit einem deutlichen Warnhinweis darüber — statt stillschweigend einen womöglich veralteten Text.",
-          "⚠️ Sobald die neue Fassung 2.0 in der Kinderschutz-App freigegeben ist, müssen alle Trainerinnen und Trainer neu bestätigen. Der Grund ist inhaltlich: Die Meldestelle hat gewechselt, sie liegt jetzt bei einer Person im Verein."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.7",
-    groups: [
-      {
-        title: "Beim Abmelden bleibt nichts stehen",
-        items: [
-          "Läuft die Anmeldung ab, während die App offen ist — zum Beispiel weil ein Speichern nach längerer Pause fehlschlägt —, erscheint wie bisher der Hinweis „bitte neu anmelden“.",
-          "Neu ist: der Bildschirm dahinter wird jetzt auch geleert. Vorher wurde er nur unsichtbar gemacht, und alles Angezeigte blieb im Browser stehen — sichtbar für jeden, der sich an denselben Rechner setzt und nachschaut.",
-          "Für dich ändert sich nichts: der Weg zurück war schon immer ein Neuladen der Seite."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.6",
-    groups: [
-      {
-        title: "Am Handy",
-        items: [
-          "Bisher brach die Reiterleiste selbst um, die rechte Reiter-Gruppe darin aber nicht: Sie rutschte als ein Stück in die zweite Zeile und lief dort weiter über den rechten Rand hinaus. Jetzt bricht auch sie um, sobald sie zu breit wird. Zu sehen ist das nur, wenn genug Reiter nebeneinanderstehen — bis dahin sieht alles aus wie bisher."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.5",
-    groups: [
-      {
-        title: "Startet schneller",
-        items: [
-          "Die PDF- und die ZIP-Bibliothek werden erst geladen, wenn wirklich eine Datei entsteht. Vorher kamen beide bei jedem Öffnen der Seite mit — zusammen 230 KB, auch für den Trainer, der nur seine Telefonnummer ändert.",
-          "Betroffen sind Vertrag als Word oder PDF, das Sammel-ZIP, der Bank-Export als Excel und der Führerschein-Sammelexport. Am Ablauf ändert sich nichts: beim ersten Erzeugen lädt die Bibliothek automatisch nach. Nur wenn dabei keine Internetverbindung besteht, sagt die App es jetzt deutlich."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.4",
-    groups: [
-      {
-        title: "Export nach Führungszeugnis eingrenzen",
-        items: [
-          "Im CSV-Export gibt es einen neuen Bereich „Führungszeugnis – nur ausgewählte exportieren“ mit zwei Häkchen: „Führungszeugnis eingereicht“ und „Führungszeugnis fehlt“. So ziehst du dir mit einem Klick die Liste derer, die noch eins abgeben müssen.",
-          "Nichts angekreuzt = alle exportieren, wie bisher. Beides angekreuzt wirkt genauso.",
-          "Die Auswahl wirkt wie die Gruppen-Auswahl darunter nur auf den Export (CSV und Bank-Export), nicht auf die Liste am Bildschirm. Die Zeile über dem grünen Knopf sagt dir, wie viele Trainer dabei herauskommen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.3",
-    groups: [
-      {
-        title: "Freigabe für die Kontaktliste ist umgezogen",
-        items: [
-          "Der Bereich „Kontaktliste des Vereins“ steht nicht mehr hier, sondern in der Tools-Übersicht im Tab „Mein Konto“. Dort gehört er hin: Es ist eine Einstellung an deinem Konto, kein Vertragsdatum.",
-          "Neu ist dabei, dass neben jedem Häkchen steht, was tatsächlich freigegeben würde — deine Nummer, deine Adresse.",
-          "Bereits gesetzte Freigaben bleiben unverändert bestehen. Du musst nichts neu machen."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.2",
-    groups: [
-      {
-        title: "Kontaktliste des Vereins",
-        items: [
-          "Neuer Bereich „Kontaktliste des Vereins“ unter „Meine Daten“: Dort gibst du selbst frei, mit welchen Angaben du im neuen Werkzeug „Kontakte“ erscheinst. Von uns aus steht dort nichts über dich — ohne dein Häkchen bist du nicht in der Liste.",
-          "Gefragt wird einzeln: erst, ob du überhaupt mit deinem Namen in der Liste stehen möchtest, und darunter für Telefonnummer, E-Mail-Adresse und Anschrift getrennt. Du kannst also die Telefonnummer freigeben und die Anschrift für dich behalten.",
-          "Jedes Häkchen lässt sich jederzeit wieder entfernen. Die Angabe verschwindet dann sofort aus der Liste.",
-          "Die Freigabe gilt nur für angemeldete Personen des Vereins. Nach außen wird nichts veröffentlicht; Bankverbindung, Geburtsdatum und Dokumente sind in der Kontaktliste grundsätzlich nie zu sehen.",
-          "Der Bereich steht allen offen — auch denen, die keinen Trainervertrag bekommen. Gerade sie sollen ja erreichbar sein."
-        ]
-      }
-    ]
-  },
-  {
-    version: "1.1",
-    groups: [
-      {
-        title: "Kontoauszug prüfen",
-        items: [
-          "Der Bank-Export hat einen Rückweg bekommen: Im neuen Bereich „Kontoauszug prüfen“ wird der Auszug aus dem Online-Banking eingelesen — Format CAMT.053, ebenso .052 und .054 — und gegen die Überweisungsliste gehalten. Das beantwortet die Frage nach der Zahlung: Ist das Geld bei jedem Trainer angekommen?",
-          "Der Bericht nennt jede wiedergefundene Zahlung, jede mit abweichendem Betrag samt erwartetem und tatsächlich gebuchtem Wert, jede fehlende — und jede Belastung des Kontos, die zu keinem Trainer der aktuellen Auswahl gehört. Nichts wird stillschweigend weggelassen.",
-          "Zugeordnet wird über die IBAN, ersatzweise über den Empfängernamen. Der Name wird auch in vertauschter Reihenfolge erkannt und in der Schreibweise, die für die Bank aus Umlauten wird — aus Hünermund wird dort Huenermund. Zahlungen, die nur über den Namen zugeordnet werden konnten, weist der Bericht getrennt aus.",
-          "Über dem Ergebnis stehen Konto, Auszugsnummer, Zeitraum sowie Anfangs- und Endsaldo aus dem Auszug.",
-          "Bucht die Bank die Sammelüberweisung als eine einzige Zeile ohne die einzelnen Empfänger, sagt der Bericht das ausdrücklich — sonst sähe es aus, als sei keine einzige Zahlung angekommen.",
-          "Gespeichert wird dabei nichts: die Datei bleibt im Browser, der Abgleich ist eine reine Kontrollansicht. Wer die Bewegungen weiterverarbeiten will, lädt sie mit „Umsätze als CSV“ herunter — mit Buchungstag, Betrag, Empfänger, Verwendungszweck und der jeweiligen Zuordnung."
-        ]
-      }
-    ]
-  },
-  {
     version: "1.0",
     groups: [
       {
-        title: "Aufbau",
+        title: "Aufbau, Rechte und Bedienung am Handy",
         items: [
-          "Die Reiterleiste zeigt jedem „Meine Daten“ mit dem eigenen Formular und „Info“. Wer die Trainerdaten verwalten darf, sieht zusätzlich „Trainer“, „Import“ und „Einstellungen“.",
-          "Die Verwaltung öffnet sich beim Klick direkt, ohne Zwischenschritt. Die App startet für alle bei „Meine Daten“."
+          "Die Reiterleiste zeigt jedem „Meine Daten“ mit dem eigenen Formular und ganz rechts „Info“. Wer die Trainerdaten verwalten darf, sieht dazwischen zusätzlich „Trainer“, „Import“ und „Einstellungen“ — die drei stehen zusammen rechts, weil sie nicht jeder hat.",
+          "Die Anmeldung über das zentrale Konto der Tools-Übersicht ist Pflicht: die eigene Einreichung wird dem Konto eindeutig zugeordnet und auf jedem Gerät wiedererkannt. Pro Konto gibt es genau eine Einreichung; erneutes Absenden aktualisiert sie.",
+          "Jeder angemeldete Nutzer pflegt seine eigenen Daten und Dokumente. Der gesamte Verwaltungsbereich — Trainerliste, Import, Einstellungen und damit die volle Sicht auf die Bankverbindungen — hängt dagegen an der Stufe „Administrieren“, nicht an „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne die Bankdaten aller Trainer zu öffnen. Vergeben wird das im Sichtbarkeits-Panel der Tools-Übersicht.",
+          "Geprüft wird bei jedem Zugriff auf dem Server, nicht nur in der Oberfläche. Ein geteiltes Passwort braucht es dafür nicht.",
+          "Läuft die Anmeldung ab, während die App offen ist, erscheint der Hinweis „bitte neu anmelden“, und der Bildschirm dahinter wird geleert — auch der Verwaltungsteil mit der Trainerliste. Sonst blieben Anschrift, Geburtsdatum und Bankverbindung für jeden stehen, der sich an denselben Rechner setzt.",
+          "Die Daten liegen auf dem vereinseigenen Nextcloud-Server. Der Zugriff läuft über einen eigenen Server-Dienst; die Zugangsdaten dazu liegen ausschließlich dort und nie im Browser. Wegen der Bankverbindungen läuft dieses Werkzeug bewusst nicht über den allgemeinen Datenweg der übrigen Apps.",
+          "Die Reiterleiste bricht am Handy um, statt seitlich aus dem Bild zu laufen — auch die hinteren Reiter sind auf schmalen Bildschirmen erreichbar. Eingabefelder sind mindestens 16 Pixel groß, damit der iPhone-Browser beim Antippen nicht ungefragt in die Seite hineinzoomt. Unterschreiben und Dokumente per Kamera hochladen funktionieren am Handy."
         ]
       },
       {
-        title: "Die eigenen Daten",
+        title: "Die eigenen Daten — mit und ohne Trainervertrag",
         items: [
-          "Formular für Stammdaten — Name, Adresse, Geburtsdatum, Telefon, E-Mail — sowie Bankdaten mit IBAN, BIC und Bank, dazu die digitale Unterschrift.",
-          "Die Anmeldung über das zentrale Konto ist Pflicht: die eigene Einreichung wird dem Konto eindeutig zugeordnet und auf jedem Gerät wiedererkannt. Pro Konto gibt es genau eine Einreichung; erneutes Absenden aktualisiert sie.",
-          "Ein Bestätigungsbild zeigt die übermittelten Angaben samt Unterschrift zur Selbstkontrolle, mit Knopf zum Bearbeiten und Weg zurück zur Tools-Übersicht.",
-          "Persönliche Daten, Bankverbindung, Erklärung zur Nebentätigkeit und Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich einzeln auf- und zuklappen.",
-          "Jede Karte trägt im Titel ein Häkchen für erledigt, ein Kreuz für offen oder einen Strich für nicht zutreffend — aktualisiert schon beim Tippen. Beim ersten Laden stehen offene Punkte aufgeklappt, erledigte zugeklappt."
-        ]
-      },
-      {
-        title: "Konten ohne Trainervertrag",
-        items: [
-          "Wer keinen Trainervertrag bekommt, etwa in Geschäftsstelle oder Geschäftsführung, sieht nur die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail.",
-          "Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift und sämtliche Dokumentenkarten entfallen für diese Konten.",
-          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ oder einzeln als „Vertrag benötigt“ markiert.",
-          "Die E-Mail-Adresse ist für diese Konten Pflicht — sie ist der Grund für den Eintrag. In der Verwaltungsliste erscheinen sie als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
+          "Unter „Meine Daten“ trägt jede Person ihre Stammdaten selbst ein — Name, Anschrift, Geburtsdatum, Telefon und E-Mail — dazu die Bankdaten mit IBAN, BIC und Bank, die Erklärung zur Nebentätigkeit und die digitale Unterschrift. Jede Person sieht dort ausschließlich sich selbst.",
+          "Vollständige Angaben sind Pflicht: Vorname, Nachname, Geburtsdatum, Straße und Hausnummer, PLZ, Ort, Telefonnummer und E-Mail-Adresse. Wer einen Trainervertrag bekommt, braucht zusätzlich IBAN, Bankname und die Erklärung zur Nebentätigkeit; wer dort „andere Einnahmen“ ankreuzt, auch deren Höhe. Der BIC bleibt absichtlich freiwillig — bei einer deutschen IBAN wird er für die Überweisung nicht gebraucht, und die wenigsten kennen ihn auswendig.",
+          "Alle Pflichtfelder sind mit einem Sternchen gekennzeichnet. Fehlt eines, sagt die App beim Speichern, welches — und zwar immer das oberste, damit man nicht springen muss.",
+          "Wer sich anmeldet und hier noch Lücken hat, landet einmal je Anmeldung direkt im vorausgefüllten Formular statt auf der Bestätigungsseite. Oben steht, was genau noch fehlt. Wer alles beisammen hat, sieht zuerst seine Bestätigungsseite: ein Bild der übermittelten Angaben samt Unterschrift zur Selbstkontrolle, mit Knopf zum Bearbeiten und dem Weg zurück zur Tools-Übersicht.",
+          "Persönliche Daten, Bankverbindung, Erklärung zur Nebentätigkeit und Unterschrift sowie die Karten für Vertrag, Checkliste, Trainerlizenz, Führerschein, Führungszeugnis, Trainerkodex und Jugendschutzkonzept lassen sich einzeln auf- und zuklappen. Jede Karte trägt im Titel ein Häkchen für erledigt, ein Kreuz für offen oder einen Strich für nicht zutreffend — aktualisiert schon beim Tippen. Beim ersten Laden stehen offene Punkte aufgeklappt, erledigte zugeklappt.",
+          "Hochgeladene Unterschriften prüft der Server selbst darauf, dass wirklich ein PNG-Bild ankommt, und begrenzt sie auf 2 MB. Wird etwas abgelehnt, steht der Grund im Klartext da.",
+          "Wer keinen Trainervertrag bekommt, etwa in Geschäftsstelle oder Geschäftsführung, sieht nur die Kontaktdaten: Name, Geburtsdatum, Anschrift, Telefon und E-Mail. Bankverbindung, Erklärung zur Nebentätigkeit, Unterschrift und sämtliche Dokumentenkarten entfallen für diese Konten — auch in der Verwaltungsansicht, samt der Knöpfe für den Vertrag. An ihrer Stelle steht ein kurzer Hinweis.",
+          "Maßgeblich ist dasselbe Kriterium wie beim Personalkosten-Import: Mitglied der Gruppe „Trainer“ oder einzeln als „Vertrag benötigt“ markiert. Soll jemand doch einen Vertrag bekommen, genügt der Status „Ausstehend“ — dann sind alle Felder sofort wieder da.",
+          "Die E-Mail-Adresse ist für diese Konten Pflicht, sie ist der Grund für den Eintrag. In der Verwaltungsliste erscheinen sie als „Nur Kontaktdaten“ und werden bei der Vertragserstellung übersprungen."
         ]
       },
       {
         title: "Trainervertrag",
         items: [
-          "Sobald der Vertrag bereitsteht, lässt er sich im eigenen Bereich ansehen und digital unterschreiben.",
-          "Die Unterschrift wird zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gesetzt — er sieht damit auch an den gewohnten Stellen unterschrieben aus.",
-          "Der unterschriebene Vertrag bleibt jederzeit einsehbar. Verträge werden in der Cloud nach Jahr und Trainername abgelegt, nicht unter technischen Kennungen.",
-          "Der Word-Vertrag entsteht aus der Originalvorlage und übernimmt Layout und Trainerdaten.",
-          "Die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG wird im Formular abgefragt und im Vertrag automatisch angekreuzt und mit Betrag gefüllt.",
-          "In der Verwaltung lassen sich Original und unterschriebene Fassung ansehen, die Unterschrift zurücksetzen oder die komplette Vertragszuweisung zurücknehmen, damit beim nächsten Lauf ein neuer Vertrag ausgestellt wird."
+          "Sobald der Vertrag bereitsteht, lässt er sich im eigenen Bereich ansehen und digital unterschreiben. Die Unterschrift wird zusätzlich zur angehängten Bestätigungsseite direkt auf die beiden echten Unterschriftslinien im Vertrag gesetzt — er sieht damit auch an den gewohnten Stellen unterschrieben aus.",
+          "Der unterschriebene Vertrag bleibt jederzeit einsehbar. Verträge werden in der Vereins-Cloud nach Jahr und Trainername abgelegt, nicht unter technischen Kennungen.",
+          "Der Word-Vertrag entsteht aus der Originalvorlage und übernimmt Layout und Trainerdaten. Die Erklärung zur Übungsleiterpauschale nach § 3 Nr. 26 EStG wird im Formular abgefragt und im Vertrag automatisch angekreuzt und mit Betrag gefüllt.",
+          "In der Verwaltung lassen sich Original und unterschriebene Fassung ansehen, die Unterschrift zurücksetzen oder die komplette Vertragszuweisung zurücknehmen, damit beim nächsten Lauf ein neuer Vertrag ausgestellt wird.",
+          "Ein beiliegendes Skript erzeugt die PDFs für alle Trainer auf einmal im Original-Layout — lokal über Microsoft Word, die IBANs verlassen den Rechner nicht. Verarbeitet werden nur Trainer mit Status „Ausstehend“; unvollständige und bereits erzeugte Verträge werden übersprungen. Skript und Vertragsvorlage stehen im Reiter „Einstellungen“ zum Herunterladen, dazu zwei Doppelklick-Starter — einer nur zum Erzeugen, einer zum Erzeugen und Zuweisen. Sie umgehen die Windows-Sperre für heruntergeladene Skripte."
         ]
       },
       {
         title: "Trainerlizenz, Führerschein und Führungszeugnis",
         items: [
           "Alle drei Dokumente lassen sich direkt hochladen, per Kamera oder als Datei. Die eigene Datei ist jederzeit selbst einsehbar; fremde Führungszeugnisse bleiben aus Datenschutzgründen den Administratoren vorbehalten.",
-          "Führerschein mit „gültig bis“ und Erinnerung, ihn alle sechs Monate erneut einzureichen. Für Administratoren und die Gruppe „Führerschein Einsicht“ gibt es ein eigenes Register samt Sammel-PDF aller Kopien. Darin steht der Name mit Upload-Datum und Gültigkeit auf derselben Seite wie das Foto.",
-          "Trainerlizenz mit Lizenzart zur Auswahl — C, B, A, DFB-Basis, Elite-Jugend, Fußball-Lehrer und weitere — und Datum „gültig bis“ mit automatischer Anzeige, ob sie gilt oder abgelaufen ist. Ein Häkchen „Ich habe keine Trainerlizenz“ verhindert, dass der Status dauerhaft als offen erscheint.",
+          "Der Führerschein hat ein „gültig bis“ und eine Erinnerung, ihn alle sechs Monate erneut einzureichen. Für Administratoren und die Gruppe „Führerschein Einsicht“ gibt es ein eigenes Register samt Sammel-PDF aller Kopien; darin steht der Name mit Upload-Datum und Gültigkeit auf derselben Seite wie das Foto.",
+          "Die Trainerlizenz wird mit Lizenzart erfasst — C, B, A, DFB-Basis, Elite-Jugend, Fußball-Lehrer und weitere — und mit Datum „gültig bis“, dazu die Anzeige, ob sie gilt oder abgelaufen ist. Ein Häkchen „Ich habe keine Trainerlizenz“ verhindert, dass der Status dauerhaft als offen erscheint.",
           "Administratoren können alle drei Dokumente auch für Trainer ohne eigenen Zugang hochladen, ansehen und ersetzen, unter anderem direkt aus der Personalakte.",
-          "Ein unbrauchbares Dokument lässt sich löschen — unscharfes Foto, falsche Datei. Es steht danach beim Trainer wieder als offen. Lizenzart, Gültigkeit und das Häkchen bleiben davon unberührt."
+          "Ein unbrauchbares Dokument lässt sich löschen — unscharfes Foto, falsche Datei. Es steht danach beim Trainer wieder als offen; Lizenzart, Gültigkeit und das Häkchen bleiben davon unberührt."
         ]
       },
       {
-        title: "Trainerkodex und Jugendschutzkonzept",
+        title: "Trainerkodex, Jugendschutz und Checkliste",
         items: [
-          "Beide lassen sich lesen und mit Unterschrift bestätigen, im eigenen Bereich über denselben Zugang.",
-          "Die Bestätigung ist jeweils alle sechs Monate erneut fällig; abgelaufene werden markiert.",
-          "Ist das Jugendschutzkonzept abgelaufen, zählt das zum Gesamtstatus und erscheint als rotes Kreuz auf der Kachel im Dashboard.",
-          "Die Verwaltung zeigt Bestätigungsdatum, Gültigkeit und Unterschrift und kann eine Bestätigung zurücksetzen."
+          "Der Trainerkodex lässt sich hier lesen und mit Unterschrift bestätigen. Die Bestätigung ist alle sechs Monate erneut fällig; abgelaufene werden markiert. Die Verwaltung sieht Bestätigungsdatum, Gültigkeit und Unterschrift und kann eine Bestätigung zurücksetzen.",
+          "Wortlaut, Schulung und Bestätigung des Kinder- und Jugendschutzkonzepts stehen in der App „Kinder- und Jugendschutz“ — dort wird gelesen, geschult und unterschrieben. Die Karte hier zeigt nur noch, ob und wann bestätigt wurde und bis wann es gilt, mit einem Knopf, der direkt zur Schulung führt. Die Bestätigung landet danach in der Akte hier: Datum, Fassung und Unterschrift. Ist das Konzept abgelaufen, zählt das zum Gesamtstatus und erscheint als rotes Kreuz auf der Kachel im Dashboard.",
+          "Eine eigene Karte zeigt, ob der eigene Zugang laut Geschäftsstelle abgeschlossen ist. „Öffnen“ zeigt die komplette Checkliste zum Nachlesen — alle abgehakten Punkte, Bemerkungen und die Unterschriften von Trainer und Geschäftsstelle, rein zur Information. Die Verwaltung sieht zusätzlich, ob Zugang und Abgang in der TrainerCheckliste abgeschlossen sind.",
+          "Wird eine Bestätigung oder ein Vertrag zurückgesetzt, verschwindet auch die gespeicherte Unterschrift beziehungsweise das abgelegte PDF aus der Vereins-Cloud. Klappt das nicht, weil die Cloud gerade nicht erreichbar ist, steht jetzt da, welche Datei liegen geblieben ist und warum — das Zurücksetzen selbst bricht deswegen nicht ab."
         ]
       },
       {
-        title: "Checkliste Trainerzu- und -abgang",
+        title: "Verwaltung und Export der Trainerliste",
         items: [
-          "Eine eigene Karte zeigt, ob der eigene Zugang laut Geschäftsstelle abgeschlossen ist.",
-          "„Öffnen“ zeigt die komplette Checkliste zum Nachlesen: alle abgehakten Punkte, Bemerkungen und die Unterschriften von Trainer und Geschäftsstelle — rein zur Information.",
-          "Die Verwaltung sieht zusätzlich, ob Zugang und Abgang in der TrainerCheckliste abgeschlossen sind."
+          "Der Reiter „Trainer“ zeigt alle eingereichten Einträge mit Status — unvollständig, ausstehend, Vertrag erstellt oder nur Kontaktdaten —, dazu Lizenz und Pauschale direkt in der Liste. Gesucht wird nach Namen, gefiltert nach Status, Lizenz und Vertragsunterschrift.",
+          "Daten lassen sich bearbeiten und speichern; gespeichert wird laufend, zusätzlich gibt es einen Knopf für sofortiges sichtbares Sichern. Einträge lassen sich mit Rückfrage löschen. Während einer laufenden Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
+          "Der Status lässt sich von Hand umstellen, wird bei einer erneuten Einreichung aber zurückgesetzt — ein bereits erzeugter Vertrag fällt so wieder als veraltet auf. Die Lizenz wird beim Öffnen aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist.",
+          "Der CSV-Export ist frei zusammenstellbar: Stammdaten, Bankverbindung, Vertrag und Status sowie Dokumente sind einzeln wählbar, und der Export übernimmt Suche und Filter. Das Feld „Mannschaft(en)“ kommt aus dem Profil in der Tools-Übersicht und wird allein dort gepflegt; das Feld „Gruppen“ nennt alle Benutzergruppen, in denen die Person Mitglied ist.",
+          "Zusätzlich lässt sich der Export auf Gruppen, auf das Führungszeugnis und auf Wohnorte einschränken. Kein Kästchen angekreuzt heißt jeweils „alle“. Bei „Führungszeugnis fehlt“ bleiben Konten ohne Trainervertrag draußen — sie sollen gar keins einreichen; „Führungszeugnis eingereicht“ nimmt jeden mit, der eins abgegeben hat.",
+          "Beim Wohnort steht je Ort ein Kästchen mit der Zahl der Trainer dahinter. Verschiedene Schreibweisen desselben Ortes stehen in einer Zeile — „37308 Heiligenstadt“, „Heilbad Heiligenstadt“ und „heiligenstadt“ ebenso wie „Mühlhausen“ und „Muehlhausen“ —, und ein Haken auf eine Gemeinde nimmt ihre Ortsteile mit; welche das sind, steht klein darunter. Der Knopf „Umkehren“ ist der kurze Weg zu „alle außer Heiligenstadt“ — gedacht für das erweiterte Führungszeugnis, das jeder auswärts Gemeldete bei seinem eigenen Meldeamt beantragt.",
+          "Die Zeile über dem Export-Knopf sagt immer, wie viele Trainer bei der aktuellen Auswahl wirklich herauskommen. Alle Verträge auf einmal gibt es als PDF-ZIP."
         ]
       },
       {
-        title: "Verwaltung",
+        title: "Bank-Export und Kontoauszug",
         items: [
-          "Übersicht aller eingereichten Einträge mit Status — unvollständig, ausstehend oder Vertrag generiert —, Lizenz und Pauschale direkt in der Liste.",
-          "Suchfeld nach Namen sowie Filter nach Status, Lizenz und Vertragsunterschrift.",
-          "Daten bearbeiten und speichern; gespeichert wird laufend, zusätzlich gibt es einen Knopf für sofortiges sichtbares Sichern. Einträge lassen sich mit Rückfrage löschen.",
-          "Während einer laufenden Sitzung neu eingegangene Einreichungen werden beim Speichern übernommen statt überschrieben.",
-          "Der Status lässt sich von Hand umstellen, wird bei einer erneuten Einreichung aber zurückgesetzt — ein bereits erzeugter Vertrag fällt so wieder als veraltet auf.",
-          "Die Lizenz wird beim Öffnen aus dem zentralen Trainerprofil vorbelegt, sofern das Feld noch leer ist."
-        ]
-      },
-      {
-        title: "Export der Trainerliste",
-        items: [
-          "CSV-Export, frei zusammenstellbar: Stammdaten, Bankverbindung, Vertrag und Status sowie Dokumente sind einzeln wählbar. Der Export übernimmt Suche und Filter.",
-          "Exportfeld „Mannschaft(en)“: die Mannschaft laut Profil in der Tools-Übersicht, mehrere durch Komma getrennt. Gepflegt wird sie allein dort — steht dort nichts, bleibt die Spalte leer.",
-          "Exportfeld „Gruppen“: alle Benutzergruppen, in denen die Person Mitglied ist.",
-          "Im Export-Bereich lässt sich zusätzlich nach Gruppen einschränken: je Gruppe ein Kästchen, mehrere gleichzeitig möglich. Exportiert wird, wer in mindestens einer angekreuzten Gruppe ist. „Ohne Gruppe“ erfasst Einträge ohne Zuordnung, kein Kästchen bedeutet alle. Die Zeile darunter zeigt immer die tatsächliche Anzahl."
-        ]
-      },
-      {
-        title: "Bank-Export",
-        items: [
-          "Der Knopf „Bank-Export“ über der Trainerliste erzeugt aus den gerade gefilterten Trainern eine fertige Überweisungsliste: Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag.",
-          "Vier Formate stehen zur Wahl. CSV im Aufbau der Bank-Vorlage, eine Excel-Mappe im Aufbau derselben Vorlage, eine SEPA-XML als fertige Sammelüberweisung und eine XML im Aufbau der Vorlage.",
+          "Der Knopf „Bank-Export“ über der Trainerliste erzeugt aus den gerade gefilterten Trainern eine fertige Überweisungsliste: Empfänger, IBAN, BIC und die hinterlegte Pauschale als Betrag. Vier Formate stehen zur Wahl — CSV im Aufbau der Bank-Vorlage, eine Excel-Mappe im Aufbau derselben Vorlage, eine SEPA-XML als fertige Sammelüberweisung (pain.001) und eine XML im Aufbau der Vorlage.",
           "Die Excel-Mappe trägt ein Blatt namens „in“, in der ersten Zeile die zwölf Spalten der Bank-Vorlage, darunter je Trainer eine Zahlung. Der Betrag steht darin als echte Zahl und nicht als Text, damit das Banktool ihn als Betrag erkennt.",
-          "Für die SEPA-Datei werden Auftraggeber — Name und IBAN des Vereinskontos — sowie das gewünschte Ausführungsdatum abgefragt; diese Angaben stehen in keinem Trainer-Datensatz. Sie bleiben im Browser gespeichert und müssen nur einmal eingetragen werden.",
-          "Umlaute werden für die SEPA-Datei automatisch umgeschrieben, aus Hünermund wird Huenermund. Der Standard erlaubt keine Umlaute, und die Bank würde die Datei sonst vollständig abweisen. In den übrigen drei Formaten bleiben Umlaute erhalten.",
+          "Für die SEPA-Datei werden Auftraggeber — Name und IBAN des Vereinskontos — sowie das gewünschte Ausführungsdatum abgefragt; diese Angaben stehen in keinem Trainer-Datensatz. Sie bleiben im Browser gespeichert und müssen nur einmal eingetragen werden. Die Bank des Empfängers braucht die Datei seit der Umstellung auf IBAN-Only nicht mehr: ein BIC steht nur noch drin, wenn wirklich einer hinterlegt ist.",
+          "IBAN und BIC werden vor dem Erzeugen geprüft. Ein BIC hat genau 8 oder 11 Zeichen, nur Großbuchstaben und Ziffern; beim BIC des Auftraggebers meldet sich der Export vorher und sagt, was falsch ist, das Feld darf aber leer bleiben. Beim BIC eines einzelnen Trainers wird der Export nicht angehalten — ein krummer Wert wird für diese Zahlung weggelassen, die IBAN allein genügt.",
+          "Umlaute werden für die SEPA-Datei automatisch umgeschrieben, aus „Hünermund“ wird „Huenermund“. Der Standard erlaubt keine Umlaute, und die Bank würde die Datei sonst vollständig abweisen. In den übrigen drei Formaten bleiben Umlaute erhalten.",
           "Trainer ohne IBAN oder ohne Pauschale lassen sich nicht überweisen. Sie werden nicht stillschweigend weggelassen, sondern namentlich aufgeführt.",
-          "„CSV-Datei wählen → SEPA-XML“ wandelt eine bereits vorhandene Liste im Format der Bank-Vorlage in eine Sammelüberweisung um — etwa die zuvor exportierte Datei, nachdem Beträge angepasst oder Zeilen gelöscht wurden. Die Trainerliste spielt dabei keine Rolle.",
-          "Die Spalten werden über die Kopfzeile erkannt, verschobene Spalten sind also unkritisch. Fehlt die Kopfzeile, gilt die Reihenfolge der Vorlage. Zeilen ohne Empfänger, ohne gültige IBAN oder ohne lesbaren Betrag landen nicht in der Datei, sondern mit Zeilennummer und Grund in einer Liste.",
-          "In Excel bearbeitete Dateien werden ebenfalls gelesen: erkennt die App zerschossene Umlaute, liest sie die Datei automatisch ein zweites Mal in der älteren Windows-Zeichenkodierung.",
-          "Welches Format das Banktool wirklich einliest, ist noch nicht bestätigt. Da die Excel-Datei dem gelieferten Muster entspricht, ist sie der aussichtsreichste Kandidat für einen Testimport."
+          "„CSV-Datei wählen → SEPA-XML“ wandelt eine bereits vorhandene Liste im Format der Bank-Vorlage in eine Sammelüberweisung um — etwa die zuvor exportierte Datei, nachdem Beträge angepasst oder Zeilen gelöscht wurden. Die Spalten werden über die Kopfzeile erkannt, verschobene Spalten sind also unkritisch; fehlt die Kopfzeile, gilt die Reihenfolge der Vorlage. Zeilen ohne Empfänger, ohne gültige IBAN oder ohne lesbaren Betrag landen nicht in der Datei, sondern mit Zeilennummer und Grund in einer Liste. In Excel bearbeitete Dateien werden ebenfalls gelesen: erkennt die App zerschossene Umlaute, liest sie die Datei automatisch ein zweites Mal in der älteren Windows-Zeichenkodierung.",
+          "Der Bank-Export hat einen Rückweg: Im Bereich „Kontoauszug prüfen“ wird der Auszug aus dem Online-Banking eingelesen — Format CAMT.053, ebenso .052 und .054 — und gegen die Überweisungsliste gehalten. Das beantwortet die Frage nach der Zahlung: Ist das Geld bei jedem Trainer angekommen?",
+          "Der Bericht nennt jede wiedergefundene Zahlung, jede mit abweichendem Betrag samt erwartetem und tatsächlich gebuchtem Wert, jede fehlende — und jede Belastung des Kontos, die zu keinem Trainer der aktuellen Auswahl gehört. Zugeordnet wird über die IBAN, ersatzweise über den Empfängernamen, der auch in vertauschter Reihenfolge und in der umgeschriebenen Form erkannt wird; solche Treffer weist der Bericht getrennt aus. Über dem Ergebnis stehen Konto, Auszugsnummer, Zeitraum sowie Anfangs- und Endsaldo. Bucht die Bank die Sammelüberweisung als eine einzige Zeile ohne die einzelnen Empfänger, sagt der Bericht das ausdrücklich — sonst sähe es aus, als sei keine einzige Zahlung angekommen.",
+          "Gespeichert wird beim Abgleich nichts: die Datei bleibt im Browser, der Abgleich ist eine reine Kontrollansicht. Wer die Bewegungen weiterverarbeiten will, lädt sie mit „Umsätze als CSV“ herunter — mit Buchungstag, Betrag, Empfänger, Verwendungszweck und der jeweiligen Zuordnung."
         ]
       },
       {
-        title: "Datenimport aus den Personalkosten",
+        title: "Import aus den Personalkosten",
         items: [
           "„Von Personalkosten laden“ holt Lizenz und monatliche Pauschale aller Trainer der laufenden Saison über einen Namensabgleich. Damit bleiben die Personalkosten die einzige Pflegestelle für diese Werte.",
           "Die Vorschau zeigt alle geladenen Zeilen mit ihrer Zuordnung. Jede Zeile hat einen eigenen Knopf, um einzelne Trainer unabhängig vom Sammelimport zu übernehmen.",
           "Ein neuer Eintrag entsteht nur, wenn die Person in der Gruppe „Trainer“ ist oder einzeln als „Vertrag benötigt“ markiert wurde. Namen ohne bestehenden Eintrag werden als unvollständig geführt und ergänzen sich, sobald die Person sich selbst anmeldet.",
           "Der Bereich „Aktueller Stand“ zeigt alle Trainer mit ihrer hinterlegten Lizenz und Pauschale und aktualisiert sich nach jedem Import."
-        ]
-      },
-      {
-        title: "Verträge im Stapel erzeugen",
-        items: [
-          "Ein beiliegendes Skript erzeugt die PDFs für alle Trainer auf einmal im Original-Layout — lokal über Microsoft Word, die IBANs verlassen den Rechner nicht.",
-          "Verarbeitet werden nur Trainer mit Status „ausstehend“; unvollständige und bereits erzeugte Verträge werden übersprungen.",
-          "Skript und Vertragsvorlage lassen sich im Reiter „Einstellungen“ herunterladen, dazu zwei Doppelklick-Starter — einer nur zum Erzeugen, einer zum Erzeugen und Zuweisen. Sie umgehen die Windows-Sperre für heruntergeladene Skripte."
-        ]
-      },
-      {
-        title: "Wer darf was",
-        items: [
-          "Jeder angemeldete Nutzer pflegt seine eigenen Daten und Dokumente.",
-          "Der gesamte Verwaltungsbereich — Trainerliste, Import, Einstellungen und damit die volle Sicht auf die Bankverbindungen — hängt an der Stufe „Administrieren“, nicht an „Bearbeiten“. So lässt sich ein Bearbeiten-Recht vergeben, ohne die Bankdaten aller Trainer zu öffnen.",
-          "Vergeben wird das im Sichtbarkeits-Panel der Tools-Übersicht.",
-          "Geprüft wird bei jedem Zugriff auf dem Server, nicht nur in der Oberfläche. Ein geteiltes Passwort braucht es dafür nicht.",
-          "Der Reiter „Info“ ist für alle sichtbar."
-        ]
-      },
-      {
-        title: "Bedienung am Handy",
-        items: [
-          "Die Reiterleiste bricht am Handy um, statt seitlich aus dem Bild zu laufen — auch die hinteren Reiter sind auf schmalen Bildschirmen erreichbar.",
-          "Eingabefelder sind mindestens 16 Pixel groß, damit der iPhone-Browser beim Antippen nicht ungefragt in die Seite hineinzoomt und verschoben stehen bleibt.",
-          "Unterschreiben und Dokumente per Kamera hochladen funktionieren am Handy."
-        ]
-      },
-      {
-        title: "Daten & Speicherung",
-        items: [
-          "Die Daten liegen auf dem vereinseigenen Nextcloud-Server. Der Zugriff läuft über einen eigenen Server-Dienst; die Zugangsdaten dazu liegen ausschließlich dort und nie im Browser.",
-          "Wegen der Bankverbindungen läuft dieses Werkzeug bewusst nicht über den allgemeinen Datenweg der übrigen Apps."
         ]
       }
     ]
