@@ -58,6 +58,23 @@ document.addEventListener("DOMContentLoaded", () => {
   _initAdminZugang();
   _tryRestoreAdminSession();
   _initTrainerGateway();
+
+  // Die Detailansicht speichert gebremst (1,2 s nach der letzten Eingabe).
+  // _flushPendingSave() fing bisher nur das Verlassen INNERHALB der App ab
+  // (Zurueck-Knopf, anderer Trainer) -- nicht aber das Verlassen der SEITE.
+  // Ohne diese beiden Zeilen verfaellt der Timer beim Schliessen des Tabs, und
+  // die zuletzt getippte Eingabe ist weg: IBAN, Pauschale, Lizenzdaten.
+  //
+  // Der Fall, der wirklich gerettet wird, ist visibilitychange -> hidden: Tab
+  // wechseln, App in den Hintergrund, Bildschirm sperren. Dort laeuft der
+  // Doppel-Request aus _saveMerged (erst lesen, dann schreiben) noch durch.
+  // pagehide ist der letzte Halt und schafft ihn nicht immer -- er kostet aber
+  // nichts und rettet den Rest. Dasselbe Muster wie ausbildungsplan/app.js:1741
+  // und raumnutzung/app.js:1736.
+  window.addEventListener("pagehide", _flushPendingSave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") _flushPendingSave();
+  });
 });
 
 // Die Verwaltungs-Tabs (Trainer/Import/Einstellungen) sind nur sichtbar, wenn

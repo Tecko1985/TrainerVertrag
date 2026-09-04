@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.1",
+    groups: [
+      {
+        title: "Eingaben gehen beim Schließen nicht mehr verloren",
+        items: [
+          "Die Detailansicht eines Trainers speichert automatisch, aber erst gut eine Sekunde nach der letzten Eingabe. Wurde der Reiter in dieser Sekunde geschlossen oder das Handy gesperrt, war das zuletzt Getippte weg — betroffen waren auch IBAN, Pauschale und Lizenzangaben.",
+          "Jetzt wird beim Wegwechseln, beim Sperren des Bildschirms und beim Schließen der Seite noch gespeichert. Am Bedienen ändert sich nichts."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.0",
     groups: [
       {
