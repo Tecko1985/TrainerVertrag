@@ -86,24 +86,24 @@
 
         <div class="section-divider">Persönliche Daten</div>
         <div class="form-grid">
-          <div class="form-field required"><label>Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
-          <div class="form-field required"><label>Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
-          <div class="form-field required"><label>Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
+          <div class="form-field required"><label for="tf-vorname">Vorname</label><input type="text" id="tf-vorname" autocomplete="given-name" /></div>
+          <div class="form-field required"><label for="tf-nachname">Nachname</label><input type="text" id="tf-nachname" autocomplete="family-name" /></div>
+          <div class="form-field required"><label for="tf-geburtsdatum">Geburtsdatum</label><input type="date" id="tf-geburtsdatum" autocomplete="bday" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field required" style="grid-column:1/-1;"><label>Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
-          <div class="form-field required" style="max-width:120px;"><label>PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
-          <div class="form-field required"><label>Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
+          <div class="form-field required" style="grid-column:1/-1;"><label for="tf-strasse">Straße und Hausnummer</label><input type="text" id="tf-strasse" autocomplete="street-address" /></div>
+          <div class="form-field required" style="max-width:120px;"><label for="tf-plz">PLZ</label><input type="text" id="tf-plz" maxlength="5" inputmode="numeric" autocomplete="postal-code" /></div>
+          <div class="form-field required"><label for="tf-ort">Ort</label><input type="text" id="tf-ort" autocomplete="address-level2" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field required"><label>Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
+          <div class="form-field required"><label for="tf-telefon">Telefonnummer</label><input type="tel" id="tf-telefon" autocomplete="tel" /></div>
           <!-- Seit 1.9 sind Geburtsdatum, Anschrift, Telefon und E-Mail für BEIDE
                Einreichungsarten Pflicht: die Geschäftsstelle braucht diese Angaben von
                jedem, der sich anmeldet. Die Klasse "required" steht deshalb fest im
                HTML und wird nicht mehr von _applyVertragspflichtGate() umgeschaltet.
                BIC bleibt bewusst freiwillig — bei Inlands-SEPA nicht nötig, und die
                wenigsten kennen ihn auswendig. -->
-          <div class="form-field required" id="tf-email-field"><label>E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
+          <div class="form-field required" id="tf-email-field"><label for="tf-email">E-Mail-Adresse</label><input type="email" id="tf-email" autocomplete="email" /></div>
         </div>
 
         <!-- Bankverbindung / Anlage 1 / Unterschrift dienen ausschließlich dem
@@ -114,11 +114,11 @@
         <div class="section-divider">Bankverbindung</div>
         <div class="form-grid">
           <div class="form-field required" style="grid-column:1/-1;">
-            <label>IBAN</label>
+            <label for="tf-iban">IBAN</label>
             <input type="text" id="tf-iban" class="iban-field" placeholder="DE89 3704 0044 …" autocomplete="off" spellcheck="false" />
           </div>
-          <div class="form-field required"><label>Bankname</label><input type="text" id="tf-bankname" /></div>
-          <div class="form-field"><label>BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
+          <div class="form-field required"><label for="tf-bankname">Bankname</label><input type="text" id="tf-bankname" /></div>
+          <div class="form-field"><label for="tf-bic">BIC</label><input type="text" id="tf-bic" placeholder="z.B. COBADEFFXXX" autocomplete="off" /></div>
         </div>
 
         <div class="section-divider">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG) — Anlage 1</div>
@@ -279,11 +279,11 @@
       </div>
       <div class="form-grid" style="margin-top:10px; margin-bottom:0;">
         <div class="form-field">
-          <label>Lizenzart</label>
+          <label for="tf-tl-art">Lizenzart</label>
           <select id="tf-tl-art"></select>
         </div>
         <div class="form-field">
-          <label>Lizenz gültig bis</label>
+          <label for="tf-tl-gueltig-bis">Lizenz gültig bis</label>
           <input type="date" id="tf-tl-gueltig-bis" />
         </div>
       </div>
@@ -434,11 +434,11 @@
       <form id="admin-connect-form">
         <div class="form-grid">
           <div class="form-field" style="grid-column:1/-1;">
-            <label>WebDAV-Adresse der Datei</label>
+            <label for="admin-url">WebDAV-Adresse der Datei</label>
             <input type="url" id="admin-url" value="https://nx88695.your-storageshare.de/remote.php/dav/files/admin/05_Nachwuchsbereich/02_F%C3%B6rderung/Tools/Trainerdaten/trainerdaten.json" required />
           </div>
           <div class="form-field" style="grid-column:1/-1;">
-            <label>Zugangs-Worker (CORS-Proxy)</label>
+            <label for="admin-proxy-url">Zugangs-Worker (CORS-Proxy)</label>
             <input type="url" id="admin-proxy-url" value="https://trainerdaten.michel-brunner.workers.dev" required />
           </div>
         </div>
@@ -675,18 +675,18 @@
 
             <div class="section-divider">Persönliche Daten</div>
             <div class="form-grid">
-              <div class="form-field"><label>Vorname</label><input type="text" id="d-vorname" /></div>
-              <div class="form-field"><label>Nachname</label><input type="text" id="d-nachname" /></div>
-              <div class="form-field"><label>Geburtsdatum</label><input type="date" id="d-geburtsdatum" /></div>
+              <div class="form-field"><label for="d-vorname">Vorname</label><input type="text" id="d-vorname" /></div>
+              <div class="form-field"><label for="d-nachname">Nachname</label><input type="text" id="d-nachname" /></div>
+              <div class="form-field"><label for="d-geburtsdatum">Geburtsdatum</label><input type="date" id="d-geburtsdatum" /></div>
             </div>
             <div class="form-grid">
-              <div class="form-field" style="grid-column:1/-1;"><label>Straße</label><input type="text" id="d-strasse" /></div>
-              <div class="form-field" style="max-width:120px;"><label>PLZ</label><input type="text" id="d-plz" /></div>
-              <div class="form-field"><label>Ort</label><input type="text" id="d-ort" /></div>
+              <div class="form-field" style="grid-column:1/-1;"><label for="d-strasse">Straße</label><input type="text" id="d-strasse" /></div>
+              <div class="form-field" style="max-width:120px;"><label for="d-plz">PLZ</label><input type="text" id="d-plz" /></div>
+              <div class="form-field"><label for="d-ort">Ort</label><input type="text" id="d-ort" /></div>
             </div>
             <div class="form-grid">
-              <div class="form-field"><label>Telefon</label><input type="text" id="d-telefon" /></div>
-              <div class="form-field"><label>E-Mail</label><input type="email" id="d-email" /></div>
+              <div class="form-field"><label for="d-telefon">Telefon</label><input type="text" id="d-telefon" /></div>
+              <div class="form-field"><label for="d-email">E-Mail</label><input type="email" id="d-email" /></div>
             </div>
 
             <!-- Für Einträge ohne Trainervertrag („Nur Kontaktdaten“) ausgeblendet,
@@ -702,16 +702,16 @@
             <div class="section-divider">Bankverbindung</div>
             <div class="form-grid">
               <div class="form-field" style="grid-column:1/-1;">
-                <label>IBAN</label><input type="text" id="d-iban" class="iban-field" autocomplete="off" spellcheck="false" />
+                <label for="d-iban">IBAN</label><input type="text" id="d-iban" class="iban-field" autocomplete="off" spellcheck="false" />
               </div>
-              <div class="form-field"><label>Bank</label><input type="text" id="d-bankname" /></div>
-              <div class="form-field"><label>BIC</label><input type="text" id="d-bic" /></div>
+              <div class="form-field"><label for="d-bankname">Bank</label><input type="text" id="d-bankname" /></div>
+              <div class="form-field"><label for="d-bic">BIC</label><input type="text" id="d-bic" /></div>
             </div>
 
             <div class="section-divider">Vertragsdaten</div>
             <div class="form-grid">
-              <div class="form-field"><label>Pauschale (EUR/Monat)</label><input type="text" id="d-pauschale" placeholder="z.B. 125,00" /></div>
-              <div class="form-field"><label>Trainerlizenz</label><input type="text" id="d-lizenz" placeholder="z.B. C-Lizenz Fußball" /></div>
+              <div class="form-field"><label for="d-pauschale">Pauschale (EUR/Monat)</label><input type="text" id="d-pauschale" placeholder="z.B. 125,00" /></div>
+              <div class="form-field"><label for="d-lizenz">Trainerlizenz</label><input type="text" id="d-lizenz" placeholder="z.B. C-Lizenz Fußball" /></div>
             </div>
 
             <div class="section-divider">Erklärung Nebentätigkeit (§ 3 Nr. 26 EStG) — Anlage 1</div>
@@ -750,11 +750,11 @@
               </div>
               <div class="form-grid" style="flex-basis:100%; margin:6px 0 0 0;">
                 <div class="form-field">
-                  <label>Lizenzart</label>
+                  <label for="d-tl-art">Lizenzart</label>
                   <select id="d-tl-art"></select>
                 </div>
                 <div class="form-field">
-                  <label>Lizenz gültig bis</label>
+                  <label for="d-tl-gueltig-bis">Lizenz gültig bis</label>
                   <input type="date" id="d-tl-gueltig-bis" />
                 </div>
               </div>
