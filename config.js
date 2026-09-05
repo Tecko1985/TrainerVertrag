@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.4",
+    groups: [
+      {
+        title: "Jugendschutzkonzept: „es wurde nichts gespeichert“ stimmt jetzt auch",
+        items: [
+          "Wenn beim Bestätigen des Jugendschutzkonzepts die geltende Fassung gerade nicht abrufbar war oder sich zwischendurch geändert hatte, meldete die App „es wurde nichts gespeichert“ — die neue Unterschrift war zu diesem Zeitpunkt aber schon abgelegt und hatte die vorherige überschrieben. In der Akte stand danach ein altes Bestätigungsdatum mit einer Unterschrift, die nicht dazu gehörte.",
+          "Die Fassung wird jetzt zuerst geprüft und die Unterschrift erst danach gespeichert. Bricht die Bestätigung ab, bleibt die bisherige Unterschrift unangetastet."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.3",
     groups: [
       {

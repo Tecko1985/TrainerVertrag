@@ -1181,6 +1181,22 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
 
   const { idx } = resolveOwnTrainerRecord(appData, session, String(body.vorname || "").trim(), String(body.nachname || "").trim());
   const nowIso = new Date().toISOString();
+  // ⚠️ Was hier gespeichert wird, MUSS die Fassung sein, die der Trainer eben
+  // auf dem Schirm hatte. Sonst belegt die Akte etwas, das nie stattgefunden hat.
+  const geltendeVersion = await ksGeltendeKonzeptVersion(authHeader);
+  if (!geltendeVersion) {
+    return json({ error: "Die geltende Fassung des Konzepts ist gerade nicht abrufbar. Bitte in ein paar Minuten erneut bestaetigen — es wurde nichts gespeichert." }, 503, corsHeaders);
+  }
+  const angezeigt = String(body.angezeigteVersion || "");
+  if (angezeigt && angezeigt !== geltendeVersion) {
+    return json({ error: "Das Konzept wurde gerade geaendert (Fassung " + geltendeVersion + "). Bitte lade die Seite neu, lies den Text noch einmal und bestaetige erneut." }, 409, corsHeaders);
+  }
+  // ⚠️ Erst NACH der Fassungspruefung ablegen. Die Ablage ist
+  // jugendschutz-unterschriften/<trainerId> -- eine Datei je Person, jeder
+  // Schreibvorgang ueberschreibt. Stand das PUT davor, war die alte
+  // Unterschrift schon weg, waehrend die Abbruchzweige oben dem Trainer
+  // "es wurde nichts gespeichert" zusagten und jugendschutzBestaetigtAm/
+  // -Version auf dem alten Stand blieben (Bugjagd 2026-09-05).
   // Unterschrift als eigene Datei ablegen (nicht mehr inline), siehe handleSubmitKodex.
   try {
     await putSignatureFile(env, authHeader, SIGNATURE_SUBDIRS.jugendschutz, appData.trainer[idx].id, signatureDataUrl);
@@ -1191,16 +1207,6 @@ async function handleSubmitJugendschutzkonzept(body, session, env, corsHeaders) 
     return e && e.eingabe
       ? json({ error: e.message }, 400, corsHeaders)
       : json({ error: "Speicherfehler (Unterschrift): " + e.message }, 502, corsHeaders);
-  }
-  // ⚠️ Was hier gespeichert wird, MUSS die Fassung sein, die der Trainer eben
-  // auf dem Schirm hatte. Sonst belegt die Akte etwas, das nie stattgefunden hat.
-  const geltendeVersion = await ksGeltendeKonzeptVersion(authHeader);
-  if (!geltendeVersion) {
-    return json({ error: "Die geltende Fassung des Konzepts ist gerade nicht abrufbar. Bitte in ein paar Minuten erneut bestaetigen — es wurde nichts gespeichert." }, 503, corsHeaders);
-  }
-  const angezeigt = String(body.angezeigteVersion || "");
-  if (angezeigt && angezeigt !== geltendeVersion) {
-    return json({ error: "Das Konzept wurde gerade geaendert (Fassung " + geltendeVersion + "). Bitte lade die Seite neu, lies den Text noch einmal und bestaetige erneut." }, 409, corsHeaders);
   }
 
   appData.trainer[idx].jugendschutzBestaetigtAm = nowIso;
