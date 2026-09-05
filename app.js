@@ -3934,6 +3934,13 @@ async function _openAdminDetail(id) {
   {
     const input = document.getElementById("d-tl-art");
     const fresh = input.cloneNode(true);
+    // ⚠️ cloneNode(true) überträgt bei <input> die per Skript gesetzten Werte
+    // (Cloning-Steps: value + checked), bei einem <select> aber NICHT die
+    // Auswahl — der Klon fiele auf die erste Option zurück, und das ist
+    // "— bitte wählen —". Danach schreibt jedes Autosave über
+    // _collectDetailData() diese leere Auswahl in den Datensatz und die
+    // hinterlegte Lizenzart ist weg. Gleiche Zeile wie beim Status-Select unten.
+    fresh.value = input.value;
     input.parentNode.replaceChild(fresh, input);
     fresh.addEventListener("change", _tlLiveUpdate);
   }

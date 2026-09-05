@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.7",
+    groups: [
+      {
+        title: "Die hinterlegte Lizenzart bleibt erhalten",
+        items: [
+          "Beim Öffnen eines Trainers in der Verwaltung wurde die gespeicherte Lizenzart im Auswahlfeld nicht angezeigt — dort stand immer „— bitte wählen —“. Sobald danach irgendwo im Detail etwas getippt wurde, schrieb das automatische Speichern diese leere Auswahl in den Datensatz: die Lizenzart war weg, ohne Meldung und ohne dass es in der Verwaltung auffiel. Bemerkt hat es erst der Trainer auf seiner eigenen Seite oder wer die Spalte „Trainerlizenz-Art“ exportiert hat.",
+          "Das Auswahlfeld zeigt jetzt wieder die hinterlegte Lizenzart, und das automatische Speichern schreibt sie unverändert zurück. Bereits geleerte Einträge müssen einmal von Hand nachgetragen werden — die App kann nicht wissen, was dort stand."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.6",
     groups: [
       {
