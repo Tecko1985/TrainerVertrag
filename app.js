@@ -3576,6 +3576,11 @@ function _camtAbgleich(umsaetze, zahlbar) {
 // zugeordneten Belastung, die entweder ausdrücklich als Sammelposten
 // ausgewiesen ist oder exakt der Summe der vermissten Zahlungen entspricht.
 function _camtSammelbuchung(nichtZugeordnet, offen) {
+  // Wurde keine einzige Zahlung vermisst, gibt es nichts zu erklären. Ohne
+  // diese Zeile schlug schon eine FREMDE Sammelbuchung im Auszug an (der
+  // Beitragslauf etwa) und der Bericht zeigte den roten Kasten direkt unter
+  // „n von n erwarteten Zahlungen wiedergefunden“.
+  if (!offen.length) return null;
   const summeOffen = _cent(offen.reduce((s, p) => s + p.kandidat.betrag, 0));
   return nichtZugeordnet.find(u =>
     u.sammelAnzahl > 1 || (summeOffen > 0 && _cent(u.betrag) === summeOffen)

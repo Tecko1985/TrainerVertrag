@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.2",
+    groups: [
+      {
+        title: "Kontoauszug: keine falsche Sammelbuchungs-Warnung mehr",
+        items: [
+          "Beim Abgleich eines Kontoauszugs erschien der rote Hinweis „Der Auszug enthält die Überweisung offenbar als eine einzige Sammelbuchung“ auch dann, wenn alle Zahlungen sauber einzeln gefunden wurden. Ausgelöst hat ihn jede fremde Sammelbuchung im selben Auszug — etwa der Beitragslauf. Er stand damit direkt unter der Zeile „n von n erwarteten Zahlungen wiedergefunden“ und widersprach ihr.",
+          "Der Hinweis erscheint jetzt nur noch, wenn tatsächlich eine Zahlung vermisst wird."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.1",
     groups: [
       {
