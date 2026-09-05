@@ -3519,6 +3519,18 @@ function _camtNameKey(name) {
     .join(" ");
 }
 
+// Ist die Belastung wirklich gebucht — oder erst vorgemerkt?
+// <Sts> liefert _parseCamt schon mit (BOOK / PDNG / INFO), gelesen hat ihn bis
+// zur Bugjagd am 2026-09-05 aber niemand. Im camt.053 (Tagesauszug) steht dort
+// praktisch immer BOOK, in älteren Schemata fehlt das Element ganz — ein leerer
+// Status gilt deshalb als gebucht, damit sich am Tagesauszug nichts ändert.
+// Alles andere (PDNG = vorgemerkt) ist noch kein abgeflossenes Geld und kann
+// von der Bank zurückgenommen werden.
+function _camtGebucht(u) {
+  const s = String((u && u.status) || "").trim().toUpperCase();
+  return s === "" || s === "BOOK";
+}
+
 function _camtAbgleich(umsaetze, zahlbar) {
   // Jede erwartete Zahlung bekommt höchstens einen Umsatz und jeder Umsatz
   // höchstens eine Zahlung. Ohne diese Sperre beanspruchen zwei Trainer mit
@@ -3572,8 +3584,13 @@ function _camtAbgleich(umsaetze, zahlbar) {
 
   const bezahlt = [], abweichend = [], offen = [];
   posten.forEach(p => {
-    if (!p.umsatz) offen.push(p);
-    else if (_cent(p.umsatz.betrag) === _cent(p.kandidat.betrag)) bezahlt.push(p);
+    if (!p.umsatz) { offen.push(p); return; }
+    // Eine vorgemerkte Belastung zählt weiter als wiedergefunden — sonst würde
+    // der untertägige Bericht (camt.052) reihenweise Zahlungen vermissen, die
+    // gerade unterwegs sind. Der Bericht weist sie aber ausdrücklich aus,
+    // statt sie stillschweigend als erledigt auszugeben.
+    p.nurVorgemerkt = !_camtGebucht(p.umsatz);
+    if (_cent(p.umsatz.betrag) === _cent(p.kandidat.betrag)) bezahlt.push(p);
     else abweichend.push(p);
   });
 
@@ -3671,6 +3688,12 @@ function _zeigeCamtBericht(el, dateiname, konten, umsaetze, abgleich, anzahlErwa
   // das wird ausgewiesen, statt es als sichere Zahlung auszugeben.
   const ueberNamen = bezahlt.filter(p => p.ueberName).length;
 
+  // „Wiedergefunden“ heißt bei einer vorgemerkten Belastung noch nicht
+  // „angekommen“: das Geld ist nicht abgeflossen und die Vormerkung kann
+  // zurückgenommen werden. Betrifft in der Praxis nur den untertägigen Bericht
+  // camt.052; im Tagesauszug camt.053 ist alles gebucht und die Zeile fehlt.
+  const vorgemerkt = bezahlt.concat(abweichend).filter(p => p.nurVorgemerkt).length;
+
   // Ohne erwartete Zahlungen gibt es nichts abzugleichen — dann wäre „0 von 0
   // wiedergefunden“ eine Aussage, die nach einem Ergebnis klingt und keines ist.
   const bezahltBlock = anzahlErwartet === 0 ? `
@@ -3682,14 +3705,16 @@ function _zeigeCamtBericht(el, dateiname, konten, umsaetze, abgleich, anzahlErwa
       <strong>${bezahlt.length} von ${anzahlErwartet}</strong>
       ${anzahlErwartet === 1 ? "erwarteter Zahlung" : "erwarteten Zahlungen"} im Auszug wiedergefunden
       (zusammen <strong>${_fmtBetrag(summeBezahlt, ",")} €</strong>).${ueberNamen ? `
-      <br /><em>${ueberNamen} davon nur über den Empfängernamen zugeordnet, nicht über die IBAN — bitte stichprobenhaft prüfen.</em>` : ""}
+      <br /><em>${ueberNamen} davon nur über den Empfängernamen zugeordnet, nicht über die IBAN — bitte stichprobenhaft prüfen.</em>` : ""}${vorgemerkt ? `
+      <br /><em>${vorgemerkt} davon ${vorgemerkt === 1 ? "ist erst vorgemerkt und noch nicht gebucht" : "sind erst vorgemerkt und noch nicht gebucht"} — das Geld ist noch nicht abgeflossen und die Vormerkung kann zurückgenommen werden.</em>` : ""}
     </p>`;
 
   const abweichendBlock = abweichend.length ? `
     <div class="error-banner visible" style="margin:10px 0 0;">
       <strong>${abweichend.length} ${abweichend.length === 1 ? "Zahlung wurde" : "Zahlungen wurden"} mit einem anderen Betrag gebucht:</strong>
       ${liste(abweichend.map(p => `<li>${_esc(p.name)} — erwartet ${_fmtBetrag(p.kandidat.betrag, ",")} €,
-        gebucht <strong>${_fmtBetrag(p.umsatz.betrag, ",")} €</strong>${p.umsatz.buchung ? ` am ${_fmtDateOnly(p.umsatz.buchung)}` : ""}</li>`))}
+        gebucht <strong>${_fmtBetrag(p.umsatz.betrag, ",")} €</strong>${p.umsatz.buchung ? ` am ${_fmtDateOnly(p.umsatz.buchung)}` : ""}${p.nurVorgemerkt ? `
+        <em>(erst vorgemerkt)</em>` : ""}</li>`))}
     </div>` : "";
 
   const offenBlock = offen.length ? `
@@ -3706,7 +3731,8 @@ function _zeigeCamtBericht(el, dateiname, konten, umsaetze, abgleich, anzahlErwa
       <strong>${nichtZugeordnet.length} ${nichtZugeordnet.length === 1 ? "Belastung" : "Belastungen"}</strong>
       ${nichtZugeordnet.length === 1 ? "gehört" : "gehören"} zu keinem Trainer der aktuellen Auswahl:
       ${liste(nichtZugeordnet.map(u => `<li>${u.buchung ? _fmtDateOnly(u.buchung) + " · " : ""}${_fmtBetrag(u.betrag, ",")} €
-        · ${_esc(u.name || "ohne Empfängernamen")}${u.iban ? ` · ${_esc(u.iban)}` : ""}${u.ausUnseremExport ? `
+        · ${_esc(u.name || "ohne Empfängernamen")}${u.iban ? ` · ${_esc(u.iban)}` : ""}${_camtGebucht(u) ? "" : `
+        <em>(erst vorgemerkt)</em>`}${u.ausUnseremExport ? `
         <em>(trägt unsere Referenz ${_esc(u.endToEnd)})</em>` : ""}</li>`))}
     </div>` : "";
 
@@ -3743,7 +3769,9 @@ function _zeigeCamtBericht(el, dateiname, konten, umsaetze, abgleich, anzahlErwa
 const CAMT_CSV_SPALTEN = [
   "Buchungstag", "Wertstellung", "Betrag", "Währung", "Soll/Haben",
   "Name", "IBAN", "BIC", "Verwendungszweck", "Referenz (EndToEndId)",
-  "Zugeordnet zu", "Konto"
+  "Zugeordnet zu", "Konto",
+  // Hinten angehängt, damit bestehende Tabellen ihre Spaltenpositionen behalten.
+  "Status"
 ];
 
 function _exportiereCamtUmsaetze() {
@@ -3763,7 +3791,8 @@ function _exportiereCamtUmsaetze() {
     u.zweck,
     u.endToEnd,
     u.zugeordnetZu,
-    u.kontoIban
+    u.kontoIban,
+    _camtGebucht(u) ? "gebucht" : "vorgemerkt"
   ])];
 
   const csv = String.fromCharCode(0xFEFF) + zeilen.map(z => z.map(_csvCell).join(";")).join("\r\n");

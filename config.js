@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.6",
+    groups: [
+      {
+        title: "Kontoauszug: vorgemerkte Belastungen sind jetzt als solche erkennbar",
+        items: [
+          "Beim Abgleich eines untertägigen Kontoauszugs (camt.052) zählte eine erst vorgemerkte Belastung wie eine gebuchte. Der Bericht meldete „n von n erwarteten Zahlungen wiedergefunden“, obwohl das Geld noch gar nicht abgeflossen war und die Bank die Vormerkung noch hätte zurücknehmen können.",
+          "Vorgemerkte Belastungen zählen weiterhin als wiedergefunden — sie werden jetzt aber ausdrücklich als „erst vorgemerkt“ ausgewiesen, sowohl in der Zusammenfassung als auch bei den einzelnen Buchungen. Der Auszugs-Export als Tabelle hat dafür eine neue Spalte „Status“ am Ende. Am Tagesauszug (camt.053) ändert sich nichts, dort ist alles gebucht."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.5",
     groups: [
       {
