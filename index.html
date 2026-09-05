@@ -401,11 +401,20 @@
       </div>
       </div>
     </details>
+  </div>
 
-    <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -- bewusst
-         ganz unten, da es kein eigenes Dokument/keine eigene Bestätigung ist, sondern
-         eine Übersicht für Berechtigte. -->
-    <div class="card" id="tf-fs-register-card" style="display:none;">
+  <!-- Register: nur sichtbar für Admin bzw. Gruppe "Führerschein Einsicht" -- bewusst
+       ganz unten, da es kein eigenes Dokument/keine eigene Bestätigung ist, sondern
+       eine Übersicht für Berechtigte.
+       ⚠️ EIGENER Container, NICHT innerhalb von #trainer-jugendschutz-panel: das Panel
+       wird von _showTrainerVertragsPanels() bei jedem Screen-Wechsel für alle Konten
+       ohne Vertragspflicht ausgeblendet — und genau die (Geschäftsstelle, Funktionäre
+       in der Gruppe "Führerschein Einsicht") sind die Zielgruppe des Registers. Bis zur
+       Bugjagd am 2026-09-05 lag die Karte hier drin und war für sie unerreichbar.
+       Wer diesen Container umbenennt: er MUSS in beiden Listen in
+       _showTrainerConnectScreen() stehen, sonst wird er versteckt, aber nicht geräumt. -->
+  <div id="trainer-register-panel" class="trainer-form-screen" style="display:none;">
+    <div class="card" id="tf-fs-register-card">
       <h2>Führerschein-Register</h2>
       <p class="muted" style="margin-bottom:14px;">Wer hat eine Kopie hinterlegt? Nur für berechtigte Nutzer sichtbar.</p>
       <div class="btn-row" style="justify-content:flex-start; gap:10px; margin-bottom:14px;">
@@ -980,7 +989,7 @@
      Bedarf nach (ladePdfLib / ladeJsZip, auch von app.js aus benutzt). Zusammen
      waren sie 230 KB bei jedem Seitenaufbau — auch für den Trainer, der nur seine
      Telefonnummer ändert. -->
-<script src="config.js?v=1.4"></script>
+<script src="config.js?v=1.5"></script>
 <script src="kodex-text.js?v=1.0"></script>
 <!-- ⚠️ jugendschutz-text.js wird seit 2026-08-31 NICHT mehr geladen: der
      Wortlaut steht in der Kinderschutz-App, und unterschrieben wird auch dort.
@@ -990,6 +999,6 @@
 <script src="db.js?v=1.0"></script>
 <script src="signature-pad.js?v=1.0"></script>
 <script src="pdf-utils.js?v=1.0"></script>
-<script src="app.js?v=1.3"></script>
+<script src="app.js?v=1.5"></script>
 </body>
 </html>

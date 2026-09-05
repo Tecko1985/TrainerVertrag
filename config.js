@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.5",
+    groups: [
+      {
+        title: "Führerschein-Register ist für die Geschäftsstelle wieder sichtbar",
+        items: [
+          "Das Führerschein-Register mit dem Sammel-Export stand innerhalb des Bereichs zum Jugendschutzkonzept. Dieser Bereich wird für alle ausgeblendet, die selbst keinen Trainervertrag bekommen — also für Geschäftsstelle und Funktionäre, und damit für genau die Gruppe, für die das Register gebaut wurde. Sie sahen weder die Liste noch den Knopf „Alle als PDF exportieren“, und es gab keinen Hinweis darauf.",
+          "Das Register steht jetzt als eigener Bereich unter „Meine Daten“ und erscheint für alle, die die Berechtigung dafür haben — unabhängig davon, ob sie selbst einen Trainervertrag haben."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.4",
     groups: [
       {

@@ -251,7 +251,8 @@ function _showTrainerConnectScreen(errorMsg) {
   //
   // Der Weg zurück führt nur über ein Neuladen der Seite, also darf alles weg.
   ["trainer-form-screen", "trainer-success-screen", "trainer-documents-panel",
-   "trainer-kodex-panel", "trainer-jugendschutz-panel"].forEach((id) => {
+   "trainer-kodex-panel", "trainer-jugendschutz-panel",
+   "trainer-register-panel"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     // Formularwerte stehen nicht im Markup — ein leeres innerHTML erwischt sie
@@ -268,6 +269,7 @@ function _showTrainerConnectScreen(errorMsg) {
   document.getElementById("trainer-documents-panel").style.display = "none";
   document.getElementById("trainer-kodex-panel").style.display = "none";
   document.getElementById("trainer-jugendschutz-panel").style.display = "none";
+  document.getElementById("trainer-register-panel").style.display = "none";
   const err = document.getElementById("trainer-connect-error");
   err.style.display = errorMsg ? "block" : "none";
   err.textContent = errorMsg || "";
@@ -1354,17 +1356,25 @@ async function _viewMyTrainerlizenz() {
 // Eigene UI-Fläche innerhalb des Trainer-Gateway-Bereichs, da diese Personen keinen
 // WebDAV-Admin-Zugang haben — der Worker prüft die Berechtigung serverseitig erneut.
 
+// ⚠️ Geschaltet wird der eigene Container #trainer-register-panel, NICHT nur die
+// Karte darin. Bis zur Bugjagd am 2026-09-05 lag die Karte in
+// #trainer-jugendschutz-panel; dieses Panel blendet _showTrainerVertragsPanels()
+// bei jedem Screen-Wechsel für alle Konten ohne Vertragspflicht aus, und
+// card.style.display = "" nützt nichts gegen einen Elternknoten auf display:none.
+// Betroffen war genau die Zielgruppe des Registers: Geschäftsstelle und
+// Funktionäre in der Gruppe "Führerschein Einsicht", die selbst keinen
+// Trainervertrag haben.
 async function _initFuehrerscheinRegisterPanel() {
-  const card = document.getElementById("tf-fs-register-card");
+  const panel = document.getElementById("trainer-register-panel");
   const mayView = currentIsAdmin || currentGroupIds.includes(FS_VIEW_GROUP_ID);
-  if (!mayView) { card.style.display = "none"; return; }
+  if (!mayView) { panel.style.display = "none"; return; }
   try {
     _fuehrerscheinRegisterList = await fetchFuehrerscheinRegister();
   } catch (_) {
     _fuehrerscheinRegisterList = [];
   }
-  if (_fuehrerscheinRegisterList === null) { card.style.display = "none"; return; }
-  card.style.display = "";
+  if (_fuehrerscheinRegisterList === null) { panel.style.display = "none"; return; }
+  panel.style.display = "";
   _renderFuehrerscheinRegisterRows(_fuehrerscheinRegisterList);
 }
 
