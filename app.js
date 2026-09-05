@@ -4268,9 +4268,21 @@ async function _resetVertragUnterschriftAdmin() {
   const idx = appData.trainer.findIndex(x => x.id === currentTrainerId);
   if (idx === -1) return;
 
+  const alterSigniertPfad = appData.trainer[idx].vertragSigniertPfad || "";
   appData.trainer[idx] = { ...appData.trainer[idx], vertragUnterschriebenAm: "", vertragSigniertPfad: "" };
   try {
     await _saveMerged();
+    // Abgelegtes unterschriebenes PDF mitentfernen (gleiches Paar wie
+    // _resetKodexAdmin/_resetJugendschutzAdmin). Ohne das bliebe eine
+    // ausdruecklich zurueckgenommene Unterschrift in der Vereins-Cloud liegen,
+    // und eine spaetere Neuausstellung raeumt sie auch nicht mehr weg --
+    // _resetVertragAdmin sammelt altePfade aus vertragSigniertPfad, und der
+    // ist nach diesem Reset leer.
+    if (alterSigniertPfad) {
+      const dir = davConfig.url.slice(0, davConfig.url.lastIndexOf("/"));
+      const grund = await _davDeleteVersuch({ ...davConfig, url: dir + "/" + alterSigniertPfad });
+      if (grund) _meldeLiegengeblieben(errEl, `der unterschriebene Vertrag (${alterSigniertPfad})`, grund);
+    }
   } catch (err) {
     errEl.textContent = "Zurücksetzen fehlgeschlagen: " + err.message;
     errEl.style.display = "block";

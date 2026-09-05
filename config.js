@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.3",
+    groups: [
+      {
+        title: "Zurückgenommene Unterschrift verschwindet jetzt auch aus der Vereins-Cloud",
+        items: [
+          "Beim Knopf „Unterschrift zurücksetzen“ in der Trainerverwaltung wurde zwar der Vermerk im Datensatz gelöscht, der bereits unterschriebene Vertrag blieb aber als PDF in der Vereins-Cloud liegen. In der Ablage stand danach eine Unterschrift, die ausdrücklich zurückgenommen worden war, und niemand erfuhr davon.",
+          "Jetzt wird das unterschriebene PDF mitgelöscht — genau wie bei den Knöpfen für Kodex und Jugendschutzkonzept. Klappt das Löschen einmal nicht, steht es als Hinweis unter dem Knopf, damit die Datei von Hand geräumt werden kann."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.2",
     groups: [
       {
