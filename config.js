@@ -276,6 +276,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.8",
+    groups: [
+      {
+        title: "Einreichungen während einer offenen Verwaltungssitzung bleiben stehen",
+        items: [
+          "Wer die Verwaltung offen hatte und danach irgendwo etwas tippte, schrieb damit den Stand zurück, der beim Öffnen geladen worden war. Alles, was ein Trainer in der Zwischenzeit selbst gemacht hatte, war weg: Kodex und Jugendschutzkonzept bestätigen, Führerschein, Führungszeugnis oder Trainerlizenz hochladen, die Freigabe für die Kontaktliste ändern, Stammdaten aktualisieren — und die Unterschrift unter dem Trainervertrag.",
+          "Besonders unangenehm war dabei, dass die Datei selbst in der Vereins-Cloud blieb (Unterschrift, Scan, unterschriebener Vertrag) und nur der Verweis darauf verschwand. Danach behauptete die Akte „noch nicht eingereicht“, obwohl alles vorlag.",
+          "Beim Speichern wird jetzt Feld für Feld abgeglichen: Was der Trainer geändert hat, wird übernommen; was in der Verwaltung geändert wurde, hat Vorrang. Ein bewusstes Zurücksetzen — Kodex, Jugendschutz, Vertrag, Unterschrift — bleibt damit ein Zurücksetzen und wird nicht vom Server wieder aufgefüllt. Bereits erstellte Verträge und geleistete Unterschriften werden dadurch nicht neu bewertet."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.7",
     groups: [
       {

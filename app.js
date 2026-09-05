@@ -210,6 +210,7 @@ function raeumeAdminBildschirm() {
   // Verbindung für gültig und zeichnet die Liste aus appData neu.
   davConfig = null;
   appData = { version: 1, trainer: [] };
+  _snapshotBase();
   const connect = document.getElementById("admin-connect-screen");
   if (connect) connect.style.display = "";
   const fehler = document.getElementById("admin-connect-error");
@@ -1627,6 +1628,7 @@ async function _connectAdminNow() {
   }
   const raw = await davReadFile(davConfig);
   appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
+  _snapshotBase(); // Basis fuer den Drei-Wege-Abgleich in _saveMerged
   await FileStore.setWebdavConfig(davConfig); // nur url+proxyUrl — keine Zugangsdaten
   _onAdminConnected();
 }
@@ -1661,6 +1663,7 @@ async function _tryRestoreAdminSession() {
   try {
     const raw = await davReadFile(davConfig);
     appData = raw && Array.isArray(raw.trainer) ? raw : { version: 1, trainer: [] };
+    _snapshotBase(); // Basis fuer den Drei-Wege-Abgleich in _saveMerged
     // Nur vorbereiten (Panel/Liste im Hintergrund, Status "Verbunden") — die
     // App startet für alle auf "Meine Daten", sichtbar wird die Verwaltung
     // erst über die Tabs.
@@ -1698,6 +1701,7 @@ function _initAdminPanel() {
     await FileStore.clearWebdavConfig();
     davConfig = null;
     appData = { version: 1, trainer: [] };
+    _snapshotBase();
     document.getElementById("admin-panel").style.display = "none";
     document.getElementById("admin-connect-screen").style.display = "";
     _updateFileStatus(false);
@@ -4621,21 +4625,81 @@ function _collectDetailData() {
 // _saveMerged sie beim nächsten Speichern wieder aus dem Remote-Stand übernehmen.
 const _deletedTrainerIds = new Set();
 
-// Schreibt appData, übernimmt vorher aber Einträge, die seit dem Laden neu auf
-// Nextcloud dazugekommen sind (Trainer-Einreichungen über den Submit-Worker
-// schreiben in dieselbe Datei — ein reines Überschreiben würde sie verwerfen).
+// Der Stand, aus dem der lokale appData hervorgegangen ist — je Trainer-id ein
+// eingefrorener Schnappschuss. Basis des Drei-Wege-Abgleichs in _saveMerged:
+// nur damit lässt sich "der Trainer hat das Feld geändert" von "der Admin hat es
+// geändert" unterscheiden. Wird beim Laden und nach jedem erfolgreichen PUT neu
+// gezogen — appData ist dann wieder deckungsgleich mit der Datei.
+let _baseTrainer = new Map();
+
+function _snapshotBase() {
+  _baseTrainer = new Map();
+  if (!appData || !Array.isArray(appData.trainer)) return;
+  appData.trainer.forEach(t => {
+    if (t && t.id) _baseTrainer.set(t.id, JSON.parse(JSON.stringify(t)));
+  });
+}
+
+function _feldGleich(a, b) {
+  if (a === b) return true;
+  if (a === null || b === null || a === undefined || b === undefined) return false;
+  if (typeof a === "object" || typeof b === "object") {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch (_) { return false; }
+  }
+  return false;
+}
+
+// Drei-Wege-Abgleich für einen Datensatz, den es lokal UND auf Nextcloud gibt.
+// Feld für Feld gegen die Basis:
+//   entfernt == Basis                  -> dort hat sich nichts getan, lokal bleibt
+//   entfernt != Basis, lokal == Basis  -> Fremdänderung, wird ÜBERNOMMEN
+//   entfernt != Basis, lokal != Basis  -> echter Konflikt, der Admin gewinnt
+// Der dritte Fall hält alle bewussten Admin-Eingriffe: Kodex/Jugendschutz/Vertrag
+// zurücksetzen, Dokument löschen, Import. Ohne ihn würde ein Zurücksetzen vom
+// gerade gelesenen Remote-Stand sofort wieder rückgängig gemacht.
+// ⚠️ Ohne Basis (unbekannte id) gewinnt lokal komplett — das alte Verhalten,
+// bewusst als sichere Vorgabe.
+function _uebernehmeFremdaenderungen(lokal, entfernt, basis) {
+  if (!basis) return;
+  const felder = new Set([...Object.keys(entfernt), ...Object.keys(basis)]);
+  felder.forEach(k => {
+    if (k === "id") return;
+    if (_feldGleich(entfernt[k], basis[k])) return;
+    if (!_feldGleich(lokal[k], basis[k])) return;
+    if (Object.prototype.hasOwnProperty.call(entfernt, k)) lokal[k] = entfernt[k];
+    else delete lokal[k];
+  });
+}
+
+// Schreibt appData, gleicht vorher aber gegen den Remote-Stand ab: neue Einträge
+// werden übernommen, und bei bekannten Einträgen alles, was der Trainer selbst
+// über den Submit-Worker in DENSELBEN Datensatz geschrieben hat (Kodex,
+// Jugendschutz, Unterschrift, Dokumente, Stammdaten, Kontakt-Freigabe).
+// ⚠️ Vorher wurden nur Datensätze mit NEUER id übernommen — nach der ersten
+// Einreichung hat aber jeder Trainer schon einen, sodass eine offene
+// Admin-Sitzung jede spätere Einreichung beim nächsten Autosave zurückdrehte.
+// Die Datei (Signatur-PNG, Scan, unterschriebener Vertrag) überlebte dabei, nur
+// der Verweis darauf ging verloren.
+// ⚠️ Rest-Fall, bewusst so: die Formularfelder des GERADE GEÖFFNETEN Trainers
+// baut _doSave aus dem DOM neu auf. Ändert der Trainer währenddessen seine
+// Stammdaten, gewinnt beim übernächsten Tastendruck wieder das (stehengebliebene)
+// Formular. Das ist die dokumentierte LWW-Regel für den offenen Datensatz; alles,
+// was nicht im Admin-Formular steht, ist davon nicht betroffen.
 // Wirft bei Lese-/Schreibfehlern, damit die Aufrufer ihre Fehlermeldung zeigen.
 async function _saveMerged() {
   const remote = await davReadFile(davConfig); // null bei 404/leer, wirft bei echten Fehlern
   if (remote && Array.isArray(remote.trainer)) {
-    const localIds = new Set(appData.trainer.map(t => t.id));
+    const lokalNachId = new Map();
+    appData.trainer.forEach(t => { if (t && t.id) lokalNachId.set(t.id, t); });
     remote.trainer.forEach(rt => {
-      if (rt && rt.id && !localIds.has(rt.id) && !_deletedTrainerIds.has(rt.id)) {
-        appData.trainer.push(rt);
-      }
+      if (!rt || !rt.id || _deletedTrainerIds.has(rt.id)) return;
+      const lokal = lokalNachId.get(rt.id);
+      if (lokal) _uebernehmeFremdaenderungen(lokal, rt, _baseTrainer.get(rt.id));
+      else appData.trainer.push(rt);
     });
   }
   await davWriteFile(davConfig, appData);
+  _snapshotBase(); // ab jetzt ist appData wieder die Basis für den nächsten Abgleich
 }
 
 function _scheduleAutosave() {
