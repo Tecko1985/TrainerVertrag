@@ -1688,6 +1688,17 @@ async function handleSubmitVertragUnterschrift(body, session, env, corsHeaders) 
   }
   if (bytes.length === 0) return json({ error: "Leeres PDF" }, 400, corsHeaders);
   if (bytes.length > DOC_MAX_FILE_BYTES) return json({ error: "Datei zu groß" }, 413, corsHeaders);
+  // ⚠️ Ergänzt bei der Abnahme am 2026-09-06 (Fund M8). Vorher wurde nur die Länge
+  // geprüft: ein vertragspflichtiges Konto konnte bis zu 10 MB beliebiger Bytes als
+  // Trainervertrag_unterschrieben.pdf ablegen, und vertragUnterschriebenAm wurde
+  // gesetzt -- die Ampel in der Personalakte meldete "unterschrieben" für einen
+  // Inhalt, den niemand geprüft hat. Der XSS-Weg aus H1 greift hier nicht (die
+  // Auslieferung erzwingt application/pdf), es geht um die Beweiskraft des Datensatzes.
+  // Dieselbe Bauart wie dokumentTypAusBytes/signaturBytesPruefen: erste Bytes, nie
+  // eine Behauptung des Clients.
+  if (dokumentTypAusBytes(bytes, "") !== "application/pdf") {
+    return json({ error: "Der unterschriebene Vertrag ist keine PDF-Datei." }, 400, corsHeaders);
+  }
   // body.signatureDataUrl wird seit 1.34 bewusst ignoriert (ältere Clients schicken es
   // evtl. noch): die Unterschrift steckt bereits im signierten PDF. Das frühere Feld
   // vertragSignatureDataUrl hat sie zusätzlich inline im Datensatz abgelegt -- nie

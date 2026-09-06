@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.10",
+    groups: [
+      {
+        title: "Der unterschriebene Vertrag muss wirklich ein Vertrag sein",
+        items: [
+          "Beim Einreichen der Vertragsunterschrift wurde bisher nur geprüft, ob überhaupt etwas ankommt — nicht, ob es das unterschriebene Vertrags-PDF ist. Im Zweifel stand danach „unterschrieben“ in der Akte, obwohl niemand nachgesehen hatte, was dort abgelegt wurde.",
+          "Jetzt wird der Inhalt geprüft: ist es kein PDF, wird die Einreichung mit einer Meldung abgewiesen und der Vertrag bleibt offen. Bereits geleistete Unterschriften sind davon nicht betroffen."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.9",
     groups: [
       {
