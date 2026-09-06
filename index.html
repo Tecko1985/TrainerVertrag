@@ -274,8 +274,8 @@
         <button type="button" class="btn secondary small" id="btn-tf-tl-ansehen" disabled>Ansehen</button>
         <button type="button" class="btn small" id="btn-tf-tl-camera">📷 Foto aufnehmen</button>
         <button type="button" class="btn small secondary" id="btn-tf-tl-upload">Datei / Galerie wählen…</button>
-        <input type="file" id="tf-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
-        <input type="file" id="tf-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
+        <input type="file" id="tf-tl-camera-input" aria-label="Trainerlizenz fotografieren" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-tl-file-input" aria-label="Trainerlizenz als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
       </div>
       <div class="form-grid" style="margin-top:10px; margin-bottom:0;">
         <div class="form-field">
@@ -308,8 +308,8 @@
         <button type="button" class="btn secondary small" id="btn-tf-fs-ansehen" disabled>Ansehen</button>
         <button type="button" class="btn small" id="btn-tf-fs-camera">📷 Foto aufnehmen</button>
         <button type="button" class="btn small secondary" id="btn-tf-fs-upload">Datei / Galerie wählen…</button>
-        <input type="file" id="tf-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
-        <input type="file" id="tf-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+        <input type="file" id="tf-fs-camera-input" aria-label="Führerschein fotografieren" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fs-file-input" aria-label="Führerschein als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
       </div>
       <p class="error-banner" id="tf-fs-error"></p>
       </div>
@@ -330,8 +330,8 @@
         <button type="button" class="btn secondary small" id="btn-tf-fz-ansehen" disabled>Ansehen</button>
         <button type="button" class="btn small" id="btn-tf-fz-camera">📷 Foto aufnehmen</button>
         <button type="button" class="btn small secondary" id="btn-tf-fz-upload">Datei / Galerie wählen…</button>
-        <input type="file" id="tf-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
-        <input type="file" id="tf-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+        <input type="file" id="tf-fz-camera-input" aria-label="Führungszeugnis fotografieren" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="tf-fz-file-input" aria-label="Führungszeugnis als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
       </div>
       <p class="error-banner" id="tf-fz-error"></p>
       </div>
@@ -484,7 +484,7 @@
                 <input type="text" id="liste-search" placeholder="Suche nach Name…" autocomplete="off" />
               </div>
               <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
-                <select id="liste-filter-status">
+                <select id="liste-filter-status" aria-label="Nach Status filtern">
                   <option value="">Alle Status</option>
                   <option value="unvollstaendig">Unvollständig</option>
                   <option value="ausstehend">Ausstehend</option>
@@ -493,12 +493,12 @@
                 </select>
               </div>
               <div class="form-field" style="flex:0 1 170px; margin-bottom:0;">
-                <select id="liste-filter-lizenz">
+                <select id="liste-filter-lizenz" aria-label="Nach Lizenz filtern">
                   <option value="">Alle Lizenzen</option>
                 </select>
               </div>
               <div class="form-field" style="flex:0 1 200px; margin-bottom:0;">
-                <select id="liste-filter-vertrag">
+                <select id="liste-filter-vertrag" aria-label="Nach Vertrag filtern">
                   <option value="">Alle Verträge</option>
                   <option value="unterschrieben">Vertrag unterschrieben</option>
                   <option value="offen">Vertrag nicht unterschrieben</option>
@@ -627,7 +627,7 @@
               <div class="btn-row" style="justify-content:flex-start;">
                 <button type="button" class="btn secondary small" id="btn-bank-csv-zu-xml">CSV-Datei wählen → SEPA-XML</button>
               </div>
-              <input type="file" id="bank-csv-input" accept=".csv,text/csv" style="display:none;" />
+              <input type="file" id="bank-csv-input" aria-label="CSV-Datei für die SEPA-Erzeugung auswählen" accept=".csv,text/csv" style="display:none;" />
               <div id="bank-csv-bericht" style="margin-top:12px;"></div>
 
               <!-- Rückweg: die Bank antwortet mit dem Kontoauszug. Der Abgleich
@@ -646,7 +646,7 @@
                 <button type="button" class="btn secondary small" id="btn-bank-camt">Kontoauszug wählen → Abgleich</button>
                 <button type="button" class="btn secondary small" id="btn-bank-camt-csv" disabled>Umsätze als CSV</button>
               </div>
-              <input type="file" id="bank-camt-input" accept=".xml,text/xml,application/xml" style="display:none;" />
+              <input type="file" id="bank-camt-input" aria-label="Kontoauszug für den Abgleich auswählen" accept=".xml,text/xml,application/xml" style="display:none;" />
               <div id="bank-camt-bericht" style="margin-top:12px;"></div>
               <div class="error-banner" id="bank-export-error" style="margin:12px 0 0;"></div>
             </div>
@@ -754,8 +754,8 @@
                 <button type="button" class="btn small" id="btn-d-tl-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-tl-upload">Hochladen…</button>
                 <button type="button" class="btn danger small" id="btn-d-tl-loeschen" disabled>Löschen</button>
-                <input type="file" id="d-tl-camera-input" accept="image/*" capture="environment" style="display:none;" />
-                <input type="file" id="d-tl-file-input" accept="image/*,application/pdf" style="display:none;" />
+                <input type="file" id="d-tl-camera-input" aria-label="Trainerlizenz fotografieren" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-tl-file-input" aria-label="Trainerlizenz als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
               </div>
               <div class="form-grid" style="flex-basis:100%; margin:6px 0 0 0;">
                 <div class="form-field">
@@ -781,8 +781,8 @@
                 <button type="button" class="btn small" id="btn-d-fs-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-fs-upload">Hochladen…</button>
                 <button type="button" class="btn danger small" id="btn-d-fs-loeschen" disabled>Löschen</button>
-                <input type="file" id="d-fs-camera-input" accept="image/*" capture="environment" style="display:none;" />
-                <input type="file" id="d-fs-file-input" accept="image/*,application/pdf" style="display:none;" />
+                <input type="file" id="d-fs-camera-input" aria-label="Führerschein fotografieren" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-fs-file-input" aria-label="Führerschein als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
               </div>
             </div>
             <div class="doc-row">
@@ -795,8 +795,8 @@
                 <button type="button" class="btn small" id="btn-d-fz-camera">📷 Aufnehmen</button>
                 <button type="button" class="btn secondary small" id="btn-d-fz-upload">Hochladen…</button>
                 <button type="button" class="btn danger small" id="btn-d-fz-loeschen" disabled>Löschen</button>
-                <input type="file" id="d-fz-camera-input" accept="image/*" capture="environment" style="display:none;" />
-                <input type="file" id="d-fz-file-input" accept="image/*,application/pdf" style="display:none;" />
+                <input type="file" id="d-fz-camera-input" aria-label="Führungszeugnis fotografieren" accept="image/*" capture="environment" style="display:none;" />
+                <input type="file" id="d-fz-file-input" aria-label="Führungszeugnis als Datei auswählen" accept="image/*,application/pdf" style="display:none;" />
               </div>
             </div>
             <div class="doc-row">
