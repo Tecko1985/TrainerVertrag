@@ -451,6 +451,34 @@ async function davDeleteFile(config) {
 // gespeicherten *ContentType-Feldwert des Trainer-Datensatzes bevorzugt (siehe
 // mine.fuehrerscheinContentType || resp.headers.get("Content-Type") || ... dort) --
 // gleiches Prinzip hier für den Admin-WebDAV-Pfad.
+//
+// ⚠️ Der ZWEITE Weg zum Fund H1 (Abnahme 06.09.2026), unabhängig vom Worker: der
+// Admin-Weg holt die Datei über den CORS-Proxy, nicht über submit-worker.js — ein Fix
+// nur am Antwort-Kopf des Workers schließt ihn NICHT. Sowohl der mitgegebene
+// `contentTypeOverride` (der beim Upload gespeicherte, früher frei behauptete Wert)
+// als auch der von Nextcloud gemeldete Typ sind Behauptungen über eine Datei, die ein
+// Trainer hochgeladen hat. Ein "text/html" daraus würde per URL.createObjectURL zu
+// einem Blob mit der Herkunft dieser Seite — das Skript liefe unter
+// sc1911heiligenstadt.github.io und läse die Gateway-Sitzung aus dem localStorage.
+// Deshalb läuft hier IMMER dieselbe weiße Liste wie im Worker; was nicht draufsteht,
+// wird zu application/octet-stream und der Browser bietet einen Download an.
+// ⚠️ image/svg+xml steht bewusst NICHT drauf — ein SVG kann Skript tragen.
+const DOKUMENT_TYP_ERLAUBT = new Set([
+  "application/pdf",
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  "image/heic", "image/heif", "image/avif",
+  "application/zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+]);
+
+function sichererDokumentTyp(roh) {
+  const t = String(roh || "").split(";")[0].trim().toLowerCase();
+  return DOKUMENT_TYP_ERLAUBT.has(t) ? t : "application/octet-stream";
+}
+
 async function davReadBinary(config, contentTypeOverride) {
   const resp = await fetch(davRequestUrl(config), {
     method: "GET",
@@ -458,11 +486,9 @@ async function davReadBinary(config, contentTypeOverride) {
   });
   if (resp.status === 404) return null;
   if (!resp.ok) throw davHttpError(resp, "Lesefehler");
-  if (contentTypeOverride) {
-    const buf = await resp.arrayBuffer();
-    return new Blob([buf], { type: contentTypeOverride });
-  }
-  return resp.blob();
+  // Kein resp.blob() mehr: dessen Typ käme ungefiltert aus dem Nextcloud-Kopf.
+  const buf = await resp.arrayBuffer();
+  return new Blob([buf], { type: sichererDokumentTyp(contentTypeOverride || resp.headers.get("Content-Type")) });
 }
 
 async function davWriteBinary(config, blob, contentType) {

@@ -276,6 +276,19 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.9",
+    groups: [
+      {
+        title: "Hochgeladene Dokumente werden am Inhalt geprüft, nicht an der Beschriftung",
+        items: [
+          "Beim Hochladen von Trainerlizenz, Führerschein und Führungszeugnis hat bisher der hochladende Browser bestimmt, als was für ein Dateityp das Dokument gespeichert wird — geprüft wurde der Inhalt nie. Wer beim Ansehen darauf klickte, öffnete also eine Datei, deren Art niemand nachgesehen hatte.",
+          "Jetzt entscheiden die ersten Bytes der Datei: erlaubt sind PDF und die üblichen Bildformate (JPEG, PNG, GIF, WebP, HEIC vom iPhone). Alles andere wird beim Hochladen mit einer Meldung abgewiesen, statt später beim Ansehen zu überraschen.",
+          "Beim Anzeigen gibt es zusätzlich nur noch geprüfte Dateiarten heraus. Bereits hinterlegte Dokumente bleiben abrufbar — ein Dokument mit einer unbekannten Dateiart wird zum Herunterladen angeboten statt direkt angezeigt."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.8",
     groups: [
       {

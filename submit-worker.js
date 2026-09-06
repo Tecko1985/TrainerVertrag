@@ -181,6 +181,113 @@ const DOCUMENT_TYPES = {
 // Konvention wie im migrierten Fahrtenbuch-Feature).
 const DOC_MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+// ⚠️ Ergänzt bei der Abnahme am 2026-09-06 (Fund H1). Vorher übernahm
+// handleUploadDocument den Content-Type wortwörtlich aus dem Request — geprüft wurde
+// nur auf Sonderzeichen und Länge. Ein ganz normales Trainerkonto konnte damit eine
+// "Trainerlizenz" mit contentType "text/html" ablegen; beim Ansehen setzte der Worker
+// genau diesen Typ in die Antwort, der Client baute daraus per URL.createObjectURL
+// einen Blob, und eine blob:-Adresse erbt die Herkunft der Seite. Das Skript lief also
+// unter sc1911heiligenstadt.github.io und konnte die Gateway-Sitzung des Admins aus
+// dem localStorage lesen — Rechteausweitung durch eine Handlung, die der Admin
+// routinemäßig vornimmt.
+//
+// ⚠️ Zwei verschiedene Löcher, und nosniff schließt nur EINES davon (wortgleich zur
+// Lösung des Gateways vom 29.08.2026, ToolsUebersicht/admin-worker.js:10652):
+//
+//   1. Der Browser RÄT den Typ, weil der gemeldete nicht passt.
+//      -> dagegen hilft der Kopf X-Content-Type-Options: nosniff.
+//   2. Der gemeldete Typ IST text/html, weil ihn der Hochladende so behauptet hat.
+//      -> dagegen hilft nosniff NICHT. Nur diese weiße Liste.
+//
+// Deshalb beides: beim Aufnehmen wird der Typ aus den ERSTEN BYTES bestimmt (nie aus
+// der Behauptung des Clients), beim Ausliefern geht nur ein Typ dieser Liste raus,
+// alles andere als application/octet-stream — dann bietet der Browser einen Download
+// an statt die Datei anzuzeigen.
+//
+// ⚠️ Die Liste gilt AUSDRÜCKLICH auch für Bestandsdateien: was vor dem 06.09.2026
+// hochgeladen wurde, bleibt abrufbar. Ein exotisch getippter Alt-Typ wird zum
+// Download, nie zu einem 404 ([[f-nicht-rueckwirkend]]).
+//
+// ⚠️ image/svg+xml steht bewusst NICHT drauf — ein SVG kann Skript tragen.
+const DOKUMENT_TYP_ERLAUBT = new Set([
+  "application/pdf",
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  "image/heic", "image/heif", "image/avif",
+  "application/zip",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+]);
+
+// Der Typ, mit dem eine Datei den Worker verlässt.
+function sichererDokumentTyp(roh) {
+  const t = String(roh || "").split(";")[0].trim().toLowerCase();
+  return DOKUMENT_TYP_ERLAUBT.has(t) ? t : "application/octet-stream";
+}
+
+// ⚠️ Wer einen NEUEN Dateiweg baut, nimmt diese Funktion — nicht die Kopfzeilen von
+// Hand. pruef-dokument-typ.mjs fällt sonst um.
+function dokumentKopfzeilen(corsHeaders, typ) {
+  return {
+    ...corsHeaders,
+    "Content-Type": sichererDokumentTyp(typ),
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, no-store"
+  };
+}
+
+// Die ersten Bytes echter Dateien. Gleiche Bauart wie PNG_MAGIC/signaturBytesPruefen
+// weiter oben — dieselbe Regel, nur für die drei Dokument-Uploads.
+const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04];
+// Die ZIP-Signatur allein sagt nicht, WELCHES Office-Format drinsteckt. Passt die
+// Behauptung des Clients zu einem dieser Typen, gilt sie; sonst application/zip.
+// Keiner davon wird vom Browser als HTML ausgeführt, die Unterscheidung ist also
+// Bequemlichkeit, kein Schutz.
+const ZIP_UNTERTYPEN = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip"
+]);
+// Marken im ISO-BMFF-Kopf (Byte 4..8 = "ftyp"), mit denen Handys Fotos ablegen.
+const HEIF_MARKEN = { heic: "image/heic", heix: "image/heic", hevc: "image/heic", hevx: "image/heic", heim: "image/heic", heis: "image/heic", mif1: "image/heif", msf1: "image/heif", avif: "image/avif", avis: "image/avif" };
+
+function bytesBeginnenMit(bytes, magic, offset) {
+  const start = offset || 0;
+  if (bytes.length < start + magic.length) return false;
+  for (let i = 0; i < magic.length; i++) {
+    if (bytes[start + i] !== magic[i]) return false;
+  }
+  return true;
+}
+
+function bytesAlsText(bytes, von, bis) {
+  let s = "";
+  for (let i = von; i < bis && i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return s;
+}
+
+// Bestimmt den Typ eines hochgeladenen Dokuments aus den ersten Bytes. Leerer String
+// heißt "kein erlaubtes Format" — der Aufrufer lehnt dann mit 400 ab.
+// `behauptet` fließt NUR bei ZIP ein (siehe ZIP_UNTERTYPEN), nie bei den übrigen.
+function dokumentTypAusBytes(bytes, behauptet) {
+  if (bytesBeginnenMit(bytes, [0x25, 0x50, 0x44, 0x46])) return "application/pdf"; // %PDF
+  if (bytesBeginnenMit(bytes, PNG_MAGIC)) return "image/png";
+  if (bytesBeginnenMit(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (bytesAlsText(bytes, 0, 6) === "GIF87a" || bytesAlsText(bytes, 0, 6) === "GIF89a") return "image/gif";
+  if (bytesAlsText(bytes, 0, 4) === "RIFF" && bytesAlsText(bytes, 8, 12) === "WEBP") return "image/webp";
+  if (bytesAlsText(bytes, 4, 8) === "ftyp") {
+    const marke = bytesAlsText(bytes, 8, 12).toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(HEIF_MARKEN, marke)) return HEIF_MARKEN[marke];
+  }
+  if (bytesBeginnenMit(bytes, ZIP_MAGIC)) {
+    const b = String(behauptet || "").split(";")[0].trim().toLowerCase();
+    return ZIP_UNTERTYPEN.has(b) ? b : "application/zip";
+  }
+  return "";
+}
+
 // Trainervertrag-PDFs (seit 1.10): Das lokale Skript generate-pdfs.ps1 legt pro Vertrag
 // einen menschenlesbaren Ordner vertraege/<Jahr>/<Vorname>_<Nachname>/ in Nextcloud an
 // (Namen ASCII-normalisiert) und speichert den relativen Pfad im Datensatz als
@@ -825,8 +932,13 @@ async function handleUploadDocument(body, session, env, corsHeaders, docType) {
   if (bytes.length === 0) return json({ error: "Leere Datei" }, 400, corsHeaders);
   if (bytes.length > DOC_MAX_FILE_BYTES) return json({ error: "Datei zu groß" }, 413, corsHeaders);
 
-  let ctype = String(body.contentType || "").replace(/[^\x20-\x7e]/g, "");
-  if (!ctype || ctype.length > 200) ctype = "application/octet-stream";
+  // ⚠️ Der Typ kommt aus den ERSTEN BYTES, nicht aus dem Request (Fund H1, siehe
+  // DOKUMENT_TYP_ERLAUBT oben). `body.contentType` ist nur noch bei einer ZIP-Datei
+  // ein Hinweis darauf, WELCHES Office-Format drinsteckt.
+  const ctype = dokumentTypAusBytes(bytes, String(body.contentType || "").replace(/[^\x20-\x7e]/g, "").slice(0, 200));
+  if (!ctype) {
+    return json({ error: "Nur PDF-Dateien und Bilder (JPEG, PNG, GIF, WebP, HEIC) können hochgeladen werden. Die gewählte Datei ist keines davon." }, 400, corsHeaders);
+  }
 
   const authHeader = "Basic " + btoa(env.NEXTCLOUD_USERNAME + ":" + env.NEXTCLOUD_PASSWORD);
 
@@ -1308,7 +1420,7 @@ async function handleMyFuehrerscheinFile(session, env, corsHeaders) {
   const ctype = mine.fuehrerscheinContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1340,7 +1452,7 @@ async function handleMyFuehrungszeugnisFile(session, env, corsHeaders) {
   const ctype = mine.fuehrungszeugnisContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1372,7 +1484,7 @@ async function handleMyTrainerlizenzFile(session, env, corsHeaders) {
   const ctype = mine.trainerlizenzContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1435,7 +1547,7 @@ async function handleFuehrerscheinFileForOwner(body, session, env, corsHeaders) 
   const ctype = t.fuehrerscheinContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1469,7 +1581,7 @@ async function handleFuehrungszeugnisFileForOwner(body, session, env, corsHeader
   const ctype = t.fuehrungszeugnisContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1503,7 +1615,7 @@ async function handleTrainerlizenzFileForOwner(body, session, env, corsHeaders) 
   const ctype = t.trainerlizenzContentType || resp.headers.get("Content-Type") || "application/octet-stream";
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype, "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype)
   });
 }
 
@@ -1534,7 +1646,7 @@ async function serveTrainerFile(env, authHeader, corsHeaders, relPath, ctype) {
   if (!resp.ok) return json({ error: `Nextcloud GET ${resp.status}` }, 502, corsHeaders);
   return new Response(resp.body, {
     status: 200,
-    headers: { ...corsHeaders, "Content-Type": ctype || "application/pdf", "Cache-Control": "private, no-store" }
+    headers: dokumentKopfzeilen(corsHeaders, ctype || "application/pdf")
   });
 }
 
