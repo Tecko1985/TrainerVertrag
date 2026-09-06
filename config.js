@@ -276,6 +276,18 @@ const VERTRAG_SIGNATURE_STELLEN = [
 
 const APP_CHANGELOG = [
   {
+    version: "1.11",
+    groups: [
+      {
+        title: "Trainerkodex am Handy: der Textkasten passt jetzt quer auf den Schirm",
+        items: [
+          "Wer das Handy quer hielt, sah beim Trainerkodex nur noch den Textkasten — er war höher als der ganze Bildschirm. Die Zeile mit dem eigenen Namen, das Unterschriftsfeld und der Knopf „Ich bestätige“ lagen darunter und waren nur durch Weiterscrollen zu finden, wobei zwei Scrollbereiche ineinander lagen.",
+          "Der Kasten ist quer jetzt höchstens so hoch, dass darunter noch etwas zu sehen ist. Hochkant ändert sich nichts."
+        ]
+      }
+    ]
+  },
+  {
     version: "1.10",
     groups: [
       {
